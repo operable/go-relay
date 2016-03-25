@@ -14,30 +14,31 @@ import (
 
 // Top level configuration struct
 type Config struct {
-	ID            string         `yaml:"id" env:"RELAY_ID" valid:"uuid"`
-	MaxConcurrent int            `yaml:"max_concurrent" env:"RELAY_MAX_CONCURRENT" valid:"-" default:"16"`
-	Cog           *CogInfo       `yaml:"cog"`
-	Docker        *DockerInfo    `yaml:"docker"`
-	Execution     *ExecutionInfo `yaml:"execution"`
+	ID            string         `yaml:"id" env:"RELAY_ID" valid:"uuid,required"`
+	Token         string         `yaml:"token" env:"RELAY_TOKEN" valid:"required"`
+	MaxConcurrent int            `yaml:"max_concurrent" env:"RELAY_MAX_CONCURRENT" valid:"int64,required" default:"16"`
+	Cog           *CogInfo       `yaml:"cog" valid:"required"`
+	Docker        *DockerInfo    `yaml:"docker" valid:"required"`
+	Execution     *ExecutionInfo `yaml:"execution" valid:"required"`
 }
 
 // Information about upstream Cog instance
 type CogInfo struct {
-	ID   string `yaml:"id" env:"RELAY_COG_ID" valid:"uuid"`
-	Host string `yaml:"host" env:"RELAY_COG_HOST" valid:"host_or_ip" default:"127.0.0.1"`
-	Port int    `yaml:"port" env:"RELAY_COG_PORT" valid:"-" default:"1883"`
+	ID   string `yaml:"id" env:"RELAY_COG_ID" valid:"uuid,required"`
+	Host string `yaml:"host" env:"RELAY_COG_HOST" valid:"hostOrIP,required" default:"127.0.0.1"`
+	Port int    `yaml:"port" env:"RELAY_COG_PORT" valid:"int64,required" default:"1883"`
 }
 
 // Information about Docker install
 type DockerInfo struct {
 	UseEnv     bool   `yaml:"use_env" valid:"-" default:"false"`
-	SocketPath string `yaml:"socket_path" env:"RELAY_DOCKER_SOCKET_PATH" valid:"-" default:"/var/run/docker.sock"`
+	SocketPath string `yaml:"socket_path" env:"RELAY_DOCKER_SOCKET_PATH" valid:"required" default:"/var/run/docker.sock"`
 }
 
 // Configuration parameters applied to every container
 // started by a given Relay
 type ExecutionInfo struct {
-	CPUShares int64    `yaml:"cpu_shares" env:"RELAY_CONTAINER_CPUSHARES"`
+	CPUShares int64    `yaml:"cpu_shares" env:"RELAY_CONTAINER_CPUSHARES" valid:"int64"`
 	CPUSet    string   `yaml:"cpu_set" env:"RELAY_CONTAINER_CPUSET"`
 	ExtraEnv  []string `yaml:"env" env:"RELAY_CONTAINER_ENV"`
 }
@@ -139,14 +140,11 @@ func ParseConfig(rawConfig []byte) (*Config, error) {
 	}
 	applyDefaults(&config)
 	applyEnvVars(&config)
-	govalidator.TagMap["host_or_ip"] = govalidator.Validator(func(value string) bool {
+	govalidator.TagMap["hostOrIP"] = govalidator.Validator(func(value string) bool {
 		return govalidator.IsIP(value) || govalidator.IsHost(value)
 	})
 	_, err = govalidator.ValidateStruct(config)
-	if err != nil {
-		return nil, err
-	}
-	return &config, nil
+	return &config, err
 }
 
 func LoadConfig(path string) (*Config, error) {
