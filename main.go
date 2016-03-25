@@ -1,7 +1,10 @@
 package main
 
-import "fmt"
+import "github.com/operable/go-relay/relay"
 
 func main() {
-	fmt.Println("Hello")
+	_, err := relay.LoadConfig("/tmp/relay.config")
+	if err != nil {
+		panic(err)
+	}
 }
