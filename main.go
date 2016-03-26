@@ -11,8 +11,6 @@ import (
 )
 
 var configFile = flag.String("file", "/etc/cog_relay.conf", "Path to configuration file")
-var cogHost = flag.String("cog_host", "", "Name of upstream Cog host")
-var cogPort = flag.Int("cog_port", -1, "MQTT port of upstream Cog host")
 
 func init() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
