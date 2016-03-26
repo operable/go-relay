@@ -8,11 +8,11 @@ import (
 const (
 	fullConfig = `id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104f
 max_concurrent: 32
-token: wubba
 cog:
   id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104a
   host: 127.0.0.1
   port: 1883
+  token: wubba
 docker:
   use_env: false
   socket_path: /var/run/docker.sock
@@ -22,9 +22,9 @@ execution:
   env: ["TEST1=a", "TEST2=b"]
 `
 	usingDefaultsConfig = `id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104f
-token: wubba
 cog:
   id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104a
+  token: wubba
 docker:
   use_env: false
 execution:
@@ -39,7 +39,6 @@ func TestLoadConfig(t *testing.T) {
 	cogID := "2bba0d1f-a30c-45ec-87e6-e4c5d8c6104a"
 	config, err := ParseConfig([]byte(fullConfig))
 	if err != nil {
-		t.Logf("UseEnv: %s", config.Docker.UseEnv)
 		t.Fatal(err)
 	}
 	// Validate top level config

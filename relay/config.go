@@ -15,8 +15,10 @@ import (
 // Top level configuration struct
 type Config struct {
 	ID            string         `yaml:"id" env:"RELAY_ID" valid:"uuid,required"`
-	Token         string         `yaml:"token" env:"RELAY_TOKEN" valid:"required"`
 	MaxConcurrent int            `yaml:"max_concurrent" env:"RELAY_MAX_CONCURRENT" valid:"int64,required" default:"16"`
+	LogLevel      string         `yaml:"log_level" env:"RELAY_LOG_LEVEL" valid:"required" default:"info"`
+	LogJSON       bool           `yaml:"log_json" env:"RELAY_LOG_JSON" default:"false"`
+	LogPath       string         `yaml:"log_path" env:"RELAY_LOG_PATH" valid:"required" default:"stdout"`
 	Cog           *CogInfo       `yaml:"cog" valid:"required"`
 	Docker        *DockerInfo    `yaml:"docker" valid:"required"`
 	Execution     *ExecutionInfo `yaml:"execution" valid:"required"`
@@ -24,14 +26,15 @@ type Config struct {
 
 // Information about upstream Cog instance
 type CogInfo struct {
-	ID   string `yaml:"id" env:"RELAY_COG_ID" valid:"uuid,required"`
-	Host string `yaml:"host" env:"RELAY_COG_HOST" valid:"hostOrIP,required" default:"127.0.0.1"`
-	Port int    `yaml:"port" env:"RELAY_COG_PORT" valid:"int64,required" default:"1883"`
+	ID    string `yaml:"id" env:"RELAY_COG_ID" valid:"uuid,required"`
+	Host  string `yaml:"host" env:"RELAY_COG_HOST" valid:"required" default:"127.0.0.1"`
+	Port  int    `yaml:"port" env:"RELAY_COG_PORT" valid:"int64,required" default:"1883"`
+	Token string `yaml:"token" env:"RELAY_COG_TOKEN" valid:"required"`
 }
 
 // Information about Docker install
 type DockerInfo struct {
-	UseEnv     bool   `yaml:"use_env" valid:"-" default:"false"`
+	UseEnv     bool   `yaml:"use_env" env:"RELAY_DOCKER_USE_ENV" valid:"-" default:"false"`
 	SocketPath string `yaml:"socket_path" env:"RELAY_DOCKER_SOCKET_PATH" valid:"required" default:"/var/run/docker.sock"`
 }
 
