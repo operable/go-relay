@@ -12,8 +12,13 @@ import (
 	"github.com/go-yaml/yaml"
 )
 
+const (
+	CONFIG_VERSION = 1
+)
+
 // Top level configuration struct
 type Config struct {
+	Version       int            `yaml:"version" valid:"int64,required"`
 	ID            string         `yaml:"id" env:"RELAY_ID" valid:"uuid,required"`
 	MaxConcurrent int            `yaml:"max_concurrent" env:"RELAY_MAX_CONCURRENT" valid:"int64,required" default:"16"`
 	LogLevel      string         `yaml:"log_level" env:"RELAY_LOG_LEVEL" valid:"required" default:"info"`
@@ -48,9 +53,15 @@ type ExecutionInfo struct {
 
 func applyDefaults(config *Config) {
 	setDefaultValues(config)
-	setDefaultValues(config.Cog)
-	setDefaultValues(config.Docker)
-	setDefaultValues(config.Execution)
+	if config.Cog != nil {
+		setDefaultValues(config.Cog)
+	}
+	if config.Docker != nil {
+		setDefaultValues(config.Docker)
+	}
+	if config.Execution != nil {
+		setDefaultValues(config.Execution)
+	}
 }
 
 func setDefaultValues(config interface{}) {
@@ -90,9 +101,15 @@ func setDefaultValues(config interface{}) {
 
 func applyEnvVars(config *Config) {
 	setEnvVars(config)
-	setEnvVars(config.Cog)
-	setEnvVars(config.Docker)
-	setEnvVars(config.Execution)
+	if config.Cog != nil {
+		setEnvVars(config.Cog)
+	}
+	if config.Docker != nil {
+		setEnvVars(config.Docker)
+	}
+	if config.Execution != nil {
+		setEnvVars(config.Execution)
+	}
 }
 
 func envVarForTag(varName string) string {
@@ -140,6 +157,9 @@ func ParseConfig(rawConfig []byte) (*Config, error) {
 	err := yaml.Unmarshal(rawConfig, &config)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Error parsing YAML: %s", err))
+	}
+	if config.Version != CONFIG_VERSION {
+		return nil, errors.New(fmt.Sprintf("Only Cog Relay config version %d is supported.", CONFIG_VERSION))
 	}
 	applyDefaults(&config)
 	applyEnvVars(&config)
