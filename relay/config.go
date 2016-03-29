@@ -7,6 +7,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/go-yaml/yaml"
@@ -32,7 +33,7 @@ type Config struct {
 // Information about upstream Cog instance
 type CogInfo struct {
 	ID    string `yaml:"id" env:"RELAY_COG_ID" valid:"uuid,required"`
-	Host  string `yaml:"host" env:"RELAY_COG_HOST" valid:"required" default:"127.0.0.1"`
+	Host  string `yaml:"host" env:"RELAY_COG_HOST" valid:"hostorip,required" default:"127.0.0.1"`
 	Port  int    `yaml:"port" env:"RELAY_COG_PORT" valid:"int64,required" default:"1883"`
 	Token string `yaml:"token" env:"RELAY_COG_TOKEN" valid:"required"`
 }
@@ -40,7 +41,7 @@ type CogInfo struct {
 // Information about Docker install
 type DockerInfo struct {
 	UseEnv     bool   `yaml:"use_env" env:"RELAY_DOCKER_USE_ENV" valid:"-" default:"false"`
-	SocketPath string `yaml:"socket_path" env:"RELAY_DOCKER_SOCKET_PATH" valid:"required" default:"/var/run/docker.sock"`
+	SocketPath string `yaml:"socket_path" env:"RELAY_DOCKER_SOCKET_PATH" valid:"dockersocket,required" default:"unix:///var/run/docker.sock"`
 }
 
 // Configuration parameters applied to every container
@@ -163,8 +164,11 @@ func ParseConfig(rawConfig []byte) (*Config, error) {
 	}
 	applyDefaults(&config)
 	applyEnvVars(&config)
-	govalidator.TagMap["hostOrIP"] = govalidator.Validator(func(value string) bool {
-		return govalidator.IsIP(value) || govalidator.IsHost(value)
+	govalidator.TagMap["hostorip"] = govalidator.Validator(func(value string) bool {
+		return govalidator.IsHost(value)
+	})
+	govalidator.TagMap["dockersocket"] = govalidator.Validator(func(value string) bool {
+		return strings.HasPrefix(value, "unix://") || strings.HasPrefix(value, "tcp://")
 	})
 	_, err = govalidator.ValidateStruct(config)
 	return &config, err
