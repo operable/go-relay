@@ -18,6 +18,11 @@ var configFile = flag.String("file", "/etc/cog_relay.conf", "Path to configurati
 
 func init() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	log.SetFormatter(&log.TextFormatter{
+		DisableTimestamp: false,
+		FullTimestamp:    true,
+		DisableSorting:   true,
+	})
 }
 
 func configureLogger(config *relay.Config) {
@@ -54,11 +59,6 @@ func configureLogger(config *relay.Config) {
 			config.LogLevel)))
 		log.SetLevel(log.InfoLevel)
 	}
-	log.SetFormatter(&log.TextFormatter{
-		DisableTimestamp: false,
-		FullTimestamp:    true,
-		DisableSorting:   true,
-	})
 }
 
 func prepare() *relay.Config {
@@ -67,7 +67,7 @@ func prepare() *relay.Config {
 	if err != nil {
 		errstr := fmt.Sprintf("%s", err)
 		msgs := strings.Split(errstr, ";")
-		log.Error("Error loading %s:", *configFile)
+		log.Errorf("Error loading %s:", *configFile)
 		for _, msg := range msgs {
 			log.Errorf("  %s", msg)
 		}
@@ -89,33 +89,23 @@ func main() {
 
 	docker, err := relay.NewDockerEngine(config.Docker, &coordinator)
 	if err != nil {
-		log.Fatalf("Error initializing Docker execution engine: %s", err)
+		log.Errorf("Error initializing Docker execution engine: %s", err)
 		os.Exit(2)
 	}
-	imageCount, err := docker.CountImages()
-	if err != nil {
-		log.Fatalf("Error counting Docker images: %s", err)
-		os.Exit(2)
-	}
-	log.Infof("Discovered %d local Docker images", imageCount)
+
 	err = docker.Run()
 	if err != nil {
-		log.Fatalf("Error starting Docker execution engine: %s", err)
 		os.Exit(2)
 	}
-	log.Info("Docker execution engine ready")
 
 	link, err := relay.NewLink(config.ID, config.Cog, &coordinator)
 	if err != nil {
-		log.Errorf("Error initializing MQTT: %s", err)
-		os.Exit(5)
+		os.Exit(4)
 	}
 	err = link.Run()
 	if err != nil {
-		log.Errorf("Error connecting to Cog: %s", err)
-		os.Exit(5)
+		os.Exit(4)
 	}
-	log.Info("Connected to Cog")
 	log.Infof("Relay %s ready", config.ID)
 	// Wait until we receive a signal
 	<-incomingSignal
@@ -123,9 +113,9 @@ func main() {
 	// Remove signal handler so ctrl-C works
 	signal.Reset(syscall.SIGINT)
 
-	log.Info("Beginning graceful shutdown")
-	link.Stop()
-	docker.Stop()
-	coordinator.Wait()
 	log.Infof("Relay %s signing off", config.ID)
+	link.Halt()
+	docker.Halt()
+	coordinator.Wait()
+	log.Infof("Relay %s shut down", config.ID)
 }

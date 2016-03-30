@@ -15,9 +15,13 @@ type DockerEngine struct {
 	control chan int
 }
 
-func NewDockerEngine(config *DockerInfo, wg *sync.WaitGroup) (*DockerEngine, error) {
-	if config == nil || wg == nil {
-		err := errors.New("Docker config or coordination wait group is nil")
+func NewDockerEngine(config *DockerInfo, wg *sync.WaitGroup) (Subsystem, error) {
+	if config == nil {
+		log.Info("Docker engine disabled")
+		return &DisabledSubsystem{}, nil
+	}
+	if wg == nil {
+		err := errors.New("Subsystem coordinator is nil")
 		log.Fatal(err)
 		return nil, err
 	}
@@ -25,6 +29,7 @@ func NewDockerEngine(config *DockerInfo, wg *sync.WaitGroup) (*DockerEngine, err
 	if err != nil {
 		return nil, err
 	}
+	log.Info("Docker execution engine connected to Docker daemon")
 	return &DockerEngine{
 		config:  config,
 		client:  client,
@@ -33,8 +38,9 @@ func NewDockerEngine(config *DockerInfo, wg *sync.WaitGroup) (*DockerEngine, err
 	}, nil
 }
 
-func (de *DockerEngine) Stop() {
+func (de *DockerEngine) Halt() error {
 	de.control <- 1
+	return nil
 }
 
 func (de *DockerEngine) Run() error {
@@ -42,16 +48,9 @@ func (de *DockerEngine) Run() error {
 	go func() {
 		defer de.wg.Done()
 		<-de.control
+		log.Info("Docker execution engine halted")
 	}()
 	return nil
-}
-
-func (de *DockerEngine) CountImages() (int, error) {
-	images, err := de.client.ListImages(docker.ListImagesOptions{})
-	if err != nil {
-		return 0, err
-	}
-	return len(images), nil
 }
 
 func connectToDocker(config *DockerInfo) (*docker.Client, error) {

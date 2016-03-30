@@ -33,7 +33,7 @@ type Link struct {
 	wg      *sync.WaitGroup
 }
 
-func NewLink(id string, config *CogInfo, wg *sync.WaitGroup) (*Link, error) {
+func NewLink(id string, config *CogInfo, wg *sync.WaitGroup) (Subsystem, error) {
 	if id == "" || config == nil {
 		err := errors.New("Relay id or Cog connection info is nil.")
 		log.Fatal(err)
@@ -50,9 +50,11 @@ func NewLink(id string, config *CogInfo, wg *sync.WaitGroup) (*Link, error) {
 
 func (link *Link) Run() error {
 	if err := link.connect(); err != nil {
+		log.Errorf("Error connecting to Cog: %s", err)
 		return err
 	}
 	if err := link.setupSubscriptions(); err != nil {
+		log.Errorf("Error subscribing to required topics: %s", err)
 		return err
 	}
 	link.wg.Add(1)
@@ -65,8 +67,9 @@ func (link *Link) Run() error {
 	return nil
 }
 
-func (link *Link) Stop() {
+func (link *Link) Halt() error {
 	link.control <- 1
+	return nil
 }
 
 func buildTopics(id string) *LinkTopics {
@@ -98,6 +101,8 @@ func (link *Link) connect() error {
 	mqtt_opts := mqtt.NewClientOptions()
 	mqtt_opts.SetKeepAlive(time.Duration(15) * time.Second)
 	mqtt_opts.SetPingTimeout(time.Duration(5) * time.Second)
+	mqtt_opts.SetConnectTimeout(time.Duration(5) * time.Second)
+	mqtt_opts.SetMaxReconnectInterval(time.Duration(10) * time.Second)
 	mqtt_opts.SetUsername(link.id)
 	mqtt_opts.SetPassword(link.config.Token)
 	mqtt_opts.SetClientID(link.id)
