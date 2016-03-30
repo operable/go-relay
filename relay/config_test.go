@@ -8,6 +8,7 @@ import (
 const (
 	fullConfig = `id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104f
 max_concurrent: 32
+version: 1
 cog:
   id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104a
   host: 127.0.0.1
@@ -15,13 +16,14 @@ cog:
   token: wubba
 docker:
   use_env: false
-  socket_path: /var/run/docker.sock
+  socket_path: unix:///var/run/docker.sock
 execution:
   cpu_shares: 16
   cpu_set: default
   env: ["TEST1=a", "TEST2=b"]
 `
 	usingDefaultsConfig = `id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104f
+version: 1
 cog:
   id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104a
   token: wubba
@@ -82,15 +84,15 @@ func TestApplyConfigDefaults(t *testing.T) {
 	}
 
 	docker := config.Docker
-	if docker.SocketPath != "/var/run/docker.sock" {
-		t.Errorf("Expected default docker/socket_path of '/var/run/docker.sock': %s", docker.SocketPath)
+	if docker.SocketPath != "unix:///var/run/docker.sock" {
+		t.Errorf("Expected default docker/socket_path of 'unix:///var/run/docker.sock': %s", docker.SocketPath)
 	}
 }
 
 func TestApplyEnvVars(t *testing.T) {
 	os.Setenv("RELAY_MAX_CONCURRENT", "8")
 	os.Setenv("RELAY_COG_PORT", "1880")
-	os.Setenv("RELAY_DOCKER_SOCKET_PATH", "/foo/bar/baz.sock")
+	os.Setenv("RELAY_DOCKER_SOCKET_PATH", "unix:///foo/bar/baz.sock")
 	config, err := ParseConfig([]byte(fullConfig))
 
 	if err != nil {
@@ -102,7 +104,7 @@ func TestApplyEnvVars(t *testing.T) {
 	if config.Cog.Port != 1880 {
 		t.Errorf("Expected cog/port to be 1880: %d", config.Cog.Port)
 	}
-	if config.Docker.SocketPath != "/foo/bar/baz.sock" {
-		t.Errorf("Expected docker/socket_path to be /foo/bar/baz/sock: %s", config.Docker.SocketPath)
+	if config.Docker.SocketPath != "unix:///foo/bar/baz.sock" {
+		t.Errorf("Expected docker/socket_path to be unix:///foo/bar/baz/sock: %s", config.Docker.SocketPath)
 	}
 }
