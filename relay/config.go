@@ -26,7 +26,7 @@ type Config struct {
 	LogJSON       bool           `yaml:"log_json" env:"RELAY_LOG_JSON" default:"false"`
 	LogPath       string         `yaml:"log_path" env:"RELAY_LOG_PATH" valid:"required" default:"stdout"`
 	Cog           *CogInfo       `yaml:"cog" valid:"required"`
-	Docker        *DockerInfo    `yaml:"docker" valid:"required"`
+	Docker        *DockerInfo    `yaml:"docker" valid:"-"`
 	Execution     *ExecutionInfo `yaml:"execution" valid:"required"`
 }
 
@@ -40,8 +40,11 @@ type CogInfo struct {
 
 // Information about Docker install
 type DockerInfo struct {
-	UseEnv     bool   `yaml:"use_env" env:"RELAY_DOCKER_USE_ENV" valid:"-" default:"false"`
-	SocketPath string `yaml:"socket_path" env:"RELAY_DOCKER_SOCKET_PATH" valid:"dockersocket,required" default:"unix:///var/run/docker.sock"`
+	UseEnv           bool   `yaml:"use_env" env:"RELAY_DOCKER_USE_ENV" valid:"-" default:"false"`
+	SocketPath       string `yaml:"socket_path" env:"RELAY_DOCKER_SOCKET_PATH" valid:"dockersocket,required" default:"unix:///var/run/docker.sock"`
+	RegistryHost     string `yaml:"registry_host" env:"RELAY_DOCKER_REGISTRY_HOST" valid:"host,required" default:"hub.docker.com"`
+	RegistryUser     string `yaml:"registry_user" env:"RELAY_DOCKER_REGISTRY_USER" valid:"printableascii,required"`
+	RegistryPassword string `yaml:"registry_password" env:"RELAY_DOCKER_REGISTRY_PASSWORD" valid:"required"`
 }
 
 // Configuration parameters applied to every container
@@ -171,6 +174,10 @@ func ParseConfig(rawConfig []byte) (*Config, error) {
 		return strings.HasPrefix(value, "unix://") || strings.HasPrefix(value, "tcp://")
 	})
 	_, err = govalidator.ValidateStruct(config)
+	if err == nil && config.Docker != nil {
+		_, err = govalidator.ValidateStruct(config.Docker)
+		return &config, err
+	}
 	return &config, err
 }
 
