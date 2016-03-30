@@ -19,15 +19,16 @@ const (
 
 // Top level configuration struct
 type Config struct {
-	Version       int            `yaml:"version" valid:"int64,required"`
-	ID            string         `yaml:"id" env:"RELAY_ID" valid:"uuid,required"`
-	MaxConcurrent int            `yaml:"max_concurrent" env:"RELAY_MAX_CONCURRENT" valid:"int64,required" default:"16"`
-	LogLevel      string         `yaml:"log_level" env:"RELAY_LOG_LEVEL" valid:"required" default:"info"`
-	LogJSON       bool           `yaml:"log_json" env:"RELAY_LOG_JSON" default:"false"`
-	LogPath       string         `yaml:"log_path" env:"RELAY_LOG_PATH" valid:"required" default:"stdout"`
-	Cog           *CogInfo       `yaml:"cog" valid:"required"`
-	Docker        *DockerInfo    `yaml:"docker" valid:"-"`
-	Execution     *ExecutionInfo `yaml:"execution" valid:"required"`
+	Version        int            `yaml:"version" valid:"int64,required"`
+	ID             string         `yaml:"id" env:"RELAY_ID" valid:"uuid,required"`
+	MaxConcurrent  int            `yaml:"max_concurrent" env:"RELAY_MAX_CONCURRENT" valid:"int64,required" default:"16"`
+	LogLevel       string         `yaml:"log_level" env:"RELAY_LOG_LEVEL" valid:"required" default:"info"`
+	LogJSON        bool           `yaml:"log_json" env:"RELAY_LOG_JSON" default:"false"`
+	LogPath        string         `yaml:"log_path" env:"RELAY_LOG_PATH" valid:"required" default:"stdout"`
+	Cog            *CogInfo       `yaml:"cog" valid:"required"`
+	DockerDisabled bool           `yaml:"disable_docker" env="RELAY_DISABLE_DOCKER" valid:"bool,required" default:"false"`
+	Docker         *DockerInfo    `yaml:"docker" valid:"-"`
+	Execution      *ExecutionInfo `yaml:"execution" valid:"required"`
 }
 
 // Information about upstream Cog instance
@@ -59,18 +60,34 @@ func applyDefaults(config *Config) {
 	setDefaultValues(config)
 	if config.Cog != nil {
 		setDefaultValues(config.Cog)
+	} else {
+		cog := &CogInfo{}
+		if setDefaultValues(cog) == true {
+			config.Cog = cog
+		}
 	}
 	if config.Docker != nil {
 		setDefaultValues(config.Docker)
+	} else {
+		docker := &DockerInfo{}
+		if setDefaultValues(docker) == true {
+			config.Docker = docker
+		}
 	}
 	if config.Execution != nil {
 		setDefaultValues(config.Execution)
+	} else {
+		execution := &ExecutionInfo{}
+		if setDefaultValues(execution) == true {
+			config.Execution = execution
+		}
 	}
 }
 
-func setDefaultValues(config interface{}) {
+func setDefaultValues(config interface{}) bool {
 	t := reflect.ValueOf(config).Elem()
 	configType := t.Type()
+	updatedConfig := false
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		fdef := configType.Field(i)
@@ -82,6 +99,7 @@ func setDefaultValues(config interface{}) {
 				if currentValue == 0 {
 					if newValue, err := strconv.ParseInt(defaultValue, 10, 64); err == nil {
 						t.Field(i).SetInt(newValue)
+						updatedConfig = true
 					} else {
 						panic(err)
 					}
@@ -90,6 +108,7 @@ func setDefaultValues(config interface{}) {
 				if newValue, err := strconv.ParseBool(defaultValue); err == nil {
 					if currentValue == false && newValue == true {
 						t.Field(i).SetBool(newValue)
+						updatedConfig = true
 					}
 				} else {
 					panic(err)
@@ -97,10 +116,12 @@ func setDefaultValues(config interface{}) {
 			case reflect.String:
 				if currentValue == "" {
 					t.Field(i).SetString(defaultValue)
+					updatedConfig = true
 				}
 			}
 		}
 	}
+	return updatedConfig
 }
 
 func applyEnvVars(config *Config) {
@@ -123,9 +144,10 @@ func envVarForTag(varName string) string {
 	return os.Getenv(varName)
 }
 
-func setEnvVars(config interface{}) {
+func setEnvVars(config interface{}) bool {
 	t := reflect.ValueOf(config).Elem()
 	configType := t.Type()
+	updatedConfig := false
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		fdef := configType.Field(i)
@@ -135,20 +157,24 @@ func setEnvVars(config interface{}) {
 			case reflect.Int:
 				if newValue, err := strconv.ParseInt(envValue, 10, 64); err == nil {
 					t.Field(i).SetInt(newValue)
+					updatedConfig = true
 				} else {
 					panic(err)
 				}
 			case reflect.Bool:
 				if newValue, err := strconv.ParseBool(envValue); err == nil {
 					t.Field(i).SetBool(newValue)
+					updatedConfig = true
 				} else {
 					panic(err)
 				}
 			case reflect.String:
 				t.Field(i).SetString(envValue)
+				updatedConfig = true
 			}
 		}
 	}
+	return updatedConfig
 }
 
 // Parses Relay's config file. Finalizing Relay's configuration uses the following steps:
@@ -167,6 +193,10 @@ func ParseConfig(rawConfig []byte) (*Config, error) {
 	}
 	applyDefaults(&config)
 	applyEnvVars(&config)
+	// Remove Docker config if it's disabled
+	if config.DockerDisabled == true {
+		config.Docker = nil
+	}
 	govalidator.TagMap["hostorip"] = govalidator.Validator(func(value string) bool {
 		return govalidator.IsHost(value)
 	})

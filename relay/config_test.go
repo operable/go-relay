@@ -40,6 +40,7 @@ execution:
 `
 	disabledDockerConfig = `id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104f
 version: 1
+disable_docker: true
 cog:
   id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104a
   token: wubba
