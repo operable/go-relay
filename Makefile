@@ -13,6 +13,7 @@ all: test
 tools: $(GOUPX_BIN) $(GOVENDOR_BIN) $(GOLINT_BIN)
 
 cog-relay:
+	@rm -f `find . -name "*flymake*.go"`
 	@$(GOVENDOR_BIN) sync
 	@go get github.com/fsouza/go-dockerclient
 	go build -o $@ github.com/operable/go-relay

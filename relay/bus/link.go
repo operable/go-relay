@@ -1,4 +1,4 @@
-package relay
+package bus
 
 import (
 	"errors"
@@ -8,76 +8,74 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/operable/go-relay/relay"
 )
 
 const (
-	BUFFERED_MSGS           = 2
-	PRESENCE_TOPIC          = "bot/relays/presence"
-	COMMANDS_TOPIC_TEMPLATE = "bot/relays/%s/commands"
+	COMMANDS_TOPIC_TEMPLATE = "bot/relays/%s/"
 	EXECUTE_TOPIC_TEMPLATE  = "bot/relays/%s/exec"
 )
 
 type messageCB func(mqtt.Message)
 
-type LinkTopics struct {
+type linkTopics struct {
 	commands string
 	execute  string
 }
 
 type Link struct {
-	id      string
-	config  *CogInfo
-	topics  *LinkTopics
-	conn    *mqtt.Client
-	control chan int
-	wg      *sync.WaitGroup
+	id        string
+	config    *relay.CogInfo
+	topics    *linkTopics
+	conn      *mqtt.Client
+	workQueue *relay.WorkQueue
+	control   chan byte
+	wg        sync.WaitGroup
 }
 
-func NewLink(id string, config *CogInfo, wg *sync.WaitGroup) (*Link, error) {
+func NewLink(id string, config *relay.CogInfo, workQueue *relay.WorkQueue, wg sync.WaitGroup) (*Link, error) {
 	if id == "" || config == nil {
 		err := errors.New("Relay id or Cog connection info is nil.")
 		log.Fatal(err)
 		return nil, err
 	}
-	return &Link{id: id,
-		config:  config,
-		topics:  buildTopics(id),
-		conn:    nil,
-		control: make(chan int, 1),
-		wg:      wg,
-	}, nil
+	link := &Link{id: id,
+		config:    config,
+		topics:    buildTopics(id),
+		conn:      nil,
+		workQueue: workQueue,
+		control:   make(chan byte),
+		wg:        wg,
+	}
+	if err := link.connect(); err != nil {
+		return nil, err
+	}
+	return link, nil
 }
 
 func (link *Link) Run() error {
-	if err := link.connect(); err != nil {
-		log.Errorf("Error connecting to Cog: %s", err)
-		return err
-	}
 	if err := link.setupSubscriptions(); err != nil {
 		log.Errorf("Error subscribing to required topics: %s", err)
 		return err
 	}
 	link.wg.Add(1)
-	go func() {
-		defer link.wg.Done()
-		<-link.control
-		link.conn.Disconnect(15000)
-		log.Info("Cog connection closed")
-	}()
+	defer link.wg.Done()
+	<-link.control
+	link.conn.Disconnect(15000)
+	log.Info("Cog connection closed")
 	return nil
 }
 
-func (link *Link) Halt() error {
+func (link *Link) Halt() {
 	link.control <- 1
-	return nil
 }
 
 func (link *Link) Call(data interface{}) (interface{}, error) {
 	return nil, errors.New("Not implemented")
 }
 
-func buildTopics(id string) *LinkTopics {
-	return &LinkTopics{
+func buildTopics(id string) *linkTopics {
+	return &linkTopics{
 		commands: fmt.Sprintf(COMMANDS_TOPIC_TEMPLATE, id),
 		execute:  fmt.Sprintf(EXECUTE_TOPIC_TEMPLATE, id),
 	}
@@ -102,17 +100,17 @@ func (link *Link) handleCommand(message mqtt.Message) {
 }
 
 func (link *Link) connect() error {
-	mqtt_opts := mqtt.NewClientOptions()
-	mqtt_opts.SetKeepAlive(time.Duration(15) * time.Second)
-	mqtt_opts.SetPingTimeout(time.Duration(5) * time.Second)
-	mqtt_opts.SetConnectTimeout(time.Duration(5) * time.Second)
-	mqtt_opts.SetMaxReconnectInterval(time.Duration(10) * time.Second)
-	mqtt_opts.SetUsername(link.id)
-	mqtt_opts.SetPassword(link.config.Token)
-	mqtt_opts.SetClientID(link.id)
+	mqttOpts := mqtt.NewClientOptions()
+	mqttOpts.SetKeepAlive(time.Duration(15) * time.Second)
+	mqttOpts.SetPingTimeout(time.Duration(5) * time.Second)
+	mqttOpts.SetConnectTimeout(time.Duration(5) * time.Second)
+	mqttOpts.SetMaxReconnectInterval(time.Duration(10) * time.Second)
+	mqttOpts.SetUsername(link.id)
+	mqttOpts.SetPassword(link.config.Token)
+	mqttOpts.SetClientID(link.id)
 	url := fmt.Sprintf("tcp://%s:%d", link.config.Host, link.config.Port)
-	mqtt_opts.AddBroker(url)
-	link.conn = mqtt.NewClient(mqtt_opts)
+	mqttOpts.AddBroker(url)
+	link.conn = mqtt.NewClient(mqttOpts)
 	if token := link.conn.Connect(); token.Wait() && token.Error() != nil {
 		link.conn = nil
 		return token.Error()

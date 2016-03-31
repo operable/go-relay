@@ -44,8 +44,8 @@ type DockerInfo struct {
 	UseEnv           bool   `yaml:"use_env" env:"RELAY_DOCKER_USE_ENV" valid:"-" default:"false"`
 	SocketPath       string `yaml:"socket_path" env:"RELAY_DOCKER_SOCKET_PATH" valid:"dockersocket,required" default:"unix:///var/run/docker.sock"`
 	RegistryHost     string `yaml:"registry_host" env:"RELAY_DOCKER_REGISTRY_HOST" valid:"host,required" default:"hub.docker.com"`
-	RegistryUser     string `yaml:"registry_user" env:"RELAY_DOCKER_REGISTRY_USER" valid:"printableascii,required"`
-	RegistryPassword string `yaml:"registry_password" env:"RELAY_DOCKER_REGISTRY_PASSWORD" valid:"required"`
+	RegistryUser     string `yaml:"registry_user" env:"RELAY_DOCKER_REGISTRY_USER" valid:"-"`
+	RegistryPassword string `yaml:"registry_password" env:"RELAY_DOCKER_REGISTRY_PASSWORD" valid:"-"`
 }
 
 // Configuration parameters applied to every container

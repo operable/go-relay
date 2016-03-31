@@ -12,6 +12,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/operable/go-relay/relay"
+	"github.com/operable/go-relay/relay/bus"
 	"github.com/operable/go-relay/relay/docker"
 )
 
@@ -78,6 +79,25 @@ func prepare() *relay.Config {
 	return config
 }
 
+func shutdown(config *relay.Config, link *bus.Link, workQueue *relay.WorkQueue, coordinator sync.WaitGroup) {
+	log.Infof("Relay %s is shutting down.", config.ID)
+
+	// Remove signal handler so Ctrl-C works
+	signal.Reset(syscall.SIGINT)
+
+	// Stop message bus listeners
+	if link != nil {
+		link.Halt()
+	}
+
+	// Stop work queue
+	workQueue.Stop()
+
+	// Wait on processes to exit
+	coordinator.Wait()
+	log.Infof("Relay %s shut down complete.", config.ID)
+}
+
 func main() {
 	var coordinator sync.WaitGroup
 	incomingSignal := make(chan os.Signal, 1)
@@ -88,20 +108,21 @@ func main() {
 	log.Infof("Configuration file %s loaded.", *configFile)
 	log.Infof("Relay %s is initializing.", config.ID)
 
+	// Create work queue with some burstable capacity
+	workQueue := relay.NewWorkQueue(config.MaxConcurrent * 2)
+
 	if config.DockerDisabled == false {
 		err := docker.VerifyConfig(config.Docker)
 		if err != nil {
 			log.Errorf("Error verifying Docker configuration: %s.", err)
-			os.Exit(3)
+			shutdown(config, nil, workQueue, coordinator)
+			os.Exit(2)
 		} else {
 			log.Infof("Docker configuration verified.")
 		}
 	} else {
-		Logger.Infof("Docker support disabled.")
+		log.Infof("Docker support disabled.")
 	}
-
-	// Create work queue with some burstable capacity
-	workQueue := relay.NewWorkQueue(config.MaxConcurrent * 2)
 
 	// Start MaxConcurrent workers
 	for i := 0; i < config.MaxConcurrent; i++ {
@@ -109,21 +130,24 @@ func main() {
 			relay.RunWorker(workQueue, coordinator)
 		}()
 	}
-
 	log.Infof("Relay %s started %d workers.", config.ID, config.MaxConcurrent)
+
+	// Connect to Cog
+	link, err := bus.NewLink(config.ID, config.Cog, workQueue, coordinator)
+	if err != nil {
+		log.Errorf("Error connecting to Cog: %s.", err)
+		shutdown(config, nil, workQueue, coordinator)
+		os.Exit(6)
+	}
+	log.Infof("Relay %s connected to Cog host %s", config.ID, config.Cog.Host)
 	log.Infof("Relay %s is ready.", config.ID)
+	go func() {
+		link.Run()
+	}()
 
 	// Wait until we get a signal
 	<-incomingSignal
-	log.Infof("Relay %s is shutting down.", config.ID)
 
-	// Remove signal handler so Ctrl-C works
-	signal.Reset(syscall.SIGINT)
-
-	// Stop work queue
-	workQueue.Stop()
-
-	// Wait on processes to exit
-	coordinator.Wait()
-	log.Infof("Relay %s shut down complete.", config.ID)
+	// Shutdown
+	shutdown(config, link, workQueue, coordinator)
 }
