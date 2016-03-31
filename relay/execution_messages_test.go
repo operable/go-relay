@@ -19,16 +19,13 @@ const (
 "args": ["thhat"],
 "options": {"long_flag": 123,
 			"short_flag": "abc"},
-"command_config": null}`
-
-// "reply_to": "/bot/pipelines/9f0af4d6f20545c2b0d4078d057a5f36/reply",
-// "options": {},
-// "command_config": null,
-// "cog_env": {},
+"command_config": null,
+"reply_to": "/bot/foo",
+"body": {"body": "foo"}}`
 )
 
-func TestRequestParsing(t *testing.T) {
-	req, err := ParseExecutionRequest([]byte(EXEC_REQ))
+func TestRequestUnmarshal(t *testing.T) {
+	req, err := UnmarshalExecutionRequest([]byte(EXEC_REQ))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,5 +41,17 @@ func TestRequestParsing(t *testing.T) {
 	if len(req.CommandConfig) != 0 {
 		t.Errorf("Expected empty command config: Found %d entries",
 			len(req.CommandConfig))
+	}
+}
+
+func TestResponseMarsal(t *testing.T) {
+	resp := ExecutionResponse{
+		Template:      "",
+		Status:        "ok",
+		StatusMessage: "",
+	}
+	_, err := MarshalExecutionResponse(&resp)
+	if err != nil {
+		t.Fatal(err)
 	}
 }

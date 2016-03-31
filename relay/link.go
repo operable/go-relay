@@ -72,6 +72,10 @@ func (link *Link) Halt() error {
 	return nil
 }
 
+func (link *Link) Call(data interface{}) (interface{}, error) {
+	return nil, errors.New("Not implemented")
+}
+
 func buildTopics(id string) *LinkTopics {
 	return &LinkTopics{
 		commands: fmt.Sprintf(COMMANDS_TOPIC_TEMPLATE, id),

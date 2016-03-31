@@ -53,6 +53,10 @@ func (de *DockerEngine) Run() error {
 	return nil
 }
 
+func (de *DockerEngine) Call(data interface{}) (interface{}, error) {
+	return nil, errors.New("Not implemented")
+}
+
 func connectToDocker(config *DockerInfo) (*docker.Client, error) {
 	if config.UseEnv {
 		return docker.NewClientFromEnv()

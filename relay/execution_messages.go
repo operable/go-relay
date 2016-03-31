@@ -35,9 +35,17 @@ type ExecutionRequest struct {
 	Args          UntypedArray    `json:"args"`
 	CommandConfig UntypedValueMap `json:"command_config,omitempty" valid:"-"`
 	CogEnv        UntypedValueMap `json:"cog_env,omitempty" valid:"-"`
+	ReplyTo       string          `json:"reply_to" valid:"printableascii,required"`
 }
 
-func ParseExecutionRequest(raw []byte) (*ExecutionRequest, error) {
+type ExecutionResponse struct {
+	Template      string          `json:"template" valid:"printableascii"`
+	Status        string          `json:"status" valid:"status,required"`
+	StatusMessage string          `json:"status_message" valid:"-"`
+	Body          UntypedValueMap `json:"body" valid:"-"`
+}
+
+func UnmarshalExecutionRequest(raw []byte) (*ExecutionRequest, error) {
 	request := ExecutionRequest{}
 	err := json.Unmarshal(raw, &request)
 	if err != nil {
@@ -48,4 +56,19 @@ func ParseExecutionRequest(raw []byte) (*ExecutionRequest, error) {
 		return nil, err
 	}
 	return &request, nil
+}
+
+func MarshalExecutionResponse(resp *ExecutionResponse) ([]byte, error) {
+	govalidator.TagMap["status"] = govalidator.Validator(func(value string) bool {
+		return value == "ok" || value == "error"
+	})
+	_, err := govalidator.ValidateStruct(*resp)
+	if err != nil {
+		return []byte{}, err
+	}
+	raw, err := json.Marshal(resp)
+	if err != nil {
+		return []byte{}, err
+	}
+	return raw, nil
 }
