@@ -12,6 +12,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/operable/go-relay/relay"
+	"github.com/operable/go-relay/relay/docker"
 )
 
 var configFile = flag.String("file", "/etc/cog_relay.conf", "Path to configuration file")
@@ -84,38 +85,45 @@ func main() {
 	// Set up signal handlers
 	signal.Notify(incomingSignal, syscall.SIGINT)
 	config := prepare()
-	log.Infof("%s loaded.", *configFile)
-	log.Infof("Relay %s initializing", config.ID)
+	log.Infof("Configuration file %s loaded.", *configFile)
+	log.Infof("Relay %s is initializing.", config.ID)
 
-	docker, err := relay.NewDockerEngine(config.Docker, &coordinator)
-	if err != nil {
-		log.Errorf("Error initializing Docker execution engine: %s", err)
-		os.Exit(2)
+	if config.DockerDisabled == false {
+		err := docker.VerifyConfig(config.Docker)
+		if err != nil {
+			log.Errorf("Error verifying Docker configuration: %s.", err)
+			os.Exit(3)
+		} else {
+			log.Infof("Docker configuration verified.")
+		}
+	} else {
+		Logger.Infof("Docker support disabled.")
 	}
 
-	err = docker.Run()
-	if err != nil {
-		os.Exit(2)
+	// Create work queue with some burstable capacity
+	workQueue := relay.NewWorkQueue(config.MaxConcurrent * 2)
+
+	// Start MaxConcurrent workers
+	for i := 0; i < config.MaxConcurrent; i++ {
+		go func() {
+			relay.RunWorker(workQueue, coordinator)
+		}()
 	}
 
-	link, err := relay.NewLink(config.ID, config.Cog, &coordinator)
-	if err != nil {
-		os.Exit(4)
-	}
-	err = link.Run()
-	if err != nil {
-		os.Exit(4)
-	}
-	log.Infof("Relay %s ready", config.ID)
-	// Wait until we receive a signal
+	log.Infof("Relay %s started %d workers.", config.ID, config.MaxConcurrent)
+	log.Infof("Relay %s is ready.", config.ID)
+
+	// Wait until we get a signal
 	<-incomingSignal
+	log.Infof("Relay %s is shutting down.", config.ID)
 
-	// Remove signal handler so ctrl-C works
+	// Remove signal handler so Ctrl-C works
 	signal.Reset(syscall.SIGINT)
 
-	log.Infof("Relay %s signing off", config.ID)
-	link.Halt()
-	docker.Halt()
+	// Stop work queue
+	workQueue.Stop()
+
+	// Wait on processes to exit
 	coordinator.Wait()
-	log.Infof("Relay %s shut down", config.ID)
+	log.Infof("Relay %s shut down complete.", config.ID)
 }

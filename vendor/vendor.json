@@ -1,37 +1,31 @@
 {
-	"comment": "",
-	"ignore": "",
-	"package": [
-		{
-			"checksumSHA1": "uJUneQL3bDcwHK72bI3HLyCaha8=",
-			"path": "github.com/Sirupsen/logrus",
-			"revision": "4b6ea7319e214d98c938f12692336f7ca9348d6b",
-			"revisionTime": "2016-03-17T14:11:10Z"
-		},
-		{
-			"checksumSHA1": "cxu/oFa/O87A68Q1zWcBbVpMeBo=",
-			"path": "github.com/asaskevich/govalidator",
-			"revision": "50f582311784a55b42018d88643ccfceadf7ab61",
-			"revisionTime": "2016-03-29T17:14:54Z"
-		},
-		{
-			"checksumSHA1": "SO0OsE27mXm7guJw6zA1LaWq7to=",
-			"path": "github.com/eclipse/paho.mqtt.golang",
-			"revision": "183329365eb3c151b3f8403f90c89cf4e21ed739",
-			"revisionTime": "2016-02-10T09:31:18Z"
-		},
-		{
-			"checksumSHA1": "jgRX9tjnBtFz81libQQGlL+wVXI=",
-			"path": "github.com/fsouza/go-dockerclient",
-			"revision": "7c07ffce0f7e14a4da49ce92a2842d4e87be1c1e",
-			"revisionTime": "2016-03-19T12:58:36Z"
-		},
-		{
-			"checksumSHA1": "1J6GtJXjfYf0q/wEn9V0P8XP6O0=",
-			"path": "github.com/go-yaml/yaml",
-			"revision": "a83829b6f1293c91addabc89d0571c246397bbf4",
-			"revisionTime": "2016-03-01T20:40:22Z"
-		}
-	],
-	"rootPath": "github.com/operable/go-relay"
+    "comment": "",
+    "ignore": "",
+    "package": [
+        {
+            "checksumSHA1": "uJUneQL3bDcwHK72bI3HLyCaha8=",
+            "path": "github.com/Sirupsen/logrus",
+            "revision": "4b6ea7319e214d98c938f12692336f7ca9348d6b",
+            "revisionTime": "2016-03-17T14:11:10Z"
+        },
+        {
+            "checksumSHA1": "cxu/oFa/O87A68Q1zWcBbVpMeBo=",
+            "path": "github.com/asaskevich/govalidator",
+            "revision": "50f582311784a55b42018d88643ccfceadf7ab61",
+            "revisionTime": "2016-03-29T17:14:54Z"
+        },
+        {
+            "checksumSHA1": "SO0OsE27mXm7guJw6zA1LaWq7to=",
+            "path": "github.com/eclipse/paho.mqtt.golang",
+            "revision": "183329365eb3c151b3f8403f90c89cf4e21ed739",
+            "revisionTime": "2016-02-10T09:31:18Z"
+        },
+        {
+            "checksumSHA1": "1J6GtJXjfYf0q/wEn9V0P8XP6O0=",
+            "path": "github.com/go-yaml/yaml",
+            "revision": "a83829b6f1293c91addabc89d0571c246397bbf4",
+            "revisionTime": "2016-03-01T20:40:22Z"
+        }
+    ],
+    "rootPath": "github.com/operable/go-relay"
 }

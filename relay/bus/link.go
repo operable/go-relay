@@ -33,7 +33,7 @@ type Link struct {
 	wg      *sync.WaitGroup
 }
 
-func NewLink(id string, config *CogInfo, wg *sync.WaitGroup) (Subsystem, error) {
+func NewLink(id string, config *CogInfo, wg *sync.WaitGroup) (*Link, error) {
 	if id == "" || config == nil {
 		err := errors.New("Relay id or Cog connection info is nil.")
 		log.Fatal(err)
