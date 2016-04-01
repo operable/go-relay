@@ -16,6 +16,12 @@ import (
 	"github.com/operable/go-relay/relay/docker"
 )
 
+const (
+	BAD_CONFIG = iota + 1
+	DOCKER_ERR
+	BUS_ERR
+)
+
 var configFile = flag.String("file", "/etc/cog_relay.conf", "Path to configuration file")
 
 func init() {
@@ -73,7 +79,7 @@ func prepare() *relay.Config {
 		for _, msg := range msgs {
 			log.Errorf("  %s", msg)
 		}
-		os.Exit(1)
+		os.Exit(BAD_CONFIG)
 	}
 	configureLogger(config)
 	return config
@@ -116,7 +122,7 @@ func main() {
 		if err != nil {
 			log.Errorf("Error verifying Docker configuration: %s.", err)
 			shutdown(config, nil, workQueue, coordinator)
-			os.Exit(2)
+			os.Exit(DOCKER_ERR)
 		} else {
 			log.Infof("Docker configuration verified.")
 		}
@@ -130,20 +136,23 @@ func main() {
 			relay.RunWorker(workQueue, coordinator)
 		}()
 	}
-	log.Infof("Relay %s started %d workers.", config.ID, config.MaxConcurrent)
+	log.Infof("Started %d workers.", config.MaxConcurrent)
 
 	// Connect to Cog
 	link, err := bus.NewLink(config.ID, config.Cog, workQueue, coordinator)
 	if err != nil {
 		log.Errorf("Error connecting to Cog: %s.", err)
 		shutdown(config, nil, workQueue, coordinator)
-		os.Exit(6)
+		os.Exit(BUS_ERR)
 	}
-	log.Infof("Relay %s connected to Cog host %s", config.ID, config.Cog.Host)
+	log.Infof("Connected to Cog host %s.", config.Cog.Host)
+	err = link.Run()
+	if err != nil {
+		log.Errorf("Error subscribing to message topics: %s.", err)
+		shutdown(config, nil, workQueue, coordinator)
+		os.Exit(BUS_ERR)
+	}
 	log.Infof("Relay %s is ready.", config.ID)
-	go func() {
-		link.Run()
-	}()
 
 	// Wait until we get a signal
 	<-incomingSignal
