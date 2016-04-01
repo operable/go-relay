@@ -58,11 +58,13 @@ func (link *Link) Run() error {
 		log.Errorf("Error subscribing to required topics: %s", err)
 		return err
 	}
-	link.wg.Add(1)
-	defer link.wg.Done()
-	<-link.control
-	link.conn.Disconnect(15000)
-	log.Info("Cog connection closed")
+	go func() {
+		link.wg.Add(1)
+		defer link.wg.Done()
+		<-link.control
+		link.conn.Disconnect(15000)
+		log.Info("Cog connection closed")
+	}()
 	return nil
 }
 
