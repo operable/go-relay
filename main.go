@@ -86,10 +86,10 @@ func prepare() *relay.Config {
 }
 
 func shutdown(config *relay.Config, link *bus.Link, workQueue *relay.WorkQueue, coordinator sync.WaitGroup) {
-	log.Infof("Relay %s is shutting down.", config.ID)
-
 	// Remove signal handler so Ctrl-C works
 	signal.Reset(syscall.SIGINT)
+
+	log.Info("Starting shut down.")
 
 	// Stop message bus listeners
 	if link != nil {
