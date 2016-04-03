@@ -10,7 +10,6 @@ const (
 max_concurrent: 32
 version: 1
 cog:
-  id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104a
   host: 127.0.0.1
   port: 1883
   token: wubba
@@ -27,7 +26,6 @@ execution:
 	usingDefaultsConfig = `id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104f
 version: 1
 cog:
-  id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104a
   token: wubba
 docker:
   use_env: false
@@ -42,7 +40,6 @@ execution:
 version: 1
 disable_docker: true
 cog:
-  id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104a
   token: wubba
 execution:
   cpu_shares: 16
@@ -53,7 +50,6 @@ execution:
 
 func TestLoadConfig(t *testing.T) {
 	relayID := "2bba0d1f-a30c-45ec-87e6-e4c5d8c6104f"
-	cogID := "2bba0d1f-a30c-45ec-87e6-e4c5d8c6104a"
 	config, err := ParseConfig([]byte(fullConfig))
 	if err != nil {
 		t.Fatal(err)
@@ -73,12 +69,6 @@ func TestLoadConfig(t *testing.T) {
 	}
 	if config.MaxConcurrent != 32 {
 		t.Errorf("Expected MaxConcurent 32")
-	}
-
-	// Validate Cog config
-	cog := config.Cog
-	if cog.ID != cogID {
-		t.Errorf("Expected Cog ID '%s'", cogID)
 	}
 }
 
