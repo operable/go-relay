@@ -20,10 +20,10 @@ type MessageBus interface {
 // Request represents an incoming message
 // Can be either a Relay directive or a command execution
 type Request struct {
-	Bus     *MessageBus
-	Engine  *docker.Engine
-	Topic   string
-	Message []byte
+	Bus          MessageBus
+	DockerEngine *docker.Engine
+	Topic        string
+	Message      []byte
 }
 
 func RunWorker(workQueue *Queue, coordinator sync.WaitGroup) {

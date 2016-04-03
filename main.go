@@ -140,7 +140,7 @@ func main() {
 	log.Infof("Started %d workers.", config.MaxConcurrent)
 
 	// Connect to Cog
-	handler := func(topic string, payload []byte) {
+	handler := func(bus worker.MessageBus, topic string, payload []byte) {
 		return
 	}
 	subs := bus.Subscriptions{
@@ -153,6 +153,7 @@ func main() {
 		shutdown(config, nil, workQueue, coordinator)
 		os.Exit(BUS_ERR)
 	}
+
 	log.Infof("Connected to Cog host %s.", config.Cog.Host)
 	err = link.Run()
 	if err != nil {
@@ -167,4 +168,31 @@ func main() {
 
 	// Shutdown
 	shutdown(config, link, workQueue, coordinator)
+}
+
+func handleMessage(queue *worker.Queue, config *config.Config, bus worker.MessageBus, topic string, payload []byte) {
+	engine, err := newDockerEngine(config)
+	if err != nil {
+		log.Errorf("Error connecting to Docker: %s", err)
+		//TODO Send error to Cog
+		return
+	}
+	request := &worker.Request{
+		Bus:          bus,
+		DockerEngine: engine,
+		Topic:        topic,
+		Message:      payload,
+	}
+	queue.Enqueue(request)
+}
+
+func newDockerEngine(config *config.Config) (*docker.Engine, error) {
+	if config.DockerDisabled == false {
+		engine, err := docker.NewEngine(config.Docker)
+		if err != nil {
+			return engine, nil
+		}
+		return nil, err
+	}
+	return nil, nil
 }

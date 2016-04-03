@@ -29,7 +29,7 @@ const (
 
 // MessageCallback describes the function signature used to process messages.
 // It is used for Relay directives and command execution.
-type MessageCallback func(topic string, payload []byte)
+type MessageCallback func(bus worker.MessageBus, topic string, payload []byte)
 
 // Subscriptions describes the command and execution topics with their corresponding
 // handler callbacks.
@@ -102,20 +102,14 @@ func (link *Link) Publish(topic string, payload []byte) error {
 	return nil
 }
 
-func buildTopics(id string, subscriptions Subscriptions) Subscriptions {
-	subscriptions.command = fmt.Sprintf(CommandTopicTemplate, id)
-	subscriptions.execution = fmt.Sprintf(ExecuteTopicTemplate, id)
-	return subscriptions
-}
-
 func (link *Link) setupSubscriptions() error {
 	token := link.conn.Subscribe(link.subscriptions.command, 1,
-		wrapCallback(link.subscriptions.CommandHandler))
+		wrapCallback(link, link.subscriptions.CommandHandler))
 	if token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
 	token = link.conn.Subscribe(link.subscriptions.execution, 1,
-		wrapCallback(link.subscriptions.ExecutionHandler))
+		wrapCallback(link, link.subscriptions.ExecutionHandler))
 	if token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
@@ -142,14 +136,20 @@ func (link *Link) connect() error {
 	return nil
 }
 
+func wrapCallback(link *Link, callback MessageCallback) mqtt.MessageHandler {
+	return func(client *mqtt.Client, message mqtt.Message) {
+		callback(link, message.Topic(), message.Payload())
+	}
+}
+
+func buildTopics(id string, subscriptions Subscriptions) Subscriptions {
+	subscriptions.command = fmt.Sprintf(CommandTopicTemplate, id)
+	subscriptions.execution = fmt.Sprintf(ExecuteTopicTemplate, id)
+	return subscriptions
+}
+
 func newWill(id string) string {
 	announcement := messages.NewAnnouncement(id, false)
 	data, _ := json.Marshal(announcement)
 	return string(data)
-}
-
-func wrapCallback(callback MessageCallback) mqtt.MessageHandler {
-	return func(client *mqtt.Client, message mqtt.Message) {
-		callback(message.Topic(), message.Payload())
-	}
 }
