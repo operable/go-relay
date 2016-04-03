@@ -4,32 +4,37 @@ GOLINT_BIN         = ../../../../bin/golint
 PKG_DIRS          := $(shell find . -type d | grep relay | grep -v vendor)
 PACKAGES          := $(sort $(foreach pkg, $(PKG_DIRS), $(subst ./, github.com/operable/go-relay/, $(pkg))))
 SOURCES           := $(shell find . -name "*.go" -type f)
+VET_FLAGS          = -v
 
 ifdef FORCE
-.PHONY: all tools test clean cog-relay
+.PHONY: all tools test clean deps cog-relay
 else
-.PHONY: all tools test clean
+.PHONY: all tools test clean deps
 endif
 
-all: test
+all: test cog-relay
 
 tools: $(GOUPX_BIN) $(GOVENDOR_BIN) $(GOLINT_BIN)
 
-cog-relay: $(SOURCES)
+cog-relay: $(SOURCES) deps
 	@rm -f `find . -name "*flymake*.go"`
-	@$(GOVENDOR_BIN) sync
-	@go get github.com/fsouza/go-dockerclient
 	go build -o $@ github.com/operable/go-relay
 
-test: tools cog-relay
-	golint github.com/operable/go-relay/relay
-	go test -cover -v $(PACKAGES)
+test: tools deps
+	@golint github.com/operable/go-relay/relay
+	@go vet $(VET_FLAGS) $(PACKAGES)
+	@go test -v -cover $(PACKAGES)
 
 clean:
 	rm -f cog-relay cog-relay-test
+	find . -name "*.test" -type f | xargs rm -fv
 
-minify:
-	$(GOUPX_BIN) cog-relay
+deps:
+	@$(GOVENDOR_BIN) sync
+	@go get github.com/fsouza/go-dockerclient
+
+minify: cog-relay
+	$(GOUPX_BIN) $<
 
 $(GOUPX_BIN):
 	go get -u github.com/pwaller/goupx
