@@ -14,32 +14,32 @@ import (
 )
 
 const (
-	CONFIG_VERSION = 1
+	// RelayConfigVersion describes the compatible Relay config file format version
+	RelayConfigVersion = 1
 )
 
-// Top level configuration struct
+// Config is the top level struct for all Relay configuration
 type Config struct {
 	Version        int            `yaml:"version" valid:"int64,required"`
 	ID             string         `yaml:"id" env:"RELAY_ID" valid:"uuid,required"`
 	MaxConcurrent  int            `yaml:"max_concurrent" env:"RELAY_MAX_CONCURRENT" valid:"int64,required" default:"16"`
 	LogLevel       string         `yaml:"log_level" env:"RELAY_LOG_LEVEL" valid:"required" default:"info"`
-	LogJSON        bool           `yaml:"log_json" env:"RELAY_LOG_JSON" default:"false"`
+	LogJSON        bool           `yaml:"log_json" env:"RELAY_LOG_JSON" valid:"bool" default:"false"`
 	LogPath        string         `yaml:"log_path" env:"RELAY_LOG_PATH" valid:"required" default:"stdout"`
 	Cog            *CogInfo       `yaml:"cog" valid:"required"`
-	DockerDisabled bool           `yaml:"disable_docker" env="RELAY_DISABLE_DOCKER" valid:"bool,required" default:"false"`
+	DockerDisabled bool           `yaml:"disable_docker" env:"RELAY_DISABLE_DOCKER" valid:"bool" default:"false"`
 	Docker         *DockerInfo    `yaml:"docker" valid:"-"`
 	Execution      *ExecutionInfo `yaml:"execution" valid:"required"`
 }
 
-// Information about upstream Cog instance
+// CogInfo contains information required to connect to an upstream Cog host
 type CogInfo struct {
-	ID    string `yaml:"id" env:"RELAY_COG_ID" valid:"uuid,required"`
 	Host  string `yaml:"host" env:"RELAY_COG_HOST" valid:"hostorip,required" default:"127.0.0.1"`
 	Port  int    `yaml:"port" env:"RELAY_COG_PORT" valid:"int64,required" default:"1883"`
 	Token string `yaml:"token" env:"RELAY_COG_TOKEN" valid:"required"`
 }
 
-// Information about Docker install
+// DockerInfo contains information required to interact with dockerd and external Docker registries
 type DockerInfo struct {
 	UseEnv           bool   `yaml:"use_env" env:"RELAY_DOCKER_USE_ENV" valid:"-" default:"false"`
 	SocketPath       string `yaml:"socket_path" env:"RELAY_DOCKER_SOCKET_PATH" valid:"dockersocket,required" default:"unix:///var/run/docker.sock"`
@@ -48,8 +48,7 @@ type DockerInfo struct {
 	RegistryPassword string `yaml:"registry_password" env:"RELAY_DOCKER_REGISTRY_PASSWORD" valid:"-"`
 }
 
-// Configuration parameters applied to every container
-// started by a given Relay
+// ExecutionInfo applies to every container for a given Relay host
 type ExecutionInfo struct {
 	CPUShares int64    `yaml:"cpu_shares" env:"RELAY_CONTAINER_CPUSHARES" valid:"int64"`
 	CPUSet    string   `yaml:"cpu_set" env:"RELAY_CONTAINER_CPUSET"`
@@ -177,7 +176,9 @@ func setEnvVars(config interface{}) bool {
 	return updatedConfig
 }
 
-// Parses Relay's config file. Finalizing Relay's configuration uses the following steps:
+// ParseConfig parses Relay's raw config and then produces a final
+// version incorporating default values and environment variable values.
+// Finalization proceeds using the following steps:
 // 1. Parse YAML and populate new Config struct instance with values
 // 2. Set default values on unassigned fields (for fields with defaults)
 // 3. Apply environment variable overrides
@@ -186,10 +187,10 @@ func ParseConfig(rawConfig []byte) (*Config, error) {
 	config := Config{}
 	err := yaml.Unmarshal(rawConfig, &config)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Error parsing YAML: %s", err))
+		return nil, fmt.Errorf("Error parsing YAML: %s", err)
 	}
-	if config.Version != CONFIG_VERSION {
-		return nil, errors.New(fmt.Sprintf("Only Cog Relay config version %d is supported.", CONFIG_VERSION))
+	if config.Version != RelayConfigVersion {
+		return nil, fmt.Errorf("Only Cog Relay config version %d is supported.", RelayConfigVersion)
 	}
 	applyDefaults(&config)
 	applyEnvVars(&config)
@@ -211,17 +212,19 @@ func ParseConfig(rawConfig []byte) (*Config, error) {
 	return &config, err
 }
 
+// LoadConfig reads a config file off disk and passes the contents to
+// ParseConfig.
 func LoadConfig(path string) (*Config, error) {
 	if path == "" {
 		return nil, errors.New("Path to configuration file is required")
 	}
 	if _, err := os.Stat(path); err != nil {
-		return nil, errors.New(fmt.Sprintf("Config file '%s' doesn't exist or is unreadable", path))
+		return nil, fmt.Errorf("Config file '%s' doesn't exist or is unreadable", path)
 	}
 	buf, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Error reading config file '%s': %s",
-			path, err))
+		return nil, fmt.Errorf("Error reading config file '%s': %s",
+			path, err)
 	}
 	return ParseConfig(buf)
 }
