@@ -28,10 +28,10 @@ func NewWorkQueue(size int) *WorkQueue {
 // Returns an error if the queue is stopped.
 func (wq *WorkQueue) Enqueue(thing interface{}) error {
 	if wq.stopped {
-		return errors.New("WorkQueue is stopped")
+		return errors.New("Work queue is stopped")
 	}
 	wq.queue <- thing
-	wq.enqueued++
+	wq.updateEnqueued()
 	return nil
 }
 
@@ -39,7 +39,7 @@ func (wq *WorkQueue) Enqueue(thing interface{}) error {
 // when the queue is empty.
 // Returns nil if the queue is stopped and empty.
 func (wq *WorkQueue) Dequeue() interface{} {
-	if wq.stopped && wq.Backlog() == 0 {
+	if isStopped, backlog := wq.Status(); isStopped && backlog == 0 {
 		return nil
 	}
 	thing := <-wq.queue
@@ -52,11 +52,12 @@ func (wq *WorkQueue) Dequeue() interface{} {
 	}
 }
 
-// Backlog returns the number of pending work items
-func (wq *WorkQueue) Backlog() int64 {
+// Status returns stopped flag and number of pending work items
+func (wq *WorkQueue) Status() (bool, int64) {
 	wq.guard.Lock()
 	defer wq.guard.Unlock()
-	return wq.enqueued - wq.dequeued
+	backlog := wq.enqueued - wq.dequeued
+	return wq.stopped, backlog
 }
 
 // Stop prevents new work from being queued and allows
@@ -72,4 +73,10 @@ func (wq *WorkQueue) updateDequeued() {
 	wq.guard.Lock()
 	defer wq.guard.Unlock()
 	wq.dequeued++
+}
+
+func (wq *WorkQueue) updateEnqueued() {
+	wq.guard.Lock()
+	defer wq.guard.Unlock()
+	wq.enqueued++
 }
