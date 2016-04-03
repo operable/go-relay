@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -8,52 +9,72 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/operable/go-relay/relay"
+	"github.com/operable/go-relay/relay/config"
+	"github.com/operable/go-relay/relay/messages"
+	"github.com/operable/go-relay/relay/worker"
 )
 
 const (
-	COMMANDS_TOPIC_TEMPLATE = "bot/relays/%s/"
-	EXECUTE_TOPIC_TEMPLATE  = "bot/relays/%s/exec"
+	// CommandTopicTemplate is a topic template used by Relays to
+	// receive Relay directives from Cog
+	CommandTopicTemplate = "bot/relays/%s/directives"
+
+	//ExecuteTopicTemplate is a topic template used by Relays to
+	// receive command execution requests from Cog
+	ExecuteTopicTemplate = "bot/relays/%s/exec"
+
+	// RelayDiscoveryTopic is the topic Cog uses to discover new Relays
+	RelayDiscoveryTopic = "bot/relays/discover"
 )
 
-type messageCB func(mqtt.Message)
+// MessageCallback describes the function signature used to process messages.
+// It is used for Relay directives and command execution.
+type MessageCallback func(topic string, payload []byte)
 
-type linkTopics struct {
-	commands string
-	execute  string
+// Subscriptions describes the command and execution topics with their corresponding
+// handler callbacks.
+type Subscriptions struct {
+	command          string
+	execution        string
+	CommandHandler   MessageCallback
+	ExecutionHandler MessageCallback
 }
 
+// Link is a message bus connection. It's responsible for parsing incoming messages
+// and queueing them onto worker.Queue.
 type Link struct {
-	id        string
-	config    *relay.CogInfo
-	topics    *linkTopics
-	conn      *mqtt.Client
-	workQueue *relay.WorkQueue
-	control   chan byte
-	wg        sync.WaitGroup
+	id            string
+	cogConfig     *config.CogInfo
+	subscriptions Subscriptions
+	conn          *mqtt.Client
+	workQueue     *worker.Queue
+	control       chan byte
+	wg            sync.WaitGroup
 }
 
-func NewLink(id string, config *relay.CogInfo, workQueue *relay.WorkQueue, wg sync.WaitGroup) (*Link, error) {
-	if id == "" || config == nil {
+// NewLink returns a new message bus link as a worker.Service reference.
+func NewLink(id string, cogConfig *config.CogInfo, workQueue *worker.Queue, subscriptions Subscriptions, wg sync.WaitGroup) (worker.Service, error) {
+	if id == "" || cogConfig == nil {
 		err := errors.New("Relay id or Cog connection info is nil.")
 		log.Fatal(err)
 		return nil, err
 	}
 	link := &Link{id: id,
-		config:    config,
-		topics:    buildTopics(id),
-		conn:      nil,
-		workQueue: workQueue,
-		control:   make(chan byte),
-		wg:        wg,
-	}
-	if err := link.connect(); err != nil {
-		return nil, err
+		cogConfig:     cogConfig,
+		subscriptions: buildTopics(id, subscriptions),
+		conn:          nil,
+		workQueue:     workQueue,
+		control:       make(chan byte),
+		wg:            wg,
 	}
 	return link, nil
 }
 
+// Run starts the Link instance in a separate goroutine.
 func (link *Link) Run() error {
+	if err := link.connect(); err != nil {
+		return err
+	}
 	if err := link.setupSubscriptions(); err != nil {
 		log.Errorf("Error subscribing to required topics: %s", err)
 		return err
@@ -68,37 +89,37 @@ func (link *Link) Run() error {
 	return nil
 }
 
+// Halt stops a running Link instance.
 func (link *Link) Halt() {
 	link.control <- 1
 }
 
-func (link *Link) Call(data interface{}) (interface{}, error) {
-	return nil, errors.New("Not implemented")
-}
-
-func buildTopics(id string) *linkTopics {
-	return &linkTopics{
-		commands: fmt.Sprintf(COMMANDS_TOPIC_TEMPLATE, id),
-		execute:  fmt.Sprintf(EXECUTE_TOPIC_TEMPLATE, id),
-	}
-}
-
-func (link *Link) setupSubscriptions() error {
-	token := link.conn.Subscribe(link.topics.commands, 1, wrapCallback(link.handleCommand))
-	if token.Wait() && token.Error() != nil {
-		return token.Error()
-	}
-	token = link.conn.Subscribe(link.topics.execute, 1, wrapCallback(link.handleExecution))
-	if token.Wait() && token.Error() != nil {
+// Publish publishes a message onto the underlying message bus.
+func (link *Link) Publish(topic string, payload []byte) error {
+	if token := link.conn.Publish(topic, 1, false, payload); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
 	return nil
 }
 
-func (link *Link) handleExecution(message mqtt.Message) {
+func buildTopics(id string, subscriptions Subscriptions) Subscriptions {
+	subscriptions.command = fmt.Sprintf(CommandTopicTemplate, id)
+	subscriptions.execution = fmt.Sprintf(ExecuteTopicTemplate, id)
+	return subscriptions
 }
 
-func (link *Link) handleCommand(message mqtt.Message) {
+func (link *Link) setupSubscriptions() error {
+	token := link.conn.Subscribe(link.subscriptions.command, 1,
+		wrapCallback(link.subscriptions.CommandHandler))
+	if token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
+	token = link.conn.Subscribe(link.subscriptions.execution, 1,
+		wrapCallback(link.subscriptions.ExecutionHandler))
+	if token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
+	return nil
 }
 
 func (link *Link) connect() error {
@@ -108,9 +129,10 @@ func (link *Link) connect() error {
 	mqttOpts.SetConnectTimeout(time.Duration(5) * time.Second)
 	mqttOpts.SetMaxReconnectInterval(time.Duration(10) * time.Second)
 	mqttOpts.SetUsername(link.id)
-	mqttOpts.SetPassword(link.config.Token)
+	mqttOpts.SetPassword(link.cogConfig.Token)
 	mqttOpts.SetClientID(link.id)
-	url := fmt.Sprintf("tcp://%s:%d", link.config.Host, link.config.Port)
+	mqttOpts.SetWill(RelayDiscoveryTopic, newWill(link.id), 1, false)
+	url := fmt.Sprintf("tcp://%s:%d", link.cogConfig.Host, link.cogConfig.Port)
 	mqttOpts.AddBroker(url)
 	link.conn = mqtt.NewClient(mqttOpts)
 	if token := link.conn.Connect(); token.Wait() && token.Error() != nil {
@@ -120,8 +142,14 @@ func (link *Link) connect() error {
 	return nil
 }
 
-func wrapCallback(callback messageCB) mqtt.MessageHandler {
+func newWill(id string) string {
+	announcement := messages.NewAnnouncement(id, false)
+	data, _ := json.Marshal(announcement)
+	return string(data)
+}
+
+func wrapCallback(callback MessageCallback) mqtt.MessageHandler {
 	return func(client *mqtt.Client, message mqtt.Message) {
-		callback(message)
+		callback(message.Topic(), message.Payload())
 	}
 }

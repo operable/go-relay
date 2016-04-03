@@ -11,9 +11,10 @@ import (
 	"syscall"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/operable/go-relay/relay"
 	"github.com/operable/go-relay/relay/bus"
+	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/docker"
+	"github.com/operable/go-relay/relay/worker"
 )
 
 const (
@@ -33,7 +34,7 @@ func init() {
 	})
 }
 
-func configureLogger(config *relay.Config) {
+func configureLogger(config *config.Config) {
 	if config.LogJSON == true {
 		log.SetFormatter(&log.JSONFormatter{})
 	}
@@ -69,9 +70,9 @@ func configureLogger(config *relay.Config) {
 	}
 }
 
-func prepare() *relay.Config {
+func prepare() *config.Config {
 	flag.Parse()
-	config, err := relay.LoadConfig(*configFile)
+	config, err := config.LoadConfig(*configFile)
 	if err != nil {
 		errstr := fmt.Sprintf("%s", err)
 		msgs := strings.Split(errstr, ";")
@@ -85,7 +86,7 @@ func prepare() *relay.Config {
 	return config
 }
 
-func shutdown(config *relay.Config, link *bus.Link, workQueue *relay.WorkQueue, coordinator sync.WaitGroup) {
+func shutdown(config *config.Config, link worker.Service, workQueue *worker.Queue, coordinator sync.WaitGroup) {
 	// Remove signal handler so Ctrl-C works
 	signal.Reset(syscall.SIGINT)
 
@@ -115,7 +116,7 @@ func main() {
 	log.Infof("Relay %s is initializing.", config.ID)
 
 	// Create work queue with some burstable capacity
-	workQueue := relay.NewWorkQueue(config.MaxConcurrent * 2)
+	workQueue := worker.NewQueue(config.MaxConcurrent * 2)
 
 	if config.DockerDisabled == false {
 		err := docker.VerifyConfig(config.Docker)
@@ -133,13 +134,20 @@ func main() {
 	// Start MaxConcurrent workers
 	for i := 0; i < config.MaxConcurrent; i++ {
 		go func() {
-			relay.RunWorker(workQueue, coordinator)
+			worker.RunWorker(workQueue, coordinator)
 		}()
 	}
 	log.Infof("Started %d workers.", config.MaxConcurrent)
 
 	// Connect to Cog
-	link, err := bus.NewLink(config.ID, config.Cog, workQueue, coordinator)
+	handler := func(topic string, payload []byte) {
+		return
+	}
+	subs := bus.Subscriptions{
+		CommandHandler:   handler,
+		ExecutionHandler: handler,
+	}
+	link, err := bus.NewLink(config.ID, config.Cog, workQueue, subs, coordinator)
 	if err != nil {
 		log.Errorf("Error connecting to Cog: %s.", err)
 		shutdown(config, nil, workQueue, coordinator)
