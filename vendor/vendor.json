@@ -31,6 +31,12 @@
 			"path": "github.com/go-yaml/yaml",
 			"revision": "a83829b6f1293c91addabc89d0571c246397bbf4",
 			"revisionTime": "2016-03-01T20:40:22Z"
+		},
+		{
+			"checksumSHA1": "jTI0rZaGYhsbnjf0RAITnnDr5RE=",
+			"path": "golang.org/x/net/context",
+			"revision": "4876518f9e71663000c348837735820161a42df7",
+			"revisionTime": "2016-03-22T02:00:46Z"
 		}
 	],
 	"rootPath": "github.com/operable/go-relay"
