@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -15,7 +16,9 @@ import (
 	"github.com/operable/go-relay/relay/bus"
 	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/engines"
+	"github.com/operable/go-relay/relay/messages"
 	"github.com/operable/go-relay/relay/worker"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -73,7 +76,7 @@ func configureLogger(config *config.Config) {
 
 func prepare() *config.Config {
 	flag.Parse()
-	config, err := config.LoadConfig(*configFile)
+	relayConfig, err := config.LoadConfig(*configFile)
 	if err != nil {
 		errstr := fmt.Sprintf("%s", err)
 		msgs := strings.Split(errstr, ";")
@@ -83,11 +86,11 @@ func prepare() *config.Config {
 		}
 		os.Exit(BAD_CONFIG)
 	}
-	configureLogger(config)
-	return config
+	configureLogger(relayConfig)
+	return relayConfig
 }
 
-func shutdown(config *config.Config, link relay.Service, workQueue *relay.Queue, coordinator sync.WaitGroup) {
+func shutdown(relayConfig *config.Config, link relay.MessageBus, workQueue *relay.Queue, coordinator sync.WaitGroup) {
 	// Remove signal handler so Ctrl-C works
 	signal.Reset(syscall.SIGINT)
 
@@ -103,7 +106,18 @@ func shutdown(config *config.Config, link relay.Service, workQueue *relay.Queue,
 
 	// Wait on processes to exit
 	coordinator.Wait()
-	log.Infof("Relay %s shut down complete.", config.ID)
+	log.Infof("Relay %s shut down complete.", relayConfig.ID)
+}
+
+func askForInstalledBundles(relayConfig *config.Config, msgbus relay.MessageBus) error {
+	msg := messages.ListBundlesEnvelope{
+		ListBundles: &messages.ListBundlesMessage{
+			RelayID: relayConfig.ID,
+			ReplyTo: msgbus.DirectiveReplyTo(),
+		},
+	}
+	raw, _ := json.Marshal(&msg)
+	return msgbus.Publish("bot/relays/info", raw)
 }
 
 func main() {
@@ -112,18 +126,18 @@ func main() {
 
 	// Set up signal handlers
 	signal.Notify(incomingSignal, syscall.SIGINT)
-	config := prepare()
+	relayConfig := prepare()
 	log.Infof("Configuration file %s loaded.", *configFile)
-	log.Infof("Relay %s is initializing.", config.ID)
+	log.Infof("Relay %s is initializing.", relayConfig.ID)
 
 	// Create work queue with some burstable capacity
-	workQueue := relay.NewQueue(config.MaxConcurrent * 2)
+	workQueue := relay.NewQueue(relayConfig.MaxConcurrent * 2)
 
-	if config.DockerDisabled == false {
-		err := engines.VerifyDockerConfig(config.Docker)
+	if relayConfig.DockerDisabled == false {
+		err := engines.VerifyDockerConfig(relayConfig.Docker)
 		if err != nil {
 			log.Errorf("Error verifying Docker configuration: %s.", err)
-			shutdown(config, nil, workQueue, coordinator)
+			shutdown(relayConfig, nil, workQueue, coordinator)
 			os.Exit(DOCKER_ERR)
 		} else {
 			log.Infof("Docker configuration verified.")
@@ -131,62 +145,59 @@ func main() {
 	} else {
 		log.Infof("Docker support disabled.")
 	}
-
 	// Start MaxConcurrent workers
-	for i := 0; i < config.MaxConcurrent; i++ {
+	for i := 0; i < relayConfig.MaxConcurrent; i++ {
 		go func() {
 			worker.RunWorker(workQueue, coordinator)
 		}()
 	}
-	log.Infof("Started %d workers.", config.MaxConcurrent)
+	log.Infof("Started %d workers.", relayConfig.MaxConcurrent)
+
+	// Handler func used for both message types
+	handler := func(bus relay.MessageBus, topic string, payload []byte) {
+		handleMessage(workQueue, relayConfig, bus, topic, payload)
+	}
 
 	// Connect to Cog
 	subs := bus.Subscriptions{
-		CommandHandler: func(bus bus.MessageBus, topic string, payload []byte) {
-			handleCommand(workQueue, config, bus, topic, payload)
-		},
-		ExecutionHandler: func(bus bus.MessageBus, topic string, payload []byte) {
-			handleExecution(workQueue, config, bus, topic, payload)
-		},
+		CommandHandler:   handler,
+		ExecutionHandler: handler,
 	}
-	link, err := bus.NewLink(config.ID, config.Cog, workQueue, subs, coordinator)
+	link, err := bus.NewLink(relayConfig.ID, relayConfig.Cog, workQueue, subs, coordinator)
 	if err != nil {
 		log.Errorf("Error connecting to Cog: %s.", err)
-		shutdown(config, nil, workQueue, coordinator)
+		shutdown(relayConfig, nil, workQueue, coordinator)
 		os.Exit(BUS_ERR)
 	}
 
-	log.Infof("Connected to Cog host %s.", config.Cog.Host)
+	log.Infof("Connected to Cog host %s.", relayConfig.Cog.Host)
 	err = link.Run()
 	if err != nil {
 		log.Errorf("Error subscribing to message topics: %s.", err)
-		shutdown(config, nil, workQueue, coordinator)
+		shutdown(relayConfig, nil, workQueue, coordinator)
 		os.Exit(BUS_ERR)
 	}
-	log.Infof("Relay %s is ready.", config.ID)
+	err = askForInstalledBundles(relayConfig, link)
+	if err != nil {
+		log.Errorf("Error initiating installed bundles handshake: %s.", err)
+		os.Exit(BUS_ERR)
+	}
+	log.Infof("Relay %s is ready.", relayConfig.ID)
 
 	// Wait until we get a signal
 	<-incomingSignal
 
 	// Shutdown
-	shutdown(config, link, workQueue, coordinator)
+	shutdown(relayConfig, link, workQueue, coordinator)
 }
 
-func handleExecution(queue *relay.Queue, config *config.Config, bus bus.MessageBus, topic string, payload []byte) {
-}
-
-func handleCommand(queue *relay.Queue, config *config.Config, bus bus.MessageBus, topic string, payload []byte) {
-	engine, err := engines.NewDockerEngine(config.Docker)
-	if err != nil {
-		log.Errorf("Error connecting to Docker: %s", err)
-		//TODO Send error to Cog
-		return
-	}
-	request := &worker.Request{
+func handleMessage(queue *relay.Queue, relayConfig *config.Config, bus relay.MessageBus, topic string, payload []byte) {
+	message := &relay.Incoming{
+		Config:  relayConfig,
 		Bus:     bus,
-		Engine:  engine,
 		Topic:   topic,
-		Message: payload,
+		Payload: payload,
 	}
-	queue.Enqueue(request)
+	ctx := context.WithValue(context.Background(), "message", message)
+	queue.Enqueue(ctx)
 }

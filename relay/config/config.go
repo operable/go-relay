@@ -20,16 +20,17 @@ const (
 
 // Config is the top level struct for all Relay configuration
 type Config struct {
-	Version        int            `yaml:"version" valid:"int64,required"`
-	ID             string         `yaml:"id" env:"RELAY_ID" valid:"uuid,required"`
-	MaxConcurrent  int            `yaml:"max_concurrent" env:"RELAY_MAX_CONCURRENT" valid:"int64,required" default:"16"`
-	LogLevel       string         `yaml:"log_level" env:"RELAY_LOG_LEVEL" valid:"required" default:"info"`
-	LogJSON        bool           `yaml:"log_json" env:"RELAY_LOG_JSON" valid:"bool" default:"false"`
-	LogPath        string         `yaml:"log_path" env:"RELAY_LOG_PATH" valid:"required" default:"stdout"`
-	Cog            *CogInfo       `yaml:"cog" valid:"required"`
-	DockerDisabled bool           `yaml:"disable_docker" env:"RELAY_DISABLE_DOCKER" valid:"bool" default:"false"`
-	Docker         *DockerInfo    `yaml:"docker" valid:"-"`
-	Execution      *ExecutionInfo `yaml:"execution" valid:"required"`
+	Version           int            `yaml:"version" valid:"int64,required"`
+	ID                string         `yaml:"id" env:"RELAY_ID" valid:"uuid,required"`
+	MaxConcurrent     int            `yaml:"max_concurrent" env:"RELAY_MAX_CONCURRENT" valid:"int64,required" default:"16"`
+	DynamicConfigRoot string         `yaml:"dynamic_config_root" env:"RELAY_DYNAMIC_CONFIG_ROOT" valid:"-"`
+	LogLevel          string         `yaml:"log_level" env:"RELAY_LOG_LEVEL" valid:"required" default:"info"`
+	LogJSON           bool           `yaml:"log_json" env:"RELAY_LOG_JSON" valid:"bool" default:"false"`
+	LogPath           string         `yaml:"log_path" env:"RELAY_LOG_PATH" valid:"required" default:"stdout"`
+	Cog               *CogInfo       `yaml:"cog" valid:"required"`
+	DockerDisabled    bool           `yaml:"disable_docker" env:"RELAY_DISABLE_DOCKER" valid:"bool" default:"false"`
+	Docker            *DockerInfo    `yaml:"docker" valid:"-"`
+	Execution         *ExecutionInfo `yaml:"execution" valid:"required"`
 }
 
 // CogInfo contains information required to connect to an upstream Cog host

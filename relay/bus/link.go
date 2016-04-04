@@ -27,15 +27,9 @@ const (
 	RelayDiscoveryTopic = "bot/relays/discover"
 )
 
-// MessageBus is the interface used by worker code to
-// publish messages
-type MessageBus interface {
-	Publish(topic string, payload []byte) error
-}
-
 // MessageCallback describes the function signature used to process messages.
 // It is used for Relay directives and command execution.
-type MessageCallback func(bus MessageBus, topic string, payload []byte)
+type MessageCallback func(bus relay.MessageBus, topic string, payload []byte)
 
 // Subscriptions describes the command and execution topics with their corresponding
 // handler callbacks.
@@ -58,8 +52,8 @@ type Link struct {
 	wg            sync.WaitGroup
 }
 
-// NewLink returns a new message bus link as a worker.Service reference.
-func NewLink(id string, cogConfig *config.CogInfo, workQueue *relay.Queue, subscriptions Subscriptions, wg sync.WaitGroup) (relay.Service, error) {
+// NewLink returns a new message bus link as a relay.MessageBus reference.
+func NewLink(id string, cogConfig *config.CogInfo, workQueue *relay.Queue, subscriptions Subscriptions, wg sync.WaitGroup) (relay.MessageBus, error) {
 	if id == "" || cogConfig == nil {
 		err := errors.New("Relay id or Cog connection info is nil.")
 		log.Fatal(err)
@@ -82,7 +76,7 @@ func (link *Link) Run() error {
 		return err
 	}
 	if err := link.setupSubscriptions(); err != nil {
-		log.Errorf("Error subscribing to required topics: %s", err)
+		log.Errorf("Error subscribing to required topics: %s.", err)
 		return err
 	}
 	go func() {
@@ -90,7 +84,7 @@ func (link *Link) Run() error {
 		defer link.wg.Done()
 		<-link.control
 		link.conn.Disconnect(15000)
-		log.Info("Cog connection closed")
+		log.Info("Cog connection closed.")
 	}()
 	return nil
 }
@@ -106,6 +100,10 @@ func (link *Link) Publish(topic string, payload []byte) error {
 		return token.Error()
 	}
 	return nil
+}
+
+func (link *Link) DirectiveReplyTo() string {
+	return link.subscriptions.command
 }
 
 func (link *Link) setupSubscriptions() error {
