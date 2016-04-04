@@ -30,6 +30,7 @@ test: tools deps lint
 clean:
 	rm -f cog-relay cog-relay-test
 	find . -name "*.test" -type f | xargs rm -fv
+	find . -name "*-test" -type f | xargs rm -fv
 
 deps:
 	@$(GOVENDOR_BIN) sync
