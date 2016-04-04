@@ -1,4 +1,4 @@
-package docker
+package engines
 
 import (
 	log "github.com/Sirupsen/logrus"
@@ -6,28 +6,39 @@ import (
 	"github.com/operable/go-relay/relay/config"
 )
 
-// Engine is responsible for managing execution of
+// DockerEngine is responsible for managing execution of
 // Docker bundled commands.
-type Engine struct {
+type DockerEngine struct {
 	client *docker.Client
 	config *config.DockerInfo
 }
 
-// NewEngine makes a new Engine instance
-func NewEngine(dockerConfig *config.DockerInfo) (*Engine, error) {
+// NewDockerEngine makes a new DockerEngine instance
+func NewDockerEngine(dockerConfig *config.DockerInfo) (Engine, error) {
+	if dockerConfig == nil {
+		return nil, nil
+	}
 	client, err := newClient(dockerConfig)
 	if err != nil {
 		return nil, err
 	}
-	return &Engine{
+	return &DockerEngine{
 		client: client,
 		config: dockerConfig,
 	}, nil
 }
 
-// VerifyConfig sanity checks Docker configuration and ensures Relay
+func (de *DockerEngine) IsAvailable(interface{}) (bool, error) {
+	return false, nil
+}
+
+func (de *DockerEngine) Execute(interface{}) ([]byte, error) {
+	return []byte{0}, nil
+}
+
+// VerifyDockerConfig sanity checks Docker configuration and ensures Relay
 // can talk to Docker.
-func VerifyConfig(dockerConfig *config.DockerInfo) error {
+func VerifyDockerConfig(dockerConfig *config.DockerInfo) error {
 	client, err := newClient(dockerConfig)
 	if err != nil {
 		return err

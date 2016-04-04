@@ -11,9 +11,10 @@ import (
 	"syscall"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/operable/go-relay/relay"
 	"github.com/operable/go-relay/relay/bus"
 	"github.com/operable/go-relay/relay/config"
-	"github.com/operable/go-relay/relay/docker"
+	"github.com/operable/go-relay/relay/engines"
 	"github.com/operable/go-relay/relay/worker"
 )
 
@@ -86,7 +87,7 @@ func prepare() *config.Config {
 	return config
 }
 
-func shutdown(config *config.Config, link worker.Service, workQueue *worker.Queue, coordinator sync.WaitGroup) {
+func shutdown(config *config.Config, link relay.Service, workQueue *relay.Queue, coordinator sync.WaitGroup) {
 	// Remove signal handler so Ctrl-C works
 	signal.Reset(syscall.SIGINT)
 
@@ -116,10 +117,10 @@ func main() {
 	log.Infof("Relay %s is initializing.", config.ID)
 
 	// Create work queue with some burstable capacity
-	workQueue := worker.NewQueue(config.MaxConcurrent * 2)
+	workQueue := relay.NewQueue(config.MaxConcurrent * 2)
 
 	if config.DockerDisabled == false {
-		err := docker.VerifyConfig(config.Docker)
+		err := engines.VerifyDockerConfig(config.Docker)
 		if err != nil {
 			log.Errorf("Error verifying Docker configuration: %s.", err)
 			shutdown(config, nil, workQueue, coordinator)
@@ -140,12 +141,13 @@ func main() {
 	log.Infof("Started %d workers.", config.MaxConcurrent)
 
 	// Connect to Cog
-	handler := func(bus worker.MessageBus, topic string, payload []byte) {
-		return
-	}
 	subs := bus.Subscriptions{
-		CommandHandler:   handler,
-		ExecutionHandler: handler,
+		CommandHandler: func(bus bus.MessageBus, topic string, payload []byte) {
+			handleCommand(workQueue, config, bus, topic, payload)
+		},
+		ExecutionHandler: func(bus bus.MessageBus, topic string, payload []byte) {
+			handleExecution(workQueue, config, bus, topic, payload)
+		},
 	}
 	link, err := bus.NewLink(config.ID, config.Cog, workQueue, subs, coordinator)
 	if err != nil {
@@ -170,29 +172,21 @@ func main() {
 	shutdown(config, link, workQueue, coordinator)
 }
 
-func handleMessage(queue *worker.Queue, config *config.Config, bus worker.MessageBus, topic string, payload []byte) {
-	engine, err := newDockerEngine(config)
+func handleExecution(queue *relay.Queue, config *config.Config, bus bus.MessageBus, topic string, payload []byte) {
+}
+
+func handleCommand(queue *relay.Queue, config *config.Config, bus bus.MessageBus, topic string, payload []byte) {
+	engine, err := engines.NewDockerEngine(config.Docker)
 	if err != nil {
 		log.Errorf("Error connecting to Docker: %s", err)
 		//TODO Send error to Cog
 		return
 	}
 	request := &worker.Request{
-		Bus:          bus,
-		DockerEngine: engine,
-		Topic:        topic,
-		Message:      payload,
+		Bus:     bus,
+		Engine:  engine,
+		Topic:   topic,
+		Message: payload,
 	}
 	queue.Enqueue(request)
-}
-
-func newDockerEngine(config *config.Config) (*docker.Engine, error) {
-	if config.DockerDisabled == false {
-		engine, err := docker.NewEngine(config.Docker)
-		if err != nil {
-			return engine, nil
-		}
-		return nil, err
-	}
-	return nil, nil
 }

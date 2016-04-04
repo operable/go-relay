@@ -9,9 +9,9 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/operable/go-relay/relay"
 	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/messages"
-	"github.com/operable/go-relay/relay/worker"
 )
 
 const (
@@ -27,9 +27,15 @@ const (
 	RelayDiscoveryTopic = "bot/relays/discover"
 )
 
+// MessageBus is the interface used by worker code to
+// publish messages
+type MessageBus interface {
+	Publish(topic string, payload []byte) error
+}
+
 // MessageCallback describes the function signature used to process messages.
 // It is used for Relay directives and command execution.
-type MessageCallback func(bus worker.MessageBus, topic string, payload []byte)
+type MessageCallback func(bus MessageBus, topic string, payload []byte)
 
 // Subscriptions describes the command and execution topics with their corresponding
 // handler callbacks.
@@ -41,19 +47,19 @@ type Subscriptions struct {
 }
 
 // Link is a message bus connection. It's responsible for parsing incoming messages
-// and queueing them onto worker.Queue.
+// and queueing them onto relay.Queue.
 type Link struct {
 	id            string
 	cogConfig     *config.CogInfo
 	subscriptions Subscriptions
 	conn          *mqtt.Client
-	workQueue     *worker.Queue
+	workQueue     *relay.Queue
 	control       chan byte
 	wg            sync.WaitGroup
 }
 
 // NewLink returns a new message bus link as a worker.Service reference.
-func NewLink(id string, cogConfig *config.CogInfo, workQueue *worker.Queue, subscriptions Subscriptions, wg sync.WaitGroup) (worker.Service, error) {
+func NewLink(id string, cogConfig *config.CogInfo, workQueue *relay.Queue, subscriptions Subscriptions, wg sync.WaitGroup) (relay.Service, error) {
 	if id == "" || cogConfig == nil {
 		err := errors.New("Relay id or Cog connection info is nil.")
 		log.Fatal(err)
