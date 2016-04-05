@@ -117,6 +117,7 @@ func askForInstalledBundles(relayConfig *config.Config, msgbus relay.MessageBus)
 		},
 	}
 	raw, _ := json.Marshal(&msg)
+	log.Info("Requested latest command bundle assignments.")
 	return msgbus.Publish("bot/relays/info", raw)
 }
 
