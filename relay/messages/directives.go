@@ -1,7 +1,10 @@
 package messages
 
-// ListBundlesEnevelope is a wrapper around a ListBundles
-// directive. Required due to how Go handles struct serialization
+import (
+	"github.com/operable/go-relay/relay/config"
+)
+
+// ListBundlesEnvelope is a wrapper around a ListBundles directive.
 type ListBundlesEnvelope struct {
 	ListBundles *ListBundlesMessage `json:"list_bundles"`
 }
@@ -13,25 +16,27 @@ type ListBundlesMessage struct {
 	ReplyTo string `json:"reply_to"`
 }
 
+// ListBundlesResponseEnvelope is a wrapper around
+// the response to a ListBundles directive.
 type ListBundlesResponseEnvelope struct {
-	Bundles []BundleSpec `json:"bundles"`
+	Bundles []*config.Bundle `json:"bundles"`
 }
 
-type BundleSpec struct {
-	Name  string `json:"name"`
-	Image string `json:"image"`
-	Tag   string `json:"tag"`
-}
-
+// AnnouncementEnvelope is a wrapper around an Announcement directive.
 type AnnouncementEnvelope struct {
 	Announcement *Announcement `json:"announce" valid:"required"`
 }
+
+// Announcement describes the online/offline status of a Relay
 type Announcement struct {
-	RelayID  string `json:"relay" valid:"printableascii,required"`
-	Online   bool   `json:"online" valid:"bool,required"`
-	Snapshot bool   `json:"snapshot" valid:"bool,required"`
+	RelayID string `json:"relay" valid:"required"`
+	Online  bool   `json:"online" valid:"bool,required"`
+	// Deprecated
+	Snapshot bool `json:"snapshot" valid:"bool,required"`
 }
 
+// NewAnnouncement builds an Announcement directive suitable for
+// publishing
 func NewAnnouncement(relayID string, online bool) *AnnouncementEnvelope {
 	return &AnnouncementEnvelope{
 		Announcement: &Announcement{

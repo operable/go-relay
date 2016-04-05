@@ -102,6 +102,8 @@ func (link *Link) Publish(topic string, payload []byte) error {
 	return nil
 }
 
+// DirectiveReplyTo is a message bus topic used by Relay to
+// receive Cog responses
 func (link *Link) DirectiveReplyTo() string {
 	return link.subscriptions.command
 }

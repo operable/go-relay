@@ -35,7 +35,7 @@ func RunWorker(workQueue *relay.Queue, coordinator sync.WaitGroup) {
 		// Dispatch on mesasge type
 		switch result.(type) {
 		case *messages.ListBundlesResponseEnvelope:
-			updateBundles(ctx, result.(*messages.ListBundlesResponseEnvelope))
+			UpdateBundles(ctx, result.(*messages.ListBundlesResponseEnvelope))
 		}
 	}
 }
@@ -51,11 +51,6 @@ func parsePayload(payload []byte) (interface{}, error) {
 		result := &messages.ListBundlesResponseEnvelope{}
 		err = json.Unmarshal(payload, result)
 		return result, err
-	} else {
-		return nil, fmt.Errorf("Unknown message type for payload '%s'.", string(payload))
 	}
-}
-
-func updateBundles(ctx context.Context, listBundles *messages.ListBundlesResponseEnvelope) {
-	log.Infof("Processed %d bundle assignments", len(listBundles.Bundles))
+	return nil, fmt.Errorf("Unknown message type for payload '%s'.", string(payload))
 }
