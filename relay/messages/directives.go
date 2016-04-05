@@ -27,15 +27,17 @@ type AnnouncementEnvelope struct {
 	Announcement *Announcement `json:"announce" valid:"required"`
 }
 type Announcement struct {
-	RelayID string `json:"relay" valid:"printableascii,required"`
-	Online  bool   `json:"online" valid:"bool,required"`
+	RelayID  string `json:"relay" valid:"printableascii,required"`
+	Online   bool   `json:"online" valid:"bool,required"`
+	Snapshot bool   `json:"snapshot" valid:"bool,required"`
 }
 
 func NewAnnouncement(relayID string, online bool) *AnnouncementEnvelope {
 	return &AnnouncementEnvelope{
 		Announcement: &Announcement{
-			RelayID: relayID,
-			Online:  online,
+			RelayID:  relayID,
+			Online:   online,
+			Snapshot: true,
 		},
 	}
 }
