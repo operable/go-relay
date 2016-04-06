@@ -2,7 +2,9 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/asaskevich/govalidator"
+	"time"
 )
 
 // Bundle represents a command bundle's complete configuration
@@ -11,15 +13,17 @@ type Bundle struct {
 	Name          string                     `json:"name" valid:"required"`
 	Version       string                     `json:"version" valid:"semver,required"`
 	Permissions   []string                   `json:"permissions"`
-	Docker        *DockerImage               `json:"docker"`
-	Commands      map[string]*BundleCommand  `json:"commands"`
-	Templates     map[string]*BundleTemplate `json:"templates"`
+	Docker        *DockerImage               `json:"docker" valid:"-"`
+	Commands      map[string]*BundleCommand  `json:"commands" valid:"-"`
+	Templates     map[string]*BundleTemplate `json:"templates" valid:"-"`
 }
 
 // DockerImage identifies the bundle's image name and version
 type DockerImage struct {
-	Image string `json:"image" valid:"required"`
-	Tag   string `json:"tag"`
+	Image       string    `json:"image" valid:"notempty,required"`
+	Tag         string    `json:"tag" valid:"-"`
+	ID          string    `valid:"-"`
+	RetrievedAt time.Time `valid:"-"`
 }
 
 // BundleCommand identifies a command within a bundle
@@ -39,31 +43,43 @@ type BundleCommandOption struct {
 	ShortFlag   string `json:"short_flag"`
 }
 
+// BundleTemplate is an output template
 type BundleTemplate struct {
 	Name     string
-	Provider string `json:"provider" valid:"required"`
-	Contents string `json:"contents" valid:"required"`
+	Provider string `json:"provider" valid:"notempty,required"`
+	Contents string `json:"contents" valid:"notempty,required"`
+}
+
+// IsDocker returns true if the bundle contains a Docker stanza
+func (b *Bundle) IsDocker() bool {
+	return b.Docker != nil
+}
+
+// PrettyImageName returns a prettified version of a Docker image
+// include repository, name, and tag
+func (di *DockerImage) PrettyImageName() string {
+	return fmt.Sprintf("%s::%s", di.Image, di.Tag)
 }
 
 func validateBundleConfig(bundle *Bundle) error {
 	_, err := govalidator.ValidateStruct(bundle)
-	if err == nil && bundle.Docker != nil {
+	if err == nil && bundle.IsDocker() {
 		_, err = govalidator.ValidateStruct(bundle.Docker)
 	}
 	return err
 }
 
+// ParseBundleConfig parses raw bundle configs sent by
+// Cog
 func ParseBundleConfig(data []byte) (*Bundle, error) {
+	govalidator.TagMap["notempty"] = govalidator.Validator(func(str string) bool {
+		return str != ""
+	})
 	result := &Bundle{}
 	if err := json.Unmarshal(data, result); err != nil {
 		return nil, err
 	}
 
-	// Remove Docker struct if no values exist
-	if result.Docker != nil && (result.Docker.Tag == "" &&
-		result.Docker.Image == "") {
-		result.Docker = nil
-	}
 	if err := validateBundleConfig(result); err != nil {
 		return nil, err
 	}

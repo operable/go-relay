@@ -35,7 +35,7 @@ func RunWorker(workQueue *relay.Queue, coordinator sync.WaitGroup) {
 		// Dispatch on mesasge type
 		switch result.(type) {
 		case *messages.ListBundlesResponseEnvelope:
-			UpdateBundles(ctx, result.(*messages.ListBundlesResponseEnvelope))
+			updateBundles(ctx, result.(*messages.ListBundlesResponseEnvelope))
 		}
 	}
 }

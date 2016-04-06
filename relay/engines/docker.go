@@ -28,10 +28,16 @@ func NewDockerEngine(dockerConfig *config.DockerInfo) (Engine, error) {
 	}, nil
 }
 
-func (de *DockerEngine) IsAvailable(interface{}) (bool, error) {
-	return false, nil
+// IsAvailable returns true/false if a Docker image is found
+func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
+	err := de.client.PullImage(docker.PullImageOptions{
+		Repository: name,
+		Tag:        meta,
+	}, docker.AuthConfiguration{})
+	return err == nil, err
 }
 
+// Execute is a placeholder
 func (de *DockerEngine) Execute(interface{}) ([]byte, error) {
 	return []byte{0}, nil
 }

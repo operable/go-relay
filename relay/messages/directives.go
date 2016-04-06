@@ -19,7 +19,15 @@ type ListBundlesMessage struct {
 // ListBundlesResponseEnvelope is a wrapper around
 // the response to a ListBundles directive.
 type ListBundlesResponseEnvelope struct {
-	Bundles []*config.Bundle `json:"bundles"`
+	Bundles []BundleSpec `json:"bundles"`
+}
+
+// BundleSpec describes a command bundle and its current
+// enabled status
+type BundleSpec struct {
+	Name       string        `json:"name"`
+	Enabled    bool          `json:"enabled"`
+	ConfigFile config.Bundle `json:"config_file"`
 }
 
 // AnnouncementEnvelope is a wrapper around an Announcement directive.

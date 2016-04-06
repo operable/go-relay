@@ -9,7 +9,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/operable/go-relay/relay"
 	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/messages"
 )
@@ -27,9 +26,18 @@ const (
 	RelayDiscoveryTopic = "bot/relays/discover"
 )
 
+// MessageBus is the interface used by worker code to
+// publish messages
+type MessageBus interface {
+	Run() error
+	Halt()
+	Publish(topic string, payload []byte) error
+	DirectiveReplyTo() string
+}
+
 // MessageCallback describes the function signature used to process messages.
 // It is used for Relay directives and command execution.
-type MessageCallback func(bus relay.MessageBus, topic string, payload []byte)
+type MessageCallback func(bus MessageBus, topic string, payload []byte)
 
 // Subscriptions describes the command and execution topics with their corresponding
 // handler callbacks.
@@ -47,13 +55,12 @@ type Link struct {
 	cogConfig     *config.CogInfo
 	subscriptions Subscriptions
 	conn          *mqtt.Client
-	workQueue     *relay.Queue
 	control       chan byte
 	wg            sync.WaitGroup
 }
 
-// NewLink returns a new message bus link as a relay.MessageBus reference.
-func NewLink(id string, cogConfig *config.CogInfo, workQueue *relay.Queue, subscriptions Subscriptions, wg sync.WaitGroup) (relay.MessageBus, error) {
+// NewLink returns a new message bus link as a MessageBus reference.
+func NewLink(id string, cogConfig *config.CogInfo, subscriptions Subscriptions, wg sync.WaitGroup) (MessageBus, error) {
 	if id == "" || cogConfig == nil {
 		err := errors.New("Relay id or Cog connection info is nil.")
 		log.Fatal(err)
@@ -63,7 +70,6 @@ func NewLink(id string, cogConfig *config.CogInfo, workQueue *relay.Queue, subsc
 		cogConfig:     cogConfig,
 		subscriptions: buildTopics(id, subscriptions),
 		conn:          nil,
-		workQueue:     workQueue,
 		control:       make(chan byte),
 		wg:            wg,
 	}
@@ -125,12 +131,13 @@ func (link *Link) setupSubscriptions() error {
 func (link *Link) connect() error {
 	mqttOpts := mqtt.NewClientOptions()
 	mqttOpts.SetKeepAlive(time.Duration(15) * time.Second)
-	mqttOpts.SetPingTimeout(time.Duration(5) * time.Second)
+	mqttOpts.SetPingTimeout(time.Duration(60) * time.Second)
 	mqttOpts.SetConnectTimeout(time.Duration(5) * time.Second)
 	mqttOpts.SetMaxReconnectInterval(time.Duration(10) * time.Second)
 	mqttOpts.SetUsername(link.id)
 	mqttOpts.SetPassword(link.cogConfig.Token)
 	mqttOpts.SetClientID(link.id)
+	mqttOpts.SetCleanSession(true)
 	mqttOpts.SetWill(RelayDiscoveryTopic, newWill(link.id), 1, false)
 	url := fmt.Sprintf("tcp://%s:%d", link.cogConfig.Host, link.cogConfig.Port)
 	mqttOpts.AddBroker(url)

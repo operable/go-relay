@@ -1,24 +1,18 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
 	"runtime"
 	"strings"
-	"sync"
 	"syscall"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/operable/go-relay/relay"
-	"github.com/operable/go-relay/relay/bus"
 	"github.com/operable/go-relay/relay/config"
-	"github.com/operable/go-relay/relay/engines"
-	"github.com/operable/go-relay/relay/messages"
 	"github.com/operable/go-relay/relay/worker"
-	"golang.org/x/net/context"
 )
 
 const (
@@ -90,39 +84,7 @@ func prepare() *config.Config {
 	return relayConfig
 }
 
-func shutdown(relayConfig *config.Config, link relay.MessageBus, workQueue *relay.Queue, coordinator sync.WaitGroup) {
-	// Remove signal handler so Ctrl-C works
-	signal.Reset(syscall.SIGINT)
-
-	log.Info("Starting shut down.")
-
-	// Stop message bus listeners
-	if link != nil {
-		link.Halt()
-	}
-
-	// Stop work queue
-	workQueue.Stop()
-
-	// Wait on processes to exit
-	coordinator.Wait()
-	log.Infof("Relay %s shut down complete.", relayConfig.ID)
-}
-
-func askForInstalledBundles(relayConfig *config.Config, msgbus relay.MessageBus) error {
-	msg := messages.ListBundlesEnvelope{
-		ListBundles: &messages.ListBundlesMessage{
-			RelayID: relayConfig.ID,
-			ReplyTo: msgbus.DirectiveReplyTo(),
-		},
-	}
-	raw, _ := json.Marshal(&msg)
-	log.Info("Requested latest command bundle assignments.")
-	return msgbus.Publish("bot/relays/info", raw)
-}
-
 func main() {
-	var coordinator sync.WaitGroup
 	incomingSignal := make(chan os.Signal, 1)
 
 	// Set up signal handlers
@@ -131,74 +93,21 @@ func main() {
 	log.Infof("Configuration file %s loaded.", *configFile)
 	log.Infof("Relay %s is initializing.", relayConfig.ID)
 
-	// Create work queue with some burstable capacity
-	workQueue := relay.NewQueue(relayConfig.MaxConcurrent * 2)
-
-	if relayConfig.DockerDisabled == false {
-		err := engines.VerifyDockerConfig(relayConfig.Docker)
-		if err != nil {
-			log.Errorf("Error verifying Docker configuration: %s.", err)
-			shutdown(relayConfig, nil, workQueue, coordinator)
-			os.Exit(DOCKER_ERR)
-		} else {
-			log.Infof("Docker configuration verified.")
-		}
-	} else {
-		log.Infof("Docker support disabled.")
+	myRelay := relay.New(relayConfig)
+	if err := myRelay.Start(worker.RunWorker); err != nil {
+		os.Exit(1)
 	}
-	// Start MaxConcurrent workers
-	for i := 0; i < relayConfig.MaxConcurrent; i++ {
-		go func() {
-			worker.RunWorker(workQueue, coordinator)
-		}()
-	}
-	log.Infof("Started %d workers.", relayConfig.MaxConcurrent)
-
-	// Handler func used for both message types
-	handler := func(bus relay.MessageBus, topic string, payload []byte) {
-		handleMessage(workQueue, relayConfig, bus, topic, payload)
-	}
-
-	// Connect to Cog
-	subs := bus.Subscriptions{
-		CommandHandler:   handler,
-		ExecutionHandler: handler,
-	}
-	link, err := bus.NewLink(relayConfig.ID, relayConfig.Cog, workQueue, subs, coordinator)
-	if err != nil {
-		log.Errorf("Error connecting to Cog: %s.", err)
-		shutdown(relayConfig, nil, workQueue, coordinator)
-		os.Exit(BUS_ERR)
-	}
-
-	log.Infof("Connected to Cog host %s.", relayConfig.Cog.Host)
-	err = link.Run()
-	if err != nil {
-		log.Errorf("Error subscribing to message topics: %s.", err)
-		shutdown(relayConfig, nil, workQueue, coordinator)
-		os.Exit(BUS_ERR)
-	}
-	err = askForInstalledBundles(relayConfig, link)
-	if err != nil {
-		log.Errorf("Error initiating installed bundles handshake: %s.", err)
-		os.Exit(BUS_ERR)
-	}
-	log.Infof("Relay %s is ready.", relayConfig.ID)
+	myRelay.UpdateBundles()
 
 	// Wait until we get a signal
 	<-incomingSignal
 
 	// Shutdown
-	shutdown(relayConfig, link, workQueue, coordinator)
-}
+	// Remove signal handler so Ctrl-C works
+	signal.Reset(syscall.SIGINT)
 
-func handleMessage(queue *relay.Queue, relayConfig *config.Config, bus relay.MessageBus, topic string, payload []byte) {
-	message := &relay.Incoming{
-		Config:  relayConfig,
-		Bus:     bus,
-		Topic:   topic,
-		Payload: payload,
-	}
-	ctx := context.WithValue(context.Background(), "message", message)
-	queue.Enqueue(ctx)
+	log.Info("Starting shut down.")
+	myRelay.Stop()
+	log.Infof("Relay %s shut down complete.", relayConfig.ID)
+
 }
