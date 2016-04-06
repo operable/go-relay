@@ -69,6 +69,13 @@ func (q *Queue) Stop() {
 	}
 }
 
+// Start unblocks a previously stopped queue
+func (q *Queue) Start() {
+	if q.stopped == true {
+		q.stopped = false
+	}
+}
+
 func (q *Queue) updateDequeued() {
 	q.guard.Lock()
 	defer q.guard.Unlock()

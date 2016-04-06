@@ -52,6 +52,7 @@ type Relay struct {
 	bundles       map[string]*config.Bundle
 	fetchedImages *list.List
 	workQueue     *Queue
+	worker        Worker
 	coordinator   sync.WaitGroup
 	control       chan ControlCommand
 	state         State
@@ -65,7 +66,7 @@ func New(relayConfig *config.Config) *Relay {
 		fetchedImages: list.New(),
 		// Create work queue with some burstable capacity
 		workQueue: NewQueue(relayConfig.MaxConcurrent * 2),
-		control:   make(chan ControlCommand),
+		control:   make(chan ControlCommand, 2),
 		state:     RelayStopped,
 	}
 }
@@ -79,11 +80,8 @@ func (r *Relay) Start(worker Worker) error {
 	}
 	r.state = RelayStarting
 	r.startWorkers(worker)
-	err := r.connectToCog()
-	if err != nil {
-		r.Stop()
-		return err
-	}
+	r.connectToCog()
+	r.worker = worker
 	go r.runLoop()
 	return nil
 }
@@ -95,6 +93,7 @@ func (r *Relay) Stop() {
 			r.Bus.Halt()
 		}
 		r.workQueue.Stop()
+		r.control <- RelayStop
 		r.coordinator.Wait()
 		r.state = RelayStopped
 	}
@@ -134,6 +133,20 @@ func (r *Relay) StoreBundle(bundle *config.Bundle) {
 	r.bundles[bundle.Name] = bundle
 }
 
+// BundleNames returns list of bundles known by a Relay
+func (r *Relay) BundleNames() []string {
+	r.bundleLock.RLock()
+	defer r.bundleLock.RUnlock()
+	bundleCount := len(r.bundles)
+	retval := make([]string, bundleCount)
+	i := 0
+	for k, _ := range r.bundles {
+		retval[i] = k
+		i++
+	}
+	return retval
+}
+
 func (r *Relay) startWorkers(worker Worker) {
 	for i := 0; i < r.Config.MaxConcurrent; i++ {
 		go func() {
@@ -151,11 +164,12 @@ func (r *Relay) connectToCog() error {
 	}
 
 	// Connect to Cog
-	subs := bus.Subscriptions{
-		CommandHandler:   handler,
-		ExecutionHandler: handler,
+	handlers := bus.Handlers{
+		CommandHandler:    handler,
+		ExecutionHandler:  handler,
+		DisconnectHandler: r.disconnected,
 	}
-	link, err := bus.NewLink(r.Config.ID, r.Config.Cog, subs, r.coordinator)
+	link, err := bus.NewLink(r.Config.ID, r.Config.Cog, handlers, r.coordinator)
 	if err != nil {
 		log.Errorf("Error connecting to Cog: %s.", err)
 		return err
@@ -169,6 +183,11 @@ func (r *Relay) connectToCog() error {
 	}
 	r.Bus = link
 	return nil
+}
+
+func (r *Relay) disconnected(err error) {
+	log.Errorf("Relay %s disconnected due to error: %s.", r.Config.ID, err)
+	r.control <- RelayRestart
 }
 
 func (r *Relay) handleMessage(topic string, payload []byte) {
@@ -195,14 +214,14 @@ func (r *Relay) verifyDockerConfig() error {
 }
 
 func (r *Relay) runLoop() {
+	r.coordinator.Add(1)
+	defer r.coordinator.Done()
 	for {
 		switch <-r.control {
 		case RelayStop:
-			r.handleStopCommand()
 			return
 		case RelayRestart:
 			r.handleRestartCommand()
-			return
 		case RelayUpdateBundles:
 			r.handleUpdateBundlesCommand()
 		case RelayUpdateBundlesDone:
@@ -211,15 +230,26 @@ func (r *Relay) runLoop() {
 	}
 }
 
-func (r *Relay) handleStopCommand() {
-	r.Stop()
-}
-
 func (r *Relay) handleRestartCommand() {
+	if r.Bus != nil {
+		r.Bus.Halt()
+	}
+	r.workQueue.Stop()
+	r.coordinator.Done()
+	r.coordinator.Wait()
+	r.state = RelayStopped
+
+	r.coordinator.Add(1)
+	r.state = RelayStarting
+	r.workQueue.Start()
+	r.startWorkers(r.worker)
+	r.connectToCog()
+	r.control <- RelayUpdateBundles
 }
 
 func (r *Relay) handleUpdateBundlesDone() {
 	if r.state == RelayUpdatingBundles {
+		r.announceBundles()
 		log.Info("Bundle refresh complete.")
 		log.Infof("Relay %s ready.", r.Config.ID)
 		r.state = RelayReady
@@ -247,4 +277,10 @@ func (r *Relay) handleUpdateBundlesCommand() {
 
 func (r *Relay) logBadState(name string, required State) {
 	log.Errorf("%s requires relay state %d: %d.", name, required, r.state)
+}
+
+func (r *Relay) announceBundles() {
+	announcement := messages.NewBundleAnnouncement(r.Config.ID, r.BundleNames())
+	raw, _ := json.Marshal(announcement)
+	r.Bus.Publish(bus.RelayDiscoveryTopic, raw)
 }

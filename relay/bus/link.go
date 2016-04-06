@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -39,39 +40,43 @@ type MessageBus interface {
 // It is used for Relay directives and command execution.
 type MessageCallback func(bus MessageBus, topic string, payload []byte)
 
-// Subscriptions describes the command and execution topics with their corresponding
+// DisconnectCallback is called when the MQTT connection drops unexpectedly
+type DisconnectCallback func(error)
+
+// Handlers describes the command and execution topics with their corresponding
 // handler callbacks.
-type Subscriptions struct {
-	command          string
-	execution        string
-	CommandHandler   MessageCallback
-	ExecutionHandler MessageCallback
+type Handlers struct {
+	command           string
+	execution         string
+	CommandHandler    MessageCallback
+	ExecutionHandler  MessageCallback
+	DisconnectHandler DisconnectCallback
 }
 
 // Link is a message bus connection. It's responsible for parsing incoming messages
 // and queueing them onto relay.Queue.
 type Link struct {
-	id            string
-	cogConfig     *config.CogInfo
-	subscriptions Subscriptions
-	conn          *mqtt.Client
-	control       chan byte
-	wg            sync.WaitGroup
+	id        string
+	cogConfig *config.CogInfo
+	handlers  Handlers
+	conn      *mqtt.Client
+	control   chan byte
+	wg        sync.WaitGroup
 }
 
 // NewLink returns a new message bus link as a MessageBus reference.
-func NewLink(id string, cogConfig *config.CogInfo, subscriptions Subscriptions, wg sync.WaitGroup) (MessageBus, error) {
+func NewLink(id string, cogConfig *config.CogInfo, handlers Handlers, wg sync.WaitGroup) (MessageBus, error) {
 	if id == "" || cogConfig == nil {
 		err := errors.New("Relay id or Cog connection info is nil.")
 		log.Fatal(err)
 		return nil, err
 	}
 	link := &Link{id: id,
-		cogConfig:     cogConfig,
-		subscriptions: buildTopics(id, subscriptions),
-		conn:          nil,
-		control:       make(chan byte),
-		wg:            wg,
+		cogConfig: cogConfig,
+		handlers:  buildTopics(id, handlers),
+		conn:      nil,
+		control:   make(chan byte),
+		wg:        wg,
 	}
 	return link, nil
 }
@@ -81,7 +86,7 @@ func (link *Link) Run() error {
 	if err := link.connect(); err != nil {
 		return err
 	}
-	if err := link.setupSubscriptions(); err != nil {
+	if err := link.setupHandlers(); err != nil {
 		log.Errorf("Error subscribing to required topics: %s.", err)
 		return err
 	}
@@ -111,17 +116,17 @@ func (link *Link) Publish(topic string, payload []byte) error {
 // DirectiveReplyTo is a message bus topic used by Relay to
 // receive Cog responses
 func (link *Link) DirectiveReplyTo() string {
-	return link.subscriptions.command
+	return link.handlers.command
 }
 
-func (link *Link) setupSubscriptions() error {
-	token := link.conn.Subscribe(link.subscriptions.command, 1,
-		wrapCallback(link, link.subscriptions.CommandHandler))
+func (link *Link) setupHandlers() error {
+	token := link.conn.Subscribe(link.handlers.command, 1,
+		wrapCallback(link, link.handlers.CommandHandler))
 	if token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
-	token = link.conn.Subscribe(link.subscriptions.execution, 1,
-		wrapCallback(link, link.subscriptions.ExecutionHandler))
+	token = link.conn.Subscribe(link.handlers.execution, 1,
+		wrapCallback(link, link.handlers.ExecutionHandler))
 	if token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
@@ -130,10 +135,15 @@ func (link *Link) setupSubscriptions() error {
 
 func (link *Link) connect() error {
 	mqttOpts := mqtt.NewClientOptions()
+	mqttOpts.SetAutoReconnect(false)
+	if link.handlers.DisconnectHandler != nil {
+		handler := func(client *mqtt.Client, err error) {
+			link.handlers.DisconnectHandler(err)
+		}
+		mqttOpts.SetConnectionLostHandler(handler)
+	}
 	mqttOpts.SetKeepAlive(time.Duration(15) * time.Second)
 	mqttOpts.SetPingTimeout(time.Duration(60) * time.Second)
-	mqttOpts.SetConnectTimeout(time.Duration(5) * time.Second)
-	mqttOpts.SetMaxReconnectInterval(time.Duration(10) * time.Second)
 	mqttOpts.SetUsername(link.id)
 	mqttOpts.SetPassword(link.cogConfig.Token)
 	mqttOpts.SetClientID(link.id)
@@ -142,9 +152,16 @@ func (link *Link) connect() error {
 	url := fmt.Sprintf("tcp://%s:%d", link.cogConfig.Host, link.cogConfig.Port)
 	mqttOpts.AddBroker(url)
 	link.conn = mqtt.NewClient(mqttOpts)
-	if token := link.conn.Connect(); token.Wait() && token.Error() != nil {
-		link.conn = nil
-		return token.Error()
+	passes, wait := nextIncrement(0)
+	for {
+		if token := link.conn.Connect(); token.Wait() && token.Error() != nil {
+			log.Errorf("Cog connection error: %s.", token.Error())
+			log.Infof("Waiting %d seconds before retrying.", wait)
+			time.Sleep(time.Duration(wait) * time.Second)
+			passes, wait = nextIncrement(passes)
+		} else {
+			break
+		}
 	}
 	return nil
 }
@@ -155,14 +172,33 @@ func wrapCallback(link *Link, callback MessageCallback) mqtt.MessageHandler {
 	}
 }
 
-func buildTopics(id string, subscriptions Subscriptions) Subscriptions {
-	subscriptions.command = fmt.Sprintf(CommandTopicTemplate, id)
-	subscriptions.execution = fmt.Sprintf(ExecuteTopicTemplate, id)
-	return subscriptions
+func buildTopics(id string, handlers Handlers) Handlers {
+	handlers.command = fmt.Sprintf(CommandTopicTemplate, id)
+	handlers.execution = fmt.Sprintf(ExecuteTopicTemplate, id)
+	return handlers
 }
 
 func newWill(id string) string {
 	announcement := messages.NewAnnouncement(id, false)
 	data, _ := json.Marshal(announcement)
 	return string(data)
+}
+
+func nextIncrement(i int) (int, int) {
+	switch i {
+	case 0:
+		fallthrough
+	case 1:
+		return i + 1, 5 + rand.Intn(7)
+	case 2:
+		fallthrough
+	case 3:
+		return i + 1, 10 + rand.Intn(11)
+	case 4:
+		fallthrough
+	case 5:
+		return i + 1, 30 + rand.Intn(13)
+	default:
+		return i, 60 + rand.Intn(23)
+	}
 }

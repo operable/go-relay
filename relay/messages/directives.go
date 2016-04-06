@@ -25,9 +25,9 @@ type ListBundlesResponseEnvelope struct {
 // BundleSpec describes a command bundle and its current
 // enabled status
 type BundleSpec struct {
-	Name       string        `json:"name"`
-	Enabled    bool          `json:"enabled"`
-	ConfigFile config.Bundle `json:"config_file"`
+	Name       string        `json:"name,omitempty"`
+	Enabled    bool          `json:"enabled,omitempty"`
+	ConfigFile config.Bundle `json:"config_file,omitempty"`
 }
 
 // AnnouncementEnvelope is a wrapper around an Announcement directive.
@@ -37,8 +37,9 @@ type AnnouncementEnvelope struct {
 
 // Announcement describes the online/offline status of a Relay
 type Announcement struct {
-	RelayID string `json:"relay" valid:"required"`
-	Online  bool   `json:"online" valid:"bool,required"`
+	RelayID string       `json:"relay" valid:"required"`
+	Online  bool         `json:"online" valid:"bool,required"`
+	Bundles []BundleSpec `json:"bundles,omitempty"`
 	// Deprecated
 	Snapshot bool `json:"snapshot" valid:"bool,required"`
 }
@@ -50,6 +51,23 @@ func NewAnnouncement(relayID string, online bool) *AnnouncementEnvelope {
 		Announcement: &Announcement{
 			RelayID:  relayID,
 			Online:   online,
+			Snapshot: true,
+		},
+	}
+}
+
+// NewBundleAnnoucement builds an Announcement directive describing
+// the list of bundles available on a Relay
+func NewBundleAnnouncement(relayID string, bundles []string) *AnnouncementEnvelope {
+	specs := make([]BundleSpec, len(bundles))
+	for i, v := range bundles {
+		specs[i].Name = v
+	}
+	return &AnnouncementEnvelope{
+		Announcement: &Announcement{
+			RelayID:  relayID,
+			Online:   true,
+			Bundles:  specs,
 			Snapshot: true,
 		},
 	}
