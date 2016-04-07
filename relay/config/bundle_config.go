@@ -45,9 +45,10 @@ type BundleCommandOption struct {
 
 // BundleTemplate is an output template
 type BundleTemplate struct {
-	Name     string
-	Provider string `json:"provider" valid:"notempty,required"`
-	Contents string `json:"contents" valid:"notempty,required"`
+	Name    string
+	Slack   string `json:"slack,omitempty" valid:"-"`
+	HipChat string `json:"hipchat,omitempty" valid:"-"`
+	IRC     string `json:"irc,omitempty" valid:"-"`
 }
 
 // IsDocker returns true if the bundle contains a Docker stanza
