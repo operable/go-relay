@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	log "github.com/Sirupsen/logrus"
 	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/messages"
 	"os/exec"
+	"time"
 )
 
 type NativeEngine struct {
@@ -38,7 +40,11 @@ func (ne *NativeEngine) Execute(request *messages.ExecutionRequest, bundle *conf
 	command.Stdin = bytes.NewBuffer(input)
 	command.Stdout = ne.stdout
 	command.Stderr = ne.stderr
-	if err := command.Run(); err != nil {
+	start := time.Now()
+	err := command.Run()
+	finish := time.Now()
+	log.Infof("Command %s ran for %f secs.", request.Command, finish.Sub(start).Seconds())
+	if err != nil {
 		return emptyResult, emptyResult, err
 	}
 	return ne.stdout.Bytes(), ne.stderr.Bytes(), nil
