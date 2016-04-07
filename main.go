@@ -85,10 +85,6 @@ func prepare() *config.Config {
 }
 
 func main() {
-	incomingSignal := make(chan os.Signal, 1)
-
-	// Set up signal handlers
-	signal.Notify(incomingSignal, syscall.SIGINT)
 	relayConfig := prepare()
 	log.Infof("Configuration file %s loaded.", *configFile)
 	log.Infof("Relay %s is initializing.", relayConfig.ID)
@@ -98,6 +94,10 @@ func main() {
 		os.Exit(1)
 	}
 	myRelay.UpdateBundles()
+
+	// Set up signal handlers
+	incomingSignal := make(chan os.Signal, 1)
+	signal.Notify(incomingSignal, syscall.SIGINT)
 
 	// Wait until we get a signal
 	<-incomingSignal
