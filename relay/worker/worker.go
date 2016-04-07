@@ -2,7 +2,7 @@ package worker
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	log "github.com/Sirupsen/logrus"
 	"github.com/operable/go-relay/relay"
 	"github.com/operable/go-relay/relay/messages"
@@ -24,11 +24,16 @@ func RunWorker(workQueue *relay.Queue, coordinator sync.WaitGroup) {
 		}
 
 		// Extract message and parse payload
-		msg := ctx.Value("message").(*relay.Incoming)
-
-		result, err := parsePayload(msg.Payload)
+		incoming := ctx.Value("incoming").(*relay.Incoming)
+		if incoming.IsExecution == true {
+			if err := executeCommand(incoming); err != nil {
+				log.Errorf("Error executing command: %s.", err)
+			}
+			continue
+		}
+		result, err := parsePayload(incoming.Payload)
 		if err != nil {
-			log.Errorf("Failed to parse payload '%s': %s.", string(msg.Payload), err)
+			log.Errorf("Failed to parse payload '%s': %s.", string(incoming.Payload), err)
 			continue
 		}
 
@@ -52,5 +57,5 @@ func parsePayload(payload []byte) (interface{}, error) {
 		err = json.Unmarshal(payload, result)
 		return result, err
 	}
-	return nil, fmt.Errorf("Unknown message type for payload '%s'.", string(payload))
+	return nil, errors.New("Unknown message type")
 }

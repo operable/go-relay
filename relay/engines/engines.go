@@ -1,7 +1,13 @@
 package engines
 
+import (
+	"github.com/operable/go-relay/relay/config"
+	"github.com/operable/go-relay/relay/messages"
+)
+
 // Engine defines the execution engine interface
 type Engine interface {
 	IsAvailable(name string, meta string) (bool, error)
-	Execute(interface{}) ([]byte, error)
+	Execute(request *messages.ExecutionRequest, bundle *config.Bundle) ([]byte, []byte, error)
+	IDForName(name string) (string, error)
 }

@@ -19,9 +19,9 @@ const (
 	// receive Relay directives from Cog
 	CommandTopicTemplate = "bot/relays/%s/directives"
 
-	//ExecuteTopicTemplate is a topic template used by Relays to
+	// ExecuteTopicTemplate is a topic template used by Relays to
 	// receive command execution requests from Cog
-	ExecuteTopicTemplate = "bot/relays/%s/exec"
+	ExecuteTopicTemplate = "/bot/commands/%s/#"
 
 	// RelayDiscoveryTopic is the topic Cog uses to discover new Relays
 	RelayDiscoveryTopic = "bot/relays/discover"
@@ -53,8 +53,7 @@ type Handlers struct {
 	DisconnectHandler DisconnectCallback
 }
 
-// Link is a message bus connection. It's responsible for parsing incoming messages
-// and queueing them onto relay.Queue.
+// Link is a message bus connection.
 type Link struct {
 	id        string
 	cogConfig *config.CogInfo
@@ -142,8 +141,8 @@ func (link *Link) connect() error {
 		}
 		mqttOpts.SetConnectionLostHandler(handler)
 	}
-	mqttOpts.SetKeepAlive(time.Duration(15) * time.Second)
-	mqttOpts.SetPingTimeout(time.Duration(60) * time.Second)
+	mqttOpts.SetKeepAlive(time.Duration(60) * time.Second)
+	mqttOpts.SetPingTimeout(time.Duration(15) * time.Second)
 	mqttOpts.SetUsername(link.id)
 	mqttOpts.SetPassword(link.cogConfig.Token)
 	mqttOpts.SetClientID(link.id)

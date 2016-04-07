@@ -9,6 +9,7 @@ import (
 	"github.com/operable/go-relay/relay/engines"
 	"github.com/operable/go-relay/relay/messages"
 	"golang.org/x/net/context"
+	"strings"
 	"sync"
 )
 
@@ -39,9 +40,10 @@ type Worker func(*Queue, sync.WaitGroup)
 
 // Incoming request or directive
 type Incoming struct {
-	Relay   *Relay
-	Topic   string
-	Payload []byte
+	Relay       *Relay
+	IsExecution bool
+	Topic       string
+	Payload     []byte
 }
 
 // Relay is a single instance of a Relay
@@ -191,12 +193,13 @@ func (r *Relay) disconnected(err error) {
 }
 
 func (r *Relay) handleMessage(topic string, payload []byte) {
-	message := &Incoming{
-		Relay:   r,
-		Topic:   topic,
-		Payload: payload,
+	incoming := &Incoming{
+		Relay:       r,
+		Topic:       topic,
+		IsExecution: strings.HasPrefix(topic, "/bot/commands/"),
+		Payload:     payload,
 	}
-	ctx := context.WithValue(context.Background(), "message", message)
+	ctx := context.WithValue(context.Background(), "incoming", incoming)
 	r.workQueue.Enqueue(ctx)
 }
 
@@ -239,6 +242,7 @@ func (r *Relay) handleRestartCommand() {
 	r.coordinator.Wait()
 	r.state = RelayStopped
 
+	log.Infof("Relay %s restarting.", r.Config.ID)
 	r.coordinator.Add(1)
 	r.state = RelayStarting
 	r.workQueue.Start()
