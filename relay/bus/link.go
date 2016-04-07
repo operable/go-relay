@@ -183,21 +183,32 @@ func newWill(id string) string {
 	return string(data)
 }
 
+func prepareForRetries() {
+	// Seed rand to reduce determinism
+	now := time.Now()
+	rand.Seed(now.UnixNano())
+}
+
 func nextIncrement(i int) (int, int) {
 	switch i {
 	case 0:
+		prepareForRetries()
 		fallthrough
 	case 1:
-		return i + 1, 5 + rand.Intn(7)
+		return i + 1, 5 + rand.Intn(11)
 	case 2:
 		fallthrough
 	case 3:
-		return i + 1, 10 + rand.Intn(11)
+		return i + 1, 10 + rand.Intn(23)
 	case 4:
 		fallthrough
 	case 5:
-		return i + 1, 30 + rand.Intn(13)
+		return i + 1, 30 + rand.Intn(47)
+	case 6:
+		fallthrough
+	case 7:
+		return i + 1, 60 + rand.Intn(97)
 	default:
-		return i, 60 + rand.Intn(23)
+		return i, 90 + rand.Intn(11)
 	}
 }
