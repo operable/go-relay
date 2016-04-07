@@ -26,9 +26,7 @@ func RunWorker(workQueue *relay.Queue, coordinator sync.WaitGroup) {
 		// Extract message and parse payload
 		incoming := ctx.Value("incoming").(*relay.Incoming)
 		if incoming.IsExecution == true {
-			if err := executeCommand(incoming); err != nil {
-				log.Errorf("Error executing command: %s.", err)
-			}
+			executeCommand(incoming)
 			continue
 		}
 		result, err := parsePayload(incoming.Payload)

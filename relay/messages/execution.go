@@ -33,10 +33,24 @@ type CogUser struct {
 	Username  string `json:"username"`
 }
 
+// ExecutionResponse contains the results of executing a command
+type ExecutionResponse struct {
+	Room          string `json:"room"`
+	Bundle        string `json:"bundle"`
+	Status        string `json:"status"`
+	StatusMessage string `json:"status_message"`
+	Template      string `json:"template"`
+	Body          string `json:"body"`
+}
+
 func (er *ExecutionRequest) BundleName() string {
 	return strings.SplitN(er.Command, ":", 2)[0]
 }
 
 func (er *ExecutionRequest) CommandName() string {
 	return strings.SplitN(er.Command, ":", 2)[1]
+}
+
+func (er *ExecutionRequest) PipelineID() string {
+	return strings.SplitN(er.ReplyTo, "/", 4)[2]
 }

@@ -2,7 +2,6 @@ package worker
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/operable/go-relay/relay"
@@ -11,38 +10,45 @@ import (
 	"github.com/operable/go-relay/relay/messages"
 )
 
-func executeCommand(incoming *relay.Incoming) error {
+func executeCommand(incoming *relay.Incoming) {
 	request := &messages.ExecutionRequest{}
 	if err := json.Unmarshal(incoming.Payload, request); err != nil {
-		return err
+		log.Errorf("Ignoring malformed execution request: %s.", err)
+		return
 	}
 	bundle := incoming.Relay.GetBundle(request.BundleName())
+	response := &messages.ExecutionResponse{}
 	if bundle == nil {
-		return fmt.Errorf("Unknown command bundle %s", request.BundleName())
+		response.Status = "error"
+		response.StatusMessage = fmt.Sprintf("Unknown command bundle %s", request.BundleName())
+	} else {
+		engine, err := engineForBundle(*bundle, *incoming)
+		if err != nil {
+			response.Status = "error"
+			response.StatusMessage = fmt.Sprintf("%s", err)
+		} else {
+			commandOutput, commandErrors, err := engine.Execute(request, bundle)
+			if err != nil {
+				response.Status = "error"
+				response.StatusMessage = fmt.Sprintf("%s", err)
+			} else {
+				if len(commandErrors) > 0 {
+					response.Status = "error"
+					response.StatusMessage = string(commandErrors)
+				} else {
+					response.Status = "ok"
+					response.Body = string(commandOutput)
+				}
+			}
+		}
 	}
+	responseBytes, _ := json.Marshal(response)
+	incoming.Relay.Bus.Publish(request.ReplyTo, responseBytes)
+}
+
+func engineForBundle(bundle config.Bundle, incoming relay.Incoming) (engines.Engine, error) {
 	if bundle.IsDocker() == true {
-		return executeDockerCommand(request, incoming, bundle)
+		return engines.NewDockerEngine(incoming.Relay.Config.Docker)
 	}
-	return executeNativeCommand(request, incoming, bundle)
-}
-
-func executeDockerCommand(request *messages.ExecutionRequest, incoming *relay.Incoming, bundle *config.Bundle) error {
-	engine, err := engines.NewDockerEngine(incoming.Relay.Config.Docker)
-	if err == nil && engine == nil {
-		log.Error("Docker engine is disabled.")
-		return errors.New("Docker engine is disabled")
-	}
-	if err != nil {
-		return err
-	}
-	commandOutput, commandErrors, err := engine.Execute(request, bundle)
-	if err != nil {
-		return err
-	}
-	log.Infof("Command returned:\n%s\n%s", string(commandOutput), string(commandErrors))
-	return nil
-}
-
-func executeNativeCommand(request *messages.ExecutionRequest, incoming *relay.Incoming, bundle *config.Bundle) error {
-	return nil
+	return engines.NewNativeEngine()
 }

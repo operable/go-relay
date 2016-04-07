@@ -11,3 +11,6 @@ type Engine interface {
 	Execute(request *messages.ExecutionRequest, bundle *config.Bundle) ([]byte, []byte, error)
 	IDForName(name string) (string, error)
 }
+
+// Used to return empty results without allocating
+var emptyResult = []byte{}
