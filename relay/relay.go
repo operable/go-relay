@@ -177,12 +177,12 @@ func (r *Relay) connectToCog() error {
 		return err
 	}
 
-	log.Infof("Connected to Cog host %s.", r.Config.Cog.Host)
 	err = link.Run()
 	if err != nil {
-		log.Errorf("Error subscribing to message topics: %s.", err)
+		log.Errorf("Error connecting to Cog: %s.", err)
 		return err
 	}
+	log.Infof("Connected to Cog host %s.", r.Config.Cog.Host)
 	r.Bus = link
 	return nil
 }
