@@ -59,7 +59,7 @@ func (b *Bundle) IsDocker() bool {
 // PrettyImageName returns a prettified version of a Docker image
 // include repository, name, and tag
 func (di *DockerImage) PrettyImageName() string {
-	return fmt.Sprintf("%s::%s", di.Image, di.Tag)
+	return fmt.Sprintf("%s:%s", di.Image, di.Tag)
 }
 
 func validateBundleConfig(bundle *Bundle) error {
