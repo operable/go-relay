@@ -145,7 +145,7 @@ func (r *Relay) BundleNames() []string {
 	bundleCount := len(r.bundles)
 	retval := make([]string, bundleCount)
 	i := 0
-	for k, _ := range r.bundles {
+	for k := range r.bundles {
 		retval[i] = k
 		i++
 	}

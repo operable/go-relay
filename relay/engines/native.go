@@ -11,14 +11,17 @@ import (
 	"time"
 )
 
+// NativeEngine executes commands natively, that is directly,
+// on the Relay host.
 type NativeEngine struct {
 	relayConfig config.Config
 	stdout      *bytes.Buffer
 	stderr      *bytes.Buffer
 }
 
-var notImplemented = errors.New("Not implemented")
+var errorNotImplemented = errors.New("Not implemented")
 
+// NewNativeEngine constructs a new instance
 func NewNativeEngine(relayConfig config.Config) (Engine, error) {
 	return &NativeEngine{
 		relayConfig: relayConfig,
@@ -27,13 +30,17 @@ func NewNativeEngine(relayConfig config.Config) (Engine, error) {
 	}, nil
 }
 
+// IsAvailable required by engines.Engine interface
 func (ne *NativeEngine) IsAvailable(name string, meta string) (bool, error) {
-	return false, notImplemented
-}
-func (ne *NativeEngine) IDForName(name string) (string, error) {
-	return "", notImplemented
+	return false, errorNotImplemented
 }
 
+// IDForName required by engines.Engine interface
+func (ne *NativeEngine) IDForName(name string) (string, error) {
+	return "", errorNotImplemented
+}
+
+// Execute runs a command invocation
 func (ne *NativeEngine) Execute(request *messages.ExecutionRequest, bundle *config.Bundle) ([]byte, []byte, error) {
 	emptyResult := []byte{}
 	command := exec.Command(request.CommandName())
@@ -52,6 +59,7 @@ func (ne *NativeEngine) Execute(request *messages.ExecutionRequest, bundle *conf
 	return ne.stdout.Bytes(), ne.stderr.Bytes(), nil
 }
 
+// Clean required by engines.Engine interface
 func (ne *NativeEngine) Clean() int {
 	return 0
 }

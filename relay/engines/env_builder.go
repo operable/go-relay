@@ -12,6 +12,7 @@ import (
 	"strings"
 )
 
+// BuildEnvironment constructs the calling environment for a command
 func BuildEnvironment(request messages.ExecutionRequest, relayConfig config.Config) []string {
 	vars := make(map[string]string)
 	for i, v := range request.Args {
@@ -79,7 +80,7 @@ func loadDynamicConfig(relayConfig config.Config, bundle string) *map[string]int
 		log.Errorf("Parsing dynamic config for bundle %s failed: %s.", bundle, err)
 		return nil
 	}
-	for k, _ := range retval {
+	for k := range retval {
 		if strings.HasPrefix(k, "COG_") || strings.HasPrefix(k, "RELAY_") {
 			delete(retval, k)
 			log.Infof("Deleted illegal key %s from dynamic config for bundle %s.", k, bundle)

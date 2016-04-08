@@ -16,6 +16,7 @@ func executeCommand(incoming *relay.Incoming) {
 		log.Errorf("Ignoring malformed execution request: %s.", err)
 		return
 	}
+	request.Parse()
 	bundle := incoming.Relay.GetBundle(request.BundleName())
 	response := &messages.ExecutionResponse{}
 	if bundle == nil {

@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var dockerDisabledError = errors.New("Docker engine is disabled")
+var errorDockerDisabled = errors.New("Docker engine is disabled")
 
 // DockerEngine is responsible for managing execution of
 // Docker bundled commands.
@@ -27,7 +27,7 @@ type DockerEngine struct {
 func NewDockerEngine(relayConfig config.Config) (Engine, error) {
 	dockerConfig := relayConfig.Docker
 	if dockerConfig == nil {
-		return nil, dockerDisabledError
+		return nil, errorDockerDisabled
 	}
 	client, err := newClient(*dockerConfig)
 	if err != nil {
@@ -51,9 +51,8 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 		if inspectErr != nil || image == nil {
 			log.Errorf("Unable to find image %s locally or in remote registry.", name)
 			return false, pullErr
-		} else {
-			log.Infof("Retrieving image %s from remote registry failed. Falling back to local copy.", name)
 		}
+		log.Infof("Retrieving image %s from remote registry failed. Falling back to local copy, if it exists.", name)
 		return image != nil, nil
 	}
 	return true, nil
@@ -110,6 +109,7 @@ func (de *DockerEngine) IDForName(name string) (string, error) {
 	return image.ID, nil
 }
 
+// Clean removes exited containers
 func (de *DockerEngine) Clean() int {
 	containers, err := de.client.ListContainers(docker.ListContainersOptions{
 		Filters: map[string][]string{

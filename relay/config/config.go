@@ -61,7 +61,7 @@ type ExecutionInfo struct {
 	ParsedExtraEnv map[string]string
 }
 
-// RefreshInterval returns in RefreshInterval in milliseconds
+// RefreshDuration returns RefreshInterval as a time.Duration
 func (c *Config) RefreshDuration() time.Duration {
 	duration, err := time.ParseDuration(c.RefreshInterval)
 	if err != nil {
@@ -70,7 +70,7 @@ func (c *Config) RefreshDuration() time.Duration {
 	return duration
 }
 
-// CleanIntervalMS returns the Docker CleanInterval in milliseconds
+// CleanDuration returns CleanInterval as a time.Duration
 func (di *DockerInfo) CleanDuration() time.Duration {
 	duration, err := time.ParseDuration(di.CleanInterval)
 	if err != nil {

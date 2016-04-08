@@ -15,6 +15,9 @@ type ExecutionRequest struct {
 	ReplyTo       string                 `json:"reply_to"`
 	Requestor     ChatUser               `json:"requestor"`
 	User          CogUser                `json:"user"`
+	bundleName    string
+	commandName   string
+	pipelineID    string
 }
 
 // ChatUser contains chat information about the submittor
@@ -44,14 +47,30 @@ type ExecutionResponse struct {
 	IsJSON        bool
 }
 
+// Parse extracts the bundle name, command name, and pipeline id
+// from an ExecutionRequest.
+func (er *ExecutionRequest) Parse() {
+	commandParts := strings.SplitN(er.Command, ":", 2)
+	pipelineParts := strings.SplitN(er.ReplyTo, "/", 5)
+	er.bundleName = commandParts[0]
+	er.commandName = commandParts[1]
+	er.pipelineID = pipelineParts[3]
+}
+
+// BundleName returns just the bundle part of the
+// command's fully qualified name
 func (er *ExecutionRequest) BundleName() string {
-	return strings.SplitN(er.Command, ":", 2)[0]
+	return er.bundleName
 }
 
+// CommandName returns just the command part of the
+// command's fully qualified name
 func (er *ExecutionRequest) CommandName() string {
-	return strings.SplitN(er.Command, ":", 2)[1]
+	return er.commandName
 }
 
+// PipelineID returns the pipeline id assigned to
+// this request
 func (er *ExecutionRequest) PipelineID() string {
-	return strings.SplitN(er.ReplyTo, "/", 5)[3]
+	return er.pipelineID
 }

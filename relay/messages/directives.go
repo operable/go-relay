@@ -56,7 +56,7 @@ func NewAnnouncement(relayID string, online bool) *AnnouncementEnvelope {
 	}
 }
 
-// NewBundleAnnoucement builds an Announcement directive describing
+// NewBundleAnnouncement builds an Announcement directive describing
 // the list of bundles available on a Relay
 func NewBundleAnnouncement(relayID string, bundles []string) *AnnouncementEnvelope {
 	specs := make([]BundleSpec, len(bundles))
