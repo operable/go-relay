@@ -37,7 +37,7 @@ deps:
 	@go get github.com/fsouza/go-dockerclient
 
 minify: cog-relay
-	$(GOUPX_BIN) $<
+	$(GOUPX_BIN) --strip-binary $<
 
 $(GOUPX_BIN):
 	go get -u github.com/pwaller/goupx
