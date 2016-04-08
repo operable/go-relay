@@ -11,6 +11,7 @@ import (
 	"golang.org/x/net/context"
 	"strings"
 	"sync"
+	"time"
 )
 
 // ControlCommand are async signals sent to a running Relay
@@ -55,6 +56,9 @@ type Relay struct {
 	fetchedImages *list.List
 	workQueue     *Queue
 	worker        Worker
+	refreshTimer  *time.Timer
+	dockerTimer   *time.Timer
+	hasStarted    bool
 	coordinator   sync.WaitGroup
 	control       chan ControlCommand
 	state         State
@@ -91,6 +95,7 @@ func (r *Relay) Start(worker Worker) error {
 // Stop a running relay
 func (r *Relay) Stop() {
 	if r.state != RelayStopped {
+		r.stopTimers()
 		if r.Bus != nil {
 			r.Bus.Halt()
 		}
@@ -104,9 +109,6 @@ func (r *Relay) Stop() {
 // UpdateBundles causes a Relay to ask Cog
 // for its bundle assignments
 func (r *Relay) UpdateBundles() bool {
-	if r.state != RelayStarting {
-		return false
-	}
 	r.control <- RelayUpdateBundles
 	return true
 }
@@ -128,11 +130,12 @@ func (r *Relay) GetBundle(name string) *config.Bundle {
 	return r.bundles[name]
 }
 
-// StoreBundle stores a bundle config
-func (r *Relay) StoreBundle(bundle *config.Bundle) {
+// UpdateBundleList atomically replaces the existing master bundle list
+// with a new one
+func (r *Relay) UpdateBundleList(bundles map[string]*config.Bundle) {
 	r.bundleLock.Lock()
 	defer r.bundleLock.Unlock()
-	r.bundles[bundle.Name] = bundle
+	r.bundles = bundles
 }
 
 // BundleNames returns list of bundles known by a Relay
@@ -150,7 +153,8 @@ func (r *Relay) BundleNames() []string {
 }
 
 func (r *Relay) startWorkers(worker Worker) {
-	for i := 0; i < r.Config.MaxConcurrent; i++ {
+	workerCount := r.Config.MaxConcurrent + 2
+	for i := 0; i < workerCount; i++ {
 		go func() {
 			worker(r.workQueue, r.coordinator)
 		}()
@@ -255,7 +259,10 @@ func (r *Relay) handleUpdateBundlesDone() {
 	if r.state == RelayUpdatingBundles {
 		r.announceBundles()
 		log.Info("Bundle refresh complete.")
-		log.Infof("Relay %s ready.", r.Config.ID)
+		if r.hasStarted == false {
+			log.Infof("Relay %s ready.", r.Config.ID)
+			r.hasStarted = true
+		}
 		r.state = RelayReady
 	} else {
 		r.logBadState("handleUpdatesBundleDone", RelayUpdatingBundles)
@@ -264,19 +271,23 @@ func (r *Relay) handleUpdateBundlesDone() {
 
 func (r *Relay) handleUpdateBundlesCommand() {
 	if r.state == RelayStarting {
-		msg := messages.ListBundlesEnvelope{
-			ListBundles: &messages.ListBundlesMessage{
-				RelayID: r.Config.ID,
-				ReplyTo: r.Bus.DirectiveReplyTo(),
-			},
+		log.Infof("Refreshing bundles and related assets every %s.", r.Config.RefreshDuration())
+		r.setRefreshTimer()
+		if r.Config.DockerDisabled == false {
+			log.Infof("Cleaning up expired Docker assets every %s.", r.Config.Docker.CleanDuration())
+			r.setDockerTimer()
 		}
-		raw, _ := json.Marshal(&msg)
-		log.Info("Refreshing command bundles.")
-		r.Bus.Publish("bot/relays/info", raw)
-		r.state = RelayUpdatingBundles
-	} else {
-		r.logBadState("handleUpdateBundlesCommand", RelayStarting)
 	}
+	msg := messages.ListBundlesEnvelope{
+		ListBundles: &messages.ListBundlesMessage{
+			RelayID: r.Config.ID,
+			ReplyTo: r.Bus.DirectiveReplyTo(),
+		},
+	}
+	raw, _ := json.Marshal(&msg)
+	log.Info("Refreshing command bundles.")
+	r.Bus.Publish("bot/relays/info", raw)
+	r.state = RelayUpdatingBundles
 }
 
 func (r *Relay) logBadState(name string, required State) {
@@ -287,4 +298,45 @@ func (r *Relay) announceBundles() {
 	announcement := messages.NewBundleAnnouncement(r.Config.ID, r.BundleNames())
 	raw, _ := json.Marshal(announcement)
 	r.Bus.Publish(bus.RelayDiscoveryTopic, raw)
+}
+
+func (r *Relay) stopTimers() {
+	if r.refreshTimer != nil {
+		r.refreshTimer.Stop()
+		r.refreshTimer = nil
+	}
+	if r.dockerTimer != nil {
+		r.dockerTimer.Stop()
+		r.dockerTimer = nil
+	}
+}
+
+func (r *Relay) setRefreshTimer() {
+	r.refreshTimer = time.AfterFunc(r.Config.RefreshDuration(), r.triggerRefresh)
+}
+
+func (r *Relay) setDockerTimer() {
+	if r.Config.DockerDisabled == true {
+		return
+	}
+	r.dockerTimer = time.AfterFunc(r.Config.Docker.CleanDuration(), r.triggerDockerClean)
+}
+
+func (r *Relay) triggerRefresh() {
+	r.UpdateBundles()
+	r.setRefreshTimer()
+}
+
+func (r *Relay) triggerDockerClean() {
+	if r.Config != nil {
+		dockerEngine, err := engines.NewDockerEngine(*r.Config)
+		if err != nil {
+			panic(err)
+		}
+		count := dockerEngine.Clean()
+		if count > 0 {
+			log.Infof("Removed %d dead Docker containers.", count)
+		}
+	}
+	r.setDockerTimer()
 }

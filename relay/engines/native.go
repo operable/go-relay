@@ -51,3 +51,7 @@ func (ne *NativeEngine) Execute(request *messages.ExecutionRequest, bundle *conf
 	}
 	return ne.stdout.Bytes(), ne.stderr.Bytes(), nil
 }
+
+func (ne *NativeEngine) Clean() int {
+	return 0
+}

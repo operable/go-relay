@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/asaskevich/govalidator"
@@ -28,6 +29,7 @@ type Config struct {
 	LogLevel          string         `yaml:"log_level" env:"RELAY_LOG_LEVEL" valid:"required" default:"info"`
 	LogJSON           bool           `yaml:"log_json" env:"RELAY_LOG_JSON" valid:"bool" default:"false"`
 	LogPath           string         `yaml:"log_path" env:"RELAY_LOG_PATH" valid:"required" default:"stdout"`
+	RefreshInterval   string         `yaml:"refresh_interval" env:"RELAY_REFRESH_INTERVAL" valid:"required" default:"15m"`
 	Cog               *CogInfo       `yaml:"cog" valid:"required"`
 	DockerDisabled    bool           `yaml:"disable_docker" env:"RELAY_DISABLE_DOCKER" valid:"bool" default:"false"`
 	Docker            *DockerInfo    `yaml:"docker" valid:"-"`
@@ -45,6 +47,7 @@ type CogInfo struct {
 type DockerInfo struct {
 	UseEnv           bool   `yaml:"use_env" env:"RELAY_DOCKER_USE_ENV" valid:"-" default:"false"`
 	SocketPath       string `yaml:"socket_path" env:"RELAY_DOCKER_SOCKET_PATH" valid:"dockersocket,required" default:"unix:///var/run/docker.sock"`
+	CleanInterval    string `yaml:"clean_interval" env:"RELAY_DOCKER_CLEAN_INTERVAL" valid:"required" default:"5m"`
 	RegistryHost     string `yaml:"registry_host" env:"RELAY_DOCKER_REGISTRY_HOST" valid:"host,required" default:"hub.docker.com"`
 	RegistryUser     string `yaml:"registry_user" env:"RELAY_DOCKER_REGISTRY_USER" valid:"-"`
 	RegistryPassword string `yaml:"registry_password" env:"RELAY_DOCKER_REGISTRY_PASSWORD" valid:"-"`
@@ -56,6 +59,24 @@ type ExecutionInfo struct {
 	CPUSet         string   `yaml:"cpu_set" env:"RELAY_CONTAINER_CPUSET"`
 	ExtraEnv       []string `yaml:"env" env:"RELAY_CONTAINER_ENV"`
 	ParsedExtraEnv map[string]string
+}
+
+// RefreshInterval returns in RefreshInterval in milliseconds
+func (c *Config) RefreshDuration() time.Duration {
+	duration, err := time.ParseDuration(c.RefreshInterval)
+	if err != nil {
+		panic(fmt.Errorf("Error parsing refresh_interval: %s", err))
+	}
+	return duration
+}
+
+// CleanIntervalMS returns the Docker CleanInterval in milliseconds
+func (di *DockerInfo) CleanDuration() time.Duration {
+	duration, err := time.ParseDuration(di.CleanInterval)
+	if err != nil {
+		panic(fmt.Errorf("Error parsing docker/clean_interval: %s", err))
+	}
+	return duration
 }
 
 func applyDefaults(config *Config) {

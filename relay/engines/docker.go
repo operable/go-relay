@@ -51,6 +51,8 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 		if inspectErr != nil || image == nil {
 			log.Errorf("Unable to find image %s locally or in remote registry.", name)
 			return false, pullErr
+		} else {
+			log.Infof("Retrieving image %s from remote registry failed. Falling back to local copy.", name)
 		}
 		return image != nil, nil
 	}
@@ -108,6 +110,28 @@ func (de *DockerEngine) IDForName(name string) (string, error) {
 	return image.ID, nil
 }
 
+func (de *DockerEngine) Clean() int {
+	containers, err := de.client.ListContainers(docker.ListContainersOptions{
+		Filters: map[string][]string{
+			"status": []string{"exited"},
+		},
+	})
+	if err != nil {
+		log.Errorf("Listing dead Docker containers failed: %s.", err)
+		return 0
+	}
+	count := 0
+	for _, container := range containers {
+		err = de.removeContainer(container.ID)
+		if err != nil {
+			log.Errorf("Error removing container %s: %s.", shortID(container.ID), err)
+		} else {
+			count++
+		}
+	}
+	return count
+}
+
 func (de *DockerEngine) attachInputWriter(containerID string, input []byte) (docker.CloseWaiter, error) {
 	client, _ := newClient(de.config)
 	return client.AttachToContainerNonBlocking(docker.AttachToContainerOptions{
@@ -149,8 +173,8 @@ func (de *DockerEngine) createContainerOptions(request *messages.ExecutionReques
 	}
 }
 
-func (de *DockerEngine) removeContainer(id string) {
-	de.client.RemoveContainer(docker.RemoveContainerOptions{
+func (de *DockerEngine) removeContainer(id string) error {
+	return de.client.RemoveContainer(docker.RemoveContainerOptions{
 		ID:            id,
 		RemoveVolumes: true,
 		Force:         true,

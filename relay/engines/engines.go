@@ -10,6 +10,7 @@ type Engine interface {
 	IsAvailable(name string, meta string) (bool, error)
 	Execute(request *messages.ExecutionRequest, bundle *config.Bundle) ([]byte, []byte, error)
 	IDForName(name string) (string, error)
+	Clean() int
 }
 
 // Placeholder for empty results
