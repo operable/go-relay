@@ -35,7 +35,7 @@ func BuildEnvironment(request messages.ExecutionRequest) []string {
 	retval := make([]string, len(vars))
 	i := 0
 	for k, v := range vars {
-		retval[i] = fmt.Sprintf("%s=\"%s\"", k, v)
+		retval[i] = fmt.Sprintf("%s=%s", k, v)
 		i++
 	}
 	log.Debugf("Calling environment: %v", retval)

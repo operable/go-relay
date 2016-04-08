@@ -39,11 +39,19 @@ func NewDockerEngine(dockerConfig *config.DockerInfo) (Engine, error) {
 
 // IsAvailable returns true/false if a Docker image is found
 func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
-	err := de.client.PullImage(docker.PullImageOptions{
+	pullErr := de.client.PullImage(docker.PullImageOptions{
 		Repository: name,
 		Tag:        meta,
 	}, docker.AuthConfiguration{})
-	return err == nil, err
+	if pullErr != nil {
+		image, inspectErr := de.client.InspectImage(name)
+		if inspectErr != nil || image == nil {
+			log.Errorf("Unable to find image %s locally or in remote registry.", name)
+			return false, pullErr
+		}
+		return image != nil, nil
+	}
+	return true, nil
 }
 
 // Execute a command inside a Docker container

@@ -2,7 +2,6 @@ package worker
 
 import (
 	"encoding/json"
-	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/operable/go-relay/relay/messages"
 	"regexp"
@@ -45,10 +44,14 @@ func parseOutput(output []byte, resp *messages.ExecutionResponse, req messages.E
 			resp.Status = "error"
 			resp.StatusMessage = "Command returned invalid JSON."
 		} else {
-			resp.Body, _ = json.Marshal(jsonBody)
+			resp.Body = jsonBody
 		}
 	} else {
-		resp.Body = []byte(fmt.Sprintf("{\"body\":\"%s\"}", remaining))
+		resp.Body = []map[string]string{
+			map[string]string{
+				"body": string(remaining),
+			},
+		}
 	}
 }
 
