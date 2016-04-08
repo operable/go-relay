@@ -16,24 +16,27 @@ var dockerDisabledError = errors.New("Docker engine is disabled")
 // DockerEngine is responsible for managing execution of
 // Docker bundled commands.
 type DockerEngine struct {
-	client *docker.Client
-	config *config.DockerInfo
-	stdout bytes.Buffer
-	stderr bytes.Buffer
+	client      *docker.Client
+	relayConfig config.Config
+	config      config.DockerInfo
+	stdout      bytes.Buffer
+	stderr      bytes.Buffer
 }
 
 // NewDockerEngine makes a new DockerEngine instance
-func NewDockerEngine(dockerConfig *config.DockerInfo) (Engine, error) {
+func NewDockerEngine(relayConfig config.Config) (Engine, error) {
+	dockerConfig := relayConfig.Docker
 	if dockerConfig == nil {
 		return nil, dockerDisabledError
 	}
-	client, err := newClient(dockerConfig)
+	client, err := newClient(*dockerConfig)
 	if err != nil {
 		return nil, err
 	}
 	return &DockerEngine{
-		client: client,
-		config: dockerConfig,
+		client:      client,
+		relayConfig: relayConfig,
+		config:      *dockerConfig,
 	}, nil
 }
 
@@ -89,7 +92,7 @@ func (de *DockerEngine) Execute(request *messages.ExecutionRequest, bundle *conf
 // VerifyDockerConfig sanity checks Docker configuration and ensures Relay
 // can talk to Docker.
 func VerifyDockerConfig(dockerConfig *config.DockerInfo) error {
-	client, err := newClient(dockerConfig)
+	client, err := newClient(*dockerConfig)
 	if err != nil {
 		return err
 	}
@@ -133,7 +136,7 @@ func (de *DockerEngine) createContainerOptions(request *messages.ExecutionReques
 		Name: "",
 		Config: &docker.Config{
 			Image:      bundle.Docker.ID,
-			Env:        BuildEnvironment(*request),
+			Env:        BuildEnvironment(*request, de.relayConfig),
 			Memory:     64 * 1024 * 1024, // 64MB
 			MemorySwap: 0,
 			StdinOnce:  true,
@@ -168,7 +171,7 @@ func verifyCredentials(client *docker.Client, dockerConfig *config.DockerInfo) e
 	return client.AuthCheck(&authConf)
 }
 
-func newClient(dockerConfig *config.DockerInfo) (*docker.Client, error) {
+func newClient(dockerConfig config.DockerInfo) (*docker.Client, error) {
 	if dockerConfig.UseEnv {
 		client, err := docker.NewClientFromEnv()
 		if err != nil {

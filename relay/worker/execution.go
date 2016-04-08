@@ -48,7 +48,7 @@ func executeCommand(incoming *relay.Incoming) {
 
 func engineForBundle(bundle config.Bundle, incoming relay.Incoming) (engines.Engine, error) {
 	if bundle.IsDocker() == true {
-		return engines.NewDockerEngine(incoming.Relay.Config.Docker)
+		return engines.NewDockerEngine(*incoming.Relay.Config)
 	}
-	return engines.NewNativeEngine()
+	return engines.NewNativeEngine(*incoming.Relay.Config)
 }

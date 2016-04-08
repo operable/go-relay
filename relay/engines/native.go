@@ -12,16 +12,18 @@ import (
 )
 
 type NativeEngine struct {
-	stdout *bytes.Buffer
-	stderr *bytes.Buffer
+	relayConfig config.Config
+	stdout      *bytes.Buffer
+	stderr      *bytes.Buffer
 }
 
 var notImplemented = errors.New("Not implemented")
 
-func NewNativeEngine() (Engine, error) {
+func NewNativeEngine(relayConfig config.Config) (Engine, error) {
 	return &NativeEngine{
-		stdout: new(bytes.Buffer),
-		stderr: new(bytes.Buffer),
+		relayConfig: relayConfig,
+		stdout:      new(bytes.Buffer),
+		stderr:      new(bytes.Buffer),
 	}, nil
 }
 
@@ -35,7 +37,7 @@ func (ne *NativeEngine) IDForName(name string) (string, error) {
 func (ne *NativeEngine) Execute(request *messages.ExecutionRequest, bundle *config.Bundle) ([]byte, []byte, error) {
 	emptyResult := []byte{}
 	command := exec.Command(request.CommandName())
-	command.Env = BuildEnvironment(*request)
+	command.Env = BuildEnvironment(*request, ne.relayConfig)
 	input, _ := json.Marshal(request.CogEnv)
 	command.Stdin = bytes.NewBuffer(input)
 	command.Stdout = ne.stdout

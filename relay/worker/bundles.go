@@ -32,7 +32,7 @@ func updateBundles(ctx context.Context, listBundles *messages.ListBundlesRespons
 }
 
 func fetchImage(relayConfig *config.Config, bundle *config.Bundle) error {
-	docker, err := engines.NewDockerEngine(relayConfig.Docker)
+	docker, err := engines.NewDockerEngine(*relayConfig)
 	if err != nil {
 		return err
 	}

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/asaskevich/govalidator"
 	"github.com/go-yaml/yaml"
 )
@@ -51,9 +52,10 @@ type DockerInfo struct {
 
 // ExecutionInfo applies to every container for a given Relay host
 type ExecutionInfo struct {
-	CPUShares int64    `yaml:"cpu_shares" env:"RELAY_CONTAINER_CPUSHARES" valid:"int64"`
-	CPUSet    string   `yaml:"cpu_set" env:"RELAY_CONTAINER_CPUSET"`
-	ExtraEnv  []string `yaml:"env" env:"RELAY_CONTAINER_ENV"`
+	CPUShares      int64    `yaml:"cpu_shares" env:"RELAY_CONTAINER_CPUSHARES" valid:"int64"`
+	CPUSet         string   `yaml:"cpu_set" env:"RELAY_CONTAINER_CPUSET"`
+	ExtraEnv       []string `yaml:"env" env:"RELAY_CONTAINER_ENV"`
+	ParsedExtraEnv map[string]string
 }
 
 func applyDefaults(config *Config) {
@@ -80,6 +82,24 @@ func applyDefaults(config *Config) {
 		execution := &ExecutionInfo{}
 		if setDefaultValues(execution) == true {
 			config.Execution = execution
+		}
+	}
+}
+
+func parseExtraEnv(execution *ExecutionInfo) {
+	if len(execution.ExtraEnv) == 0 {
+		return
+	}
+	execution.ParsedExtraEnv = make(map[string]string)
+	for _, v := range execution.ExtraEnv {
+		parts := strings.SplitN(v, "=", 2)
+		if len(parts) != 2 {
+			panic(fmt.Errorf("Illegal environment var specification in execution/env: %s", v))
+		}
+		if strings.HasPrefix(parts[0], "COG_") || strings.HasPrefix(parts[0], "RELAY_") {
+			log.Infof("Deleted illegal key %s from exection/env.", parts[0])
+		} else {
+			execution.ParsedExtraEnv[parts[0]] = parts[1]
 		}
 	}
 }
@@ -210,6 +230,7 @@ func ParseConfig(rawConfig []byte) (*Config, error) {
 		_, err = govalidator.ValidateStruct(config.Docker)
 		return &config, err
 	}
+	parseExtraEnv(config.Execution)
 	return &config, err
 }
 
