@@ -12,5 +12,5 @@ type Engine interface {
 	IDForName(name string) (string, error)
 }
 
-// Used to return empty results without allocating
+// Placeholder for empty results
 var emptyResult = []byte{}

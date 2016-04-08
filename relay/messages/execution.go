@@ -40,7 +40,8 @@ type ExecutionResponse struct {
 	Status        string `json:"status"`
 	StatusMessage string `json:"status_message"`
 	Template      string `json:"template"`
-	Body          string `json:"body"`
+	Body          []byte `json:"body"`
+	IsJSON        bool
 }
 
 func (er *ExecutionRequest) BundleName() string {
@@ -52,5 +53,5 @@ func (er *ExecutionRequest) CommandName() string {
 }
 
 func (er *ExecutionRequest) PipelineID() string {
-	return strings.SplitN(er.ReplyTo, "/", 4)[2]
+	return strings.SplitN(er.ReplyTo, "/", 5)[3]
 }

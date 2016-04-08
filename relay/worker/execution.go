@@ -37,7 +37,7 @@ func executeCommand(incoming *relay.Incoming) {
 					response.StatusMessage = string(commandErrors)
 				} else {
 					response.Status = "ok"
-					response.Body = string(commandOutput)
+					parseOutput([]byte(commandOutput), response, *request)
 				}
 			}
 		}
