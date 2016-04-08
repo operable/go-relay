@@ -45,7 +45,7 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 	pullErr := de.client.PullImage(docker.PullImageOptions{
 		Repository: name,
 		Tag:        meta,
-	}, docker.AuthConfiguration{})
+	}, de.makeAuthConfig())
 	if pullErr != nil {
 		image, inspectErr := de.client.InspectImage(name)
 		if inspectErr != nil || image == nil {
@@ -179,6 +179,14 @@ func (de *DockerEngine) removeContainer(id string) error {
 		RemoveVolumes: true,
 		Force:         true,
 	})
+}
+
+func (de *DockerEngine) makeAuthConfig() docker.AuthConfiguration {
+	return docker.AuthConfiguration{
+		ServerAddress: de.config.RegistryHost,
+		Username:      de.config.RegistryUser,
+		Password:      de.config.RegistryPassword,
+	}
 }
 
 func verifyCredentials(client *docker.Client, dockerConfig *config.DockerInfo) error {
