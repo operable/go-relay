@@ -22,6 +22,12 @@ const (
 )
 
 var configFile = flag.String("file", "", "Path to configuration file")
+
+// Populated by build script
+var buildstamp string
+var buildhash string
+var buildtag string
+
 var configLocations = []string{
 	"/etc/cog_relay.conf",
 	"/usr/local/etc/cog_relay.conf",
@@ -29,11 +35,25 @@ var configLocations = []string{
 
 func init() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	displayVersionInfo()
 	log.SetFormatter(&log.TextFormatter{
 		DisableTimestamp: false,
 		FullTimestamp:    true,
 		DisableSorting:   true,
 	})
+}
+
+func displayVersionInfo() {
+	for _, arg := range os.Args {
+		if arg == "-v" || arg == "--version" || arg == "-version" {
+			if buildtag == "" {
+				buildtag = "<None>"
+			}
+			fmt.Printf("Git commit: %s\nGit tag: %s\nBuild timestamp: %s UTC\n",
+				buildhash, buildtag, buildstamp)
+			os.Exit(0)
+		}
+	}
 }
 
 func configureLogger(config *config.Config) {
