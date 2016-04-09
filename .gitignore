@@ -2,5 +2,5 @@ vendor/*/
 cog-relay
 *-test
 *.test
-**/*-test
 **/*.test
+*/**/*.test
