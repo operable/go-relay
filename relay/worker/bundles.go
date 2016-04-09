@@ -27,6 +27,9 @@ func updateBundles(ctx context.Context, listBundles *messages.ListBundlesRespons
 			log.Infof("Docker image %s for bundle %s is available.", bundleConfig.Docker.PrettyImageName(),
 				bundleConfig.Name)
 			images = newImages
+		} else if incoming.Relay.Config.NativeEnabled() == false {
+			log.Errorf("Native execution engine disabled. Bundle %s ignored.", bundleConfig.Name)
+			continue
 		}
 		bundles[bundleConfig.Name] = &bundleConfig
 	}

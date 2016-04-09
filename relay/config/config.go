@@ -20,27 +20,37 @@ const (
 	RelayConfigVersion = 1
 )
 
+// Available execution engines
+const (
+	DockerEngine = "docker"
+	NativeEngine = "native"
+)
+
+var validEngineNames = []string{DockerEngine, NativeEngine}
+
 // Config is the top level struct for all Relay configuration
 type Config struct {
-	Version           int            `yaml:"version" valid:"int64,required"`
-	ID                string         `yaml:"id" env:"RELAY_ID" valid:"uuid,required"`
-	MaxConcurrent     int            `yaml:"max_concurrent" env:"RELAY_MAX_CONCURRENT" valid:"int64,required" default:"16"`
-	DynamicConfigRoot string         `yaml:"dynamic_config_root" env:"RELAY_DYNAMIC_CONFIG_ROOT" valid:"-"`
-	LogLevel          string         `yaml:"log_level" env:"RELAY_LOG_LEVEL" valid:"required" default:"info"`
-	LogJSON           bool           `yaml:"log_json" env:"RELAY_LOG_JSON" valid:"bool" default:"false"`
-	LogPath           string         `yaml:"log_path" env:"RELAY_LOG_PATH" valid:"required" default:"stdout"`
-	RefreshInterval   string         `yaml:"refresh_interval" env:"RELAY_REFRESH_INTERVAL" valid:"required" default:"15m"`
-	Cog               *CogInfo       `yaml:"cog" valid:"required"`
-	DockerDisabled    bool           `yaml:"disable_docker" env:"RELAY_DISABLE_DOCKER" valid:"bool" default:"false"`
-	Docker            *DockerInfo    `yaml:"docker" valid:"-"`
-	Execution         *ExecutionInfo `yaml:"execution" valid:"required"`
+	Version              int      `yaml:"version" valid:"int64,required"`
+	ID                   string   `yaml:"id" env:"RELAY_ID" valid:"uuid,required"`
+	MaxConcurrent        int      `yaml:"max_concurrent" env:"RELAY_MAX_CONCURRENT" valid:"int64,required" default:"16"`
+	DynamicConfigRoot    string   `yaml:"dynamic_config_root" env:"RELAY_DYNAMIC_CONFIG_ROOT" valid:"-"`
+	LogLevel             string   `yaml:"log_level" env:"RELAY_LOG_LEVEL" valid:"required" default:"info"`
+	LogJSON              bool     `yaml:"log_json" env:"RELAY_LOG_JSON" valid:"bool" default:"false"`
+	LogPath              string   `yaml:"log_path" env:"RELAY_LOG_PATH" valid:"required" default:"stdout"`
+	Cog                  *CogInfo `yaml:"cog" valid:"required"`
+	EnginesEnabled       string   `yaml:"enabled_engines" env:"RELAY_ENABLED_ENGINES" valid:"exec_engines" default:"docker,native"`
+	ParsedEnginesEnabled []string
+	Docker               *DockerInfo    `yaml:"docker" valid:"-"`
+	Execution            *ExecutionInfo `yaml:"execution" valid:"required"`
 }
 
 // CogInfo contains information required to connect to an upstream Cog host
 type CogInfo struct {
-	Host  string `yaml:"host" env:"RELAY_COG_HOST" valid:"hostorip,required" default:"127.0.0.1"`
-	Port  int    `yaml:"port" env:"RELAY_COG_PORT" valid:"int64,required" default:"1883"`
-	Token string `yaml:"token" env:"RELAY_COG_TOKEN" valid:"required"`
+	Host            string `yaml:"host" env:"RELAY_COG_HOST" valid:"hostorip,required" default:"127.0.0.1"`
+	Port            int    `yaml:"port" env:"RELAY_COG_PORT" valid:"int64,required" default:"1883"`
+	Token           string `yaml:"token" env:"RELAY_COG_TOKEN" valid:"required"`
+	SSLEnabled      bool   `yaml:"enable_ssl" env:"RELAY_COG_ENABLE_SSL" valid:"bool" default:"false"`
+	RefreshInterval string `yaml:"refresh_interval" env:"RELAY_COG_REFRESH_INTERVAL" valid:"required" default:"15m"`
 }
 
 // DockerInfo contains information required to interact with dockerd and external Docker registries
@@ -55,19 +65,36 @@ type DockerInfo struct {
 
 // ExecutionInfo applies to every container for a given Relay host
 type ExecutionInfo struct {
-	CPUShares      int64    `yaml:"cpu_shares" env:"RELAY_CONTAINER_CPUSHARES" valid:"int64"`
-	CPUSet         string   `yaml:"cpu_set" env:"RELAY_CONTAINER_CPUSET"`
 	ExtraEnv       []string `yaml:"env" env:"RELAY_CONTAINER_ENV"`
 	ParsedExtraEnv map[string]string
 }
 
 // RefreshDuration returns RefreshInterval as a time.Duration
 func (c *Config) RefreshDuration() time.Duration {
-	duration, err := time.ParseDuration(c.RefreshInterval)
+	duration, err := time.ParseDuration(c.Cog.RefreshInterval)
 	if err != nil {
 		panic(fmt.Errorf("Error parsing refresh_interval: %s", err))
 	}
 	return duration
+}
+
+// DockerEnabled returns true when enabled_engines includes "docker"
+func (c *Config) DockerEnabled() bool {
+	return c.engineEnabled(DockerEngine)
+}
+
+// NativeEnabled returns true when enabled_engines includes "native"
+func (c *Config) NativeEnabled() bool {
+	return c.engineEnabled(NativeEngine)
+}
+
+func (c *Config) engineEnabled(name string) bool {
+	for _, v := range c.ParsedEnginesEnabled {
+		if v == name {
+			return true
+		}
+	}
+	return false
 }
 
 // CleanDuration returns CleanInterval as a time.Duration
@@ -218,6 +245,37 @@ func setEnvVars(config interface{}) bool {
 	return updatedConfig
 }
 
+func isValidEngineName(name string) bool {
+	for _, v := range validEngineNames {
+		if name == v {
+			return true
+		}
+	}
+	return false
+}
+
+func parseEngines(relayConfig *Config) {
+	engines := strings.Split(relayConfig.EnginesEnabled, ",")
+	parsed := []string{}
+	for _, engine := range engines {
+		engine = strings.Trim(engine, " ")
+		if isValidEngineName(engine) {
+			dupe := false
+			for _, p := range parsed {
+				// engine is a duplicate
+				if p == engine {
+					dupe = true
+					break
+				}
+			}
+			if dupe == false {
+				parsed = append(parsed, engine)
+			}
+		}
+	}
+	relayConfig.ParsedEnginesEnabled = parsed
+}
+
 // ParseConfig parses Relay's raw config and then produces a final
 // version incorporating default values and environment variable values.
 // Finalization proceeds using the following steps:
@@ -236,8 +294,9 @@ func ParseConfig(rawConfig []byte) (*Config, error) {
 	}
 	applyDefaults(&config)
 	applyEnvVars(&config)
+	parseEngines(&config)
 	// Remove Docker config if it's disabled
-	if config.DockerDisabled == true {
+	if config.DockerEnabled() == false {
 		config.Docker = nil
 	}
 	govalidator.TagMap["hostorip"] = govalidator.Validator(func(value string) bool {

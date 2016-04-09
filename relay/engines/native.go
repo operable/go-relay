@@ -20,14 +20,18 @@ type NativeEngine struct {
 }
 
 var errorNotImplemented = errors.New("Not implemented")
+var errorDisabled = errors.New("Native execution engine is disabled.")
 
 // NewNativeEngine constructs a new instance
 func NewNativeEngine(relayConfig config.Config) (Engine, error) {
-	return &NativeEngine{
-		relayConfig: relayConfig,
-		stdout:      new(bytes.Buffer),
-		stderr:      new(bytes.Buffer),
-	}, nil
+	if relayConfig.NativeEnabled() == true {
+		return &NativeEngine{
+			relayConfig: relayConfig,
+			stdout:      new(bytes.Buffer),
+			stderr:      new(bytes.Buffer),
+		}, nil
+	}
+	return nil, errorDisabled
 }
 
 // IsAvailable required by engines.Engine interface

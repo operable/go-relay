@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -140,6 +141,13 @@ func (link *Link) connect() error {
 			link.handlers.DisconnectHandler(err)
 		}
 		mqttOpts.SetConnectionLostHandler(handler)
+	}
+	if link.cogConfig.SSLEnabled == true {
+		mqttOpts.TLSConfig = tls.Config{
+			ServerName:             link.cogConfig.Host,
+			SessionTicketsDisabled: true,
+			InsecureSkipVerify:     false,
+		}
 	}
 	mqttOpts.SetKeepAlive(time.Duration(60) * time.Second)
 	mqttOpts.SetPingTimeout(time.Duration(15) * time.Second)

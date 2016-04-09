@@ -38,7 +38,7 @@ execution:
 `
 	disabledDockerConfig = `id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104f
 version: 1
-disable_docker: true
+enabled_engines: native
 cog:
   token: wubba
 execution:
@@ -49,6 +49,7 @@ execution:
 )
 
 func TestLoadConfig(t *testing.T) {
+	os.Clearenv()
 	relayID := "2bba0d1f-a30c-45ec-87e6-e4c5d8c6104f"
 	config, err := ParseConfig([]byte(fullConfig))
 	if err != nil {
@@ -73,6 +74,7 @@ func TestLoadConfig(t *testing.T) {
 }
 
 func TestApplyConfigDefaults(t *testing.T) {
+	os.Clearenv()
 	config, err := ParseConfig([]byte(usingDefaultsConfig))
 	if err != nil {
 		t.Fatal(err)
@@ -98,6 +100,7 @@ func TestApplyConfigDefaults(t *testing.T) {
 }
 
 func TestApplyEnvVars(t *testing.T) {
+	os.Clearenv()
 	os.Setenv("RELAY_MAX_CONCURRENT", "8")
 	os.Setenv("RELAY_COG_PORT", "1880")
 	os.Setenv("RELAY_DOCKER_SOCKET_PATH", "unix:///foo/bar/baz.sock")
@@ -114,6 +117,12 @@ func TestApplyEnvVars(t *testing.T) {
 	if config.Cog.Port != 1880 {
 		t.Errorf("Expected cog/port to be 1880: %d", config.Cog.Port)
 	}
+	if config.NativeEnabled() != true {
+		t.Error("Expected NativeEnabled() to return true")
+	}
+	if config.DockerEnabled() != true {
+		t.Error("Expected DockerEnabled() to return true")
+	}
 	if config.Docker.SocketPath != "unix:///foo/bar/baz.sock" {
 		t.Errorf("Expected docker/socket_path to be unix:///foo/bar/baz/sock: %s", config.Docker.SocketPath)
 	}
@@ -125,10 +134,28 @@ func TestApplyEnvVars(t *testing.T) {
 	}
 }
 
+func TestBadExecutionEngineName(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("RELAY_ENABLED_ENGINES", "kvm")
+	config, err := ParseConfig([]byte(fullConfig))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.DockerEnabled() == true {
+		t.Error("Expected DockerEnabled() to return false")
+	}
+	if config.NativeEnabled() == true {
+		t.Error("Expected NativeEnabled() to return false")
+	}
+}
+
 func TestDisabledDocker(t *testing.T) {
 	config, err := ParseConfig([]byte(disabledDockerConfig))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if config.DockerEnabled() == true {
+		t.Error("Expected DockerEnabled() to return false")
 	}
 	if config.Docker != nil {
 		t.Errorf("Expected missing Docker config: %+v", config.Docker)

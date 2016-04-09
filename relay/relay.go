@@ -3,6 +3,7 @@ package relay
 import (
 	"container/list"
 	"encoding/json"
+	"errors"
 	log "github.com/Sirupsen/logrus"
 	"github.com/operable/go-relay/relay/bus"
 	"github.com/operable/go-relay/relay/config"
@@ -35,6 +36,8 @@ const (
 	RelayUpdatingBundles
 	RelayReady
 )
+
+var errorNoExecutionEngines = errors.New("Invalid Relay configuration detected. At least one execution engine must be enabled.")
 
 // Worker pulls work items from a Relay's work queue
 type Worker func(*Queue, sync.WaitGroup)
@@ -78,9 +81,11 @@ func New(relayConfig *config.Config) *Relay {
 }
 
 // Start initializes a Relay. Returns an error
-// if Docker config fails verification or if it
-// can't connect to the upstream Cog instance.
+// if execution engines or Docker config fails verification
 func (r *Relay) Start(worker Worker) error {
+	if err := r.verifyEnabledExecutionEngines(); err != nil {
+		return err
+	}
 	if err := r.verifyDockerConfig(); err != nil {
 		return err
 	}
@@ -208,7 +213,7 @@ func (r *Relay) handleMessage(topic string, payload []byte) {
 }
 
 func (r *Relay) verifyDockerConfig() error {
-	if r.Config.DockerDisabled == false {
+	if r.Config.DockerEnabled() == true {
 		if err := engines.VerifyDockerConfig(r.Config.Docker); err != nil {
 			log.Errorf("Error verifying Docker configuration: %s.", err)
 			return err
@@ -216,6 +221,20 @@ func (r *Relay) verifyDockerConfig() error {
 		log.Infof("Docker configuration verified.")
 	} else {
 		log.Infof("Docker support disabled.")
+	}
+	return nil
+}
+
+func (r *Relay) verifyEnabledExecutionEngines() error {
+	if r.Config.DockerEnabled() == false && r.Config.NativeEnabled() == false {
+		log.Errorf("%s", errorNoExecutionEngines)
+		return errorNoExecutionEngines
+	}
+	if r.Config.DockerEnabled() == true {
+		log.Info("Docker execution engine enabled.")
+	}
+	if r.Config.NativeEnabled() == true {
+		log.Info("Native execution engine enabled.")
 	}
 	return nil
 }
@@ -273,7 +292,7 @@ func (r *Relay) handleUpdateBundlesCommand() {
 	if r.state == RelayStarting {
 		log.Infof("Refreshing bundles and related assets every %s.", r.Config.RefreshDuration())
 		r.setRefreshTimer()
-		if r.Config.DockerDisabled == false {
+		if r.Config.DockerEnabled() == true {
 			log.Infof("Cleaning up expired Docker assets every %s.", r.Config.Docker.CleanDuration())
 			r.setDockerTimer()
 		}
@@ -316,7 +335,7 @@ func (r *Relay) setRefreshTimer() {
 }
 
 func (r *Relay) setDockerTimer() {
-	if r.Config.DockerDisabled == true {
+	if r.Config.DockerEnabled() == false {
 		return
 	}
 	r.dockerTimer = time.AfterFunc(r.Config.Docker.CleanDuration(), r.triggerDockerClean)
