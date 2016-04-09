@@ -33,10 +33,16 @@
 			"revisionTime": "2016-03-01T20:40:22Z"
 		},
 		{
-			"checksumSHA1": "jTI0rZaGYhsbnjf0RAITnnDr5RE=",
+			"checksumSHA1": "fwvbNYZ2pA9HfQZBNccxvqst50Q=",
 			"path": "golang.org/x/net/context",
-			"revision": "4876518f9e71663000c348837735820161a42df7",
-			"revisionTime": "2016-03-22T02:00:46Z"
+			"revision": "e45385e9b226f570b1f086bf287b25d3d4117776",
+			"revisionTime": "2016-04-07T02:17:48Z"
+		},
+		{
+			"checksumSHA1": "cXx30Epdfo63Y9G/6iwfHCnSEBo=",
+			"path": "golang.org/x/net/websocket",
+			"revision": "e45385e9b226f570b1f086bf287b25d3d4117776",
+			"revisionTime": "2016-04-07T02:17:48Z"
 		}
 	],
 	"rootPath": "github.com/operable/go-relay"
