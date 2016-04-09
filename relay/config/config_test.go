@@ -103,6 +103,7 @@ func TestApplyEnvVars(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("RELAY_MAX_CONCURRENT", "8")
 	os.Setenv("RELAY_COG_PORT", "1880")
+	os.Setenv("RELAY_COG_REFRESH_INTERVAL", "60s")
 	os.Setenv("RELAY_DOCKER_SOCKET_PATH", "unix:///foo/bar/baz.sock")
 	os.Setenv("RELAY_DOCKER_REGISTRY_USER", "testuser")
 	os.Setenv("RELAY_DOCKER_REGISTRY_PASSWORD", "testy")
@@ -122,6 +123,9 @@ func TestApplyEnvVars(t *testing.T) {
 	}
 	if config.DockerEnabled() != true {
 		t.Error("Expected DockerEnabled() to return true")
+	}
+	if config.Cog.RefreshInterval != "60s" {
+		t.Errorf("Expected cog/refresh_interval to be '60s': %s", config.Cog.RefreshInterval)
 	}
 	if config.Docker.SocketPath != "unix:///foo/bar/baz.sock" {
 		t.Errorf("Expected docker/socket_path to be unix:///foo/bar/baz/sock: %s", config.Docker.SocketPath)
