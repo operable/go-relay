@@ -21,7 +21,11 @@ const (
 	BUS_ERR
 )
 
-var configFile = flag.String("file", "/etc/cog_relay.conf", "Path to configuration file")
+var configFile = flag.String("file", "", "Path to configuration file")
+var configLocations = []string{
+	"/etc/cog_relay.conf",
+	"/usr/local/etc/cog_relay.conf",
+}
 
 func init() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
@@ -70,23 +74,39 @@ func configureLogger(config *config.Config) {
 
 func prepare() *config.Config {
 	flag.Parse()
-	relayConfig, err := config.LoadConfig(*configFile)
-	if err != nil {
-		errstr := fmt.Sprintf("%s", err)
-		msgs := strings.Split(errstr, ";")
-		log.Errorf("Error loading %s:", *configFile)
-		for _, msg := range msgs {
-			log.Errorf("  %s", msg)
+	locations := configLocations
+	if *configFile != "" {
+		locations = []string{
+			*configFile,
 		}
-		os.Exit(BAD_CONFIG)
 	}
-	configureLogger(relayConfig)
-	return relayConfig
+
+	var relayConfig *config.Config
+	var err error
+	for _, possibleConfig := range locations {
+		relayConfig, err = config.LoadConfig(possibleConfig)
+		if err != nil {
+			errstr := fmt.Sprintf("%s", err)
+			msgs := strings.Split(errstr, ";")
+			log.Warnf("Error loading %s:", possibleConfig)
+			for _, msg := range msgs {
+				log.Warnf("  %s", msg)
+			}
+			continue
+		}
+		configureLogger(relayConfig)
+		log.Infof("Loaded configuration file %s.", possibleConfig)
+		return relayConfig
+	}
+	log.Errorf("All attempts to load configuration from these locations failed:\n  %s",
+		strings.Join(locations, "\n  "))
+	log.Error("Relay start aborted.")
+	os.Exit(BAD_CONFIG)
+	return nil
 }
 
 func main() {
 	relayConfig := prepare()
-	log.Infof("Configuration file %s loaded.", *configFile)
 	log.Infof("Relay %s is initializing.", relayConfig.ID)
 
 	myRelay := relay.New(relayConfig)

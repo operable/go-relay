@@ -318,14 +318,14 @@ func ParseConfig(rawConfig []byte) (*Config, error) {
 // ParseConfig.
 func LoadConfig(path string) (*Config, error) {
 	if path == "" {
-		return nil, errors.New("Path to configuration file is required")
+		return nil, errors.New("Path to configuration file is required.")
 	}
 	if _, err := os.Stat(path); err != nil {
-		return nil, fmt.Errorf("Config file '%s' doesn't exist or is unreadable", path)
+		return nil, fmt.Errorf("Config file '%s' doesn't exist or is unreadable.", path)
 	}
 	buf, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("Error reading config file '%s': %s",
+		return nil, fmt.Errorf("Error reading config file '%s': %s.",
 			path, err)
 	}
 	return ParseConfig(buf)
