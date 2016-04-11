@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/operable/go-relay/relay/config"
@@ -47,6 +48,7 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 		Tag:        meta,
 	}, de.makeAuthConfig())
 	if pullErr != nil {
+		log.Errorf("Error ocurred when pulling image %s: %s.", name, pullErr)
 		image, inspectErr := de.client.InspectImage(name)
 		if inspectErr != nil || image == nil {
 			log.Errorf("Unable to find image %s locally or in remote registry.", name)
@@ -101,8 +103,8 @@ func VerifyDockerConfig(dockerConfig *config.DockerInfo) error {
 }
 
 // IDForName returns the image ID for a given image name
-func (de *DockerEngine) IDForName(name string) (string, error) {
-	image, err := de.client.InspectImage(name)
+func (de *DockerEngine) IDForName(name string, meta string) (string, error) {
+	image, err := de.client.InspectImage(fmt.Sprintf("%s:%s", name, meta))
 	if err != nil {
 		return "", err
 	}

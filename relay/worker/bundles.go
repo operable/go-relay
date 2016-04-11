@@ -48,7 +48,7 @@ func fetchImage(relayConfig *config.Config, bundle *config.Bundle, fetched []str
 	prettyName := bundle.Docker.PrettyImageName()
 	for _, v := range fetched {
 		if v == prettyName {
-			bundle.Docker.ID, err = docker.IDForName(bundle.Docker.Image)
+			bundle.Docker.ID, err = docker.IDForName(bundle.Docker.Image, bundle.Docker.Tag)
 			if err != nil {
 				return fetched, err
 			}
@@ -63,7 +63,7 @@ func fetchImage(relayConfig *config.Config, bundle *config.Bundle, fetched []str
 		return fetched, fmt.Errorf("Not found")
 	}
 	fetched = append(fetched, bundle.Docker.PrettyImageName())
-	bundle.Docker.ID, err = docker.IDForName(bundle.Docker.Image)
+	bundle.Docker.ID, err = docker.IDForName(bundle.Docker.Image, bundle.Docker.Tag)
 	if err != nil {
 		return fetched, err
 	}

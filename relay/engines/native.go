@@ -40,7 +40,7 @@ func (ne *NativeEngine) IsAvailable(name string, meta string) (bool, error) {
 }
 
 // IDForName required by engines.Engine interface
-func (ne *NativeEngine) IDForName(name string) (string, error) {
+func (ne *NativeEngine) IDForName(name string, meta string) (string, error) {
 	return "", errorNotImplemented
 }
 

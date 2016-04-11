@@ -9,7 +9,7 @@ import (
 type Engine interface {
 	IsAvailable(name string, meta string) (bool, error)
 	Execute(request *messages.ExecutionRequest, bundle *config.Bundle) ([]byte, []byte, error)
-	IDForName(name string) (string, error)
+	IDForName(name string, meta string) (string, error)
 	Clean() int
 }
 
