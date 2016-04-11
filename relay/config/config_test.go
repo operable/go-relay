@@ -86,8 +86,8 @@ func TestApplyConfigDefaults(t *testing.T) {
 	if docker.SocketPath != "unix:///var/run/docker.sock" {
 		t.Errorf("Expected default docker/socket_path of 'unix:///var/run/docker.sock': %s", docker.SocketPath)
 	}
-	if docker.RegistryHost != "hub.docker.com" {
-		t.Errorf("Expected default docker/registry_host of 'hub.docker.com': %s", docker.RegistryHost)
+	if docker.RegistryHost != "index.docker.io" {
+		t.Errorf("Expected default docker/registry_host of 'index.docker.io': %s", docker.RegistryHost)
 	}
 }
 
