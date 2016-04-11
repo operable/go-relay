@@ -135,7 +135,7 @@ func applyDefaults(config *Config) {
 }
 
 func parseExtraEnv(execution *ExecutionInfo) {
-	if len(execution.ExtraEnv) == 0 {
+	if execution.ExtraEnv == nil || len(execution.ExtraEnv) == 0 {
 		return
 	}
 	execution.ParsedExtraEnv = make(map[string]string)
