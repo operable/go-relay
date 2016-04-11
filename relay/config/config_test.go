@@ -18,10 +18,6 @@ docker:
   socket_path: unix:///var/run/docker.sock
   registry_user: testy
   registry_password: test123
-execution:
-  cpu_shares: 16
-  cpu_set: default
-  env: ["TEST1=a", "TEST2=b"]
 `
 	usingDefaultsConfig = `id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104f
 version: 1
@@ -32,8 +28,6 @@ docker:
   registry_user: testy
   registry_password: test123
 execution:
-  cpu_shares: 16
-  cpu_set: default
   env: ["TEST1=a", "TEST2=b"]
 `
 	disabledDockerConfig = `id: 2bba0d1f-a30c-45ec-87e6-e4c5d8c6104f
@@ -42,8 +36,6 @@ enabled_engines: native
 cog:
   token: wubba
 execution:
-  cpu_shares: 16
-  cpu_set: default
   env: ["TEST1=a", "TEST2=b"]
 `
 )
@@ -62,7 +54,7 @@ func TestLoadConfig(t *testing.T) {
 	if config.Docker == nil {
 		t.Errorf("Expected non-nil Docker config")
 	}
-	if config.Execution == nil {
+	if config.Execution != nil {
 		t.Errorf("Expected non-nil Execution config")
 	}
 	if config.ID != relayID {

@@ -41,7 +41,7 @@ type Config struct {
 	EnginesEnabled       string   `yaml:"enabled_engines" env:"RELAY_ENABLED_ENGINES" valid:"exec_engines" default:"docker,native"`
 	ParsedEnginesEnabled []string
 	Docker               *DockerInfo    `yaml:"docker" valid:"-"`
-	Execution            *ExecutionInfo `yaml:"execution" valid:"required"`
+	Execution            *ExecutionInfo `yaml:"execution" valid:"-"`
 }
 
 // CogInfo contains information required to connect to an upstream Cog host
@@ -135,9 +135,6 @@ func applyDefaults(config *Config) {
 }
 
 func parseExtraEnv(execution *ExecutionInfo) {
-	if execution.ExtraEnv == nil || len(execution.ExtraEnv) == 0 {
-		return
-	}
 	execution.ParsedExtraEnv = make(map[string]string)
 	for _, v := range execution.ExtraEnv {
 		parts := strings.SplitN(v, "=", 2)
@@ -309,6 +306,12 @@ func ParseConfig(rawConfig []byte) (*Config, error) {
 	if err == nil && config.Docker != nil {
 		_, err = govalidator.ValidateStruct(config.Docker)
 		return &config, err
+	}
+	if config.Execution == nil {
+		config.Execution = &ExecutionInfo{
+			ExtraEnv:       []string{},
+			ParsedExtraEnv: make(map[string]string),
+		}
 	}
 	parseExtraEnv(config.Execution)
 	return &config, err
