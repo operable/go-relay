@@ -4,3 +4,5 @@ cog-relay
 *.test
 **/*.test
 */**/*.test
+cog-relay_*
+*.tar.gz
