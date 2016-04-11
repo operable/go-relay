@@ -45,8 +45,10 @@ func BuildEnvironment(request messages.ExecutionRequest, relayConfig config.Conf
 		}
 	}
 
-	for k, v := range relayConfig.Execution.ParsedExtraEnv {
-		vars[k] = v
+	if relayConfig.Execution != nil {
+		for k, v := range relayConfig.Execution.ParsedExtraEnv {
+			vars[k] = v
+		}
 	}
 
 	retval := make([]string, len(vars))
