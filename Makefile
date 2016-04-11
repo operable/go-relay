@@ -1,6 +1,6 @@
-GOUPX_BIN          = ../../../../bin/goupx
-GOVENDOR_BIN       = ../../../../bin/govendor
-GOLINT_BIN         = ../../../../bin/golint
+GOUPX_BIN          = $(shell go env GOPATH)/bin/goupx
+GOVENDOR_BIN       = $(shell go env GOPATH)/bin/govendor
+GOLINT_BIN         = $(shell go env GOPATH)/bin/golint
 PKG_DIRS          := $(shell find . -type d | grep relay | grep -v vendor)
 FULL_PKGS         := $(sort $(foreach pkg, $(PKG_DIRS), $(subst ./, github.com/operable/go-relay/, $(pkg))))
 SOURCES           := $(shell find . -name "*.go" -type f)
@@ -8,6 +8,7 @@ VET_FLAGS          = -v
 BUILD_STAMP       := $(shell date -u '+%Y%m%d%H%M%S')
 BUILD_HASH        := $(shell git rev-parse HEAD)
 BUILD_TAG         := $(shell git describe --tags)
+DOCKER_IMAGE      ?= "operable/cog-relay:dev"
 LINK_VARS         := -X main.buildstamp=$(BUILD_STAMP) -X main.buildhash=$(BUILD_HASH)
 LINK_VARS         += -X main.buildtag=$(BUILD_TAG)
 OSNAME            := $(shell uname | tr A-Z a-z)
@@ -77,4 +78,4 @@ $(TARBALL_NAME): test $(TARBALL_BUILD)
 
 docker: clean
 	GOOS=linux GOARCH=amd64 make cog-relay
-	docker build .
+	docker build -t $(DOCKER_IMAGE) .
