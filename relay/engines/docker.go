@@ -190,14 +190,16 @@ func (de *DockerEngine) makeAuthConfig() docker.AuthConfiguration {
 }
 
 func verifyCredentials(client *docker.Client, dockerConfig *config.DockerInfo) error {
-	if dockerConfig.RegistryUser == "" || dockerConfig.RegistryPassword == "" {
-		log.Info("No Docker registry credentials found. Skipping auth check.")
+	if dockerConfig.RegistryUser == "" || dockerConfig.RegistryPassword == "" ||
+		dockerConfig.RegistryEmail == "" {
+		log.Info("No Docker registry credentials found or credentials are incomplete. Skipping auth check.")
 		return nil
 	}
 	log.Info("Verifying Docker registry credentials.")
 	authConf := docker.AuthConfiguration{
 		Username:      dockerConfig.RegistryUser,
 		Password:      dockerConfig.RegistryPassword,
+		Email:         dockerConfig.RegistryEmail,
 		ServerAddress: dockerConfig.RegistryHost,
 	}
 	return client.AuthCheck(&authConf)

@@ -58,8 +58,9 @@ type DockerInfo struct {
 	UseEnv           bool   `yaml:"use_env" env:"RELAY_DOCKER_USE_ENV" valid:"-" default:"false"`
 	SocketPath       string `yaml:"socket_path" env:"RELAY_DOCKER_SOCKET_PATH" valid:"dockersocket,required" default:"unix:///var/run/docker.sock"`
 	CleanInterval    string `yaml:"clean_interval" env:"RELAY_DOCKER_CLEAN_INTERVAL" valid:"required" default:"5m"`
-	RegistryHost     string `yaml:"registry_host" env:"RELAY_DOCKER_REGISTRY_HOST" valid:"host,required" default:"hub.docker.com"`
+	RegistryHost     string `yaml:"registry_host" env:"RELAY_DOCKER_REGISTRY_HOST" valid:"host,required" default:"index.docker.io"`
 	RegistryUser     string `yaml:"registry_user" env:"RELAY_DOCKER_REGISTRY_USER" valid:"-"`
+	RegistryEmail    string `yaml:"registry_email" env:"RELAY_DOCKER_REGISTRY_EMAIL" valid:"-"`
 	RegistryPassword string `yaml:"registry_password" env:"RELAY_DOCKER_REGISTRY_PASSWORD" valid:"-"`
 }
 
