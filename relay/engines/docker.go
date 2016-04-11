@@ -14,6 +14,9 @@ import (
 
 var errorDockerDisabled = errors.New("Docker engine is disabled")
 
+var relayCreatedLabel = "io.operable.cog.relay.created"
+var relayCreatedFilter = "io.operable.cog.relay.created=yes"
+
 // DockerEngine is responsible for managing execution of
 // Docker bundled commands.
 type DockerEngine struct {
@@ -119,6 +122,7 @@ func (de *DockerEngine) Clean() int {
 	containers, err := de.client.ListContainers(docker.ListContainersOptions{
 		Filters: map[string][]string{
 			"status": []string{"exited"},
+			"label":  []string{relayCreatedFilter},
 		},
 	})
 	if err != nil {
@@ -170,7 +174,10 @@ func (de *DockerEngine) createContainerOptions(request *messages.ExecutionReques
 			MemorySwap: 0,
 			StdinOnce:  true,
 			OpenStdin:  true,
-			Cmd:        []string{bundle.Commands[command].Executable},
+			Labels: map[string]string{
+				relayCreatedLabel: "yes",
+			},
+			Cmd: []string{bundle.Commands[command].Executable},
 		},
 		HostConfig: &docker.HostConfig{
 			Privileged: false,
