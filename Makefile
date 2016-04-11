@@ -25,9 +25,9 @@ endif
 
 
 ifdef FORCE
-.PHONY: all tools lint test clean deps cog-relay
+.PHONY: all tools lint test clean deps cog-relay docker
 else
-.PHONY: all tools lint test clean deps
+.PHONY: all tools lint test clean deps docker
 endif
 
 all: test cog-relay
@@ -74,3 +74,7 @@ $(TARBALL_NAME): test $(TARBALL_BUILD)
 	cp example_cog_relay.conf $(TARBALL_NAME)
 	tar czf $(TARBALL_NAME).tar.gz $(TARBALL_NAME)
 	rm -rf $(TARBALL_NAME)
+
+docker: clean
+	GOOS=linux GOARCH=amd64 make cog-relay
+	docker build .
