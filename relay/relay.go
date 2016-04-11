@@ -10,6 +10,8 @@ import (
 	"github.com/operable/go-relay/relay/engines"
 	"github.com/operable/go-relay/relay/messages"
 	"golang.org/x/net/context"
+	"hash/fnv"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -56,6 +58,8 @@ type Relay struct {
 	Bus           bus.MessageBus
 	bundleLock    sync.RWMutex
 	bundles       map[string]*config.Bundle
+	bundlesHash   uint64
+	announce      bool
 	fetchedImages *list.List
 	workQueue     *Queue
 	worker        Worker
@@ -140,7 +144,12 @@ func (r *Relay) GetBundle(name string) *config.Bundle {
 func (r *Relay) UpdateBundleList(bundles map[string]*config.Bundle) {
 	r.bundleLock.Lock()
 	defer r.bundleLock.Unlock()
-	r.bundles = bundles
+	newBundlesHash := computeBundleHash(bundles)
+	if r.bundlesHash != newBundlesHash {
+		r.bundles = bundles
+		r.bundlesHash = newBundlesHash
+		r.announce = true
+	}
 }
 
 // BundleNames returns list of bundles known by a Relay
@@ -276,7 +285,10 @@ func (r *Relay) handleRestartCommand() {
 
 func (r *Relay) handleUpdateBundlesDone() {
 	if r.state == RelayUpdatingBundles {
-		r.announceBundles()
+		if r.announce {
+			r.announceBundles()
+			r.announce = false
+		}
 		log.Info("Bundle refresh complete.")
 		if r.hasStarted == false {
 			log.Infof("Relay %s ready.", r.Config.ID)
@@ -358,4 +370,17 @@ func (r *Relay) triggerDockerClean() {
 		}
 	}
 	r.setDockerTimer()
+}
+
+func computeBundleHash(bundles map[string]*config.Bundle) uint64 {
+	keys := []string{}
+	for k := range bundles {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	h := fnv.New64()
+	for _, k := range keys {
+		h.Sum([]byte(k))
+	}
+	return h.Sum64()
 }

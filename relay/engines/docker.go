@@ -99,6 +99,9 @@ func VerifyDockerConfig(dockerConfig *config.DockerInfo) error {
 	if err != nil {
 		return err
 	}
+	if _, err := client.Info(); err != nil {
+		return err
+	}
 	return verifyCredentials(client, dockerConfig)
 }
 
