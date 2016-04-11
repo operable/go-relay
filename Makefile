@@ -10,6 +10,19 @@ BUILD_HASH        := $(shell git rev-parse HEAD)
 BUILD_TAG         := $(shell git describe --tags)
 LINK_VARS         := -X main.buildstamp=$(BUILD_STAMP) -X main.buildhash=$(BUILD_HASH)
 LINK_VARS         += -X main.buildtag=$(BUILD_TAG)
+OSNAME            := $(shell uname | tr A-Z a-z)
+ARCHNAME          := $(shell $(CC) -dumpmachine | cut -d\- -f1)
+ifeq ($(ARCHNAME), x86_64)
+ARCHNAME           = amd64
+endif
+TARBALL_NAME       = cog-relay_$(OSNAME)_$(ARCHNAME)
+
+ifeq ($(OSNAME), darwin)
+TARBALL_BUILD      = cog-relay
+else ifeq ($(OSNAME), linux)
+TARBALL_BUILD      = minify
+endif
+
 
 ifdef FORCE
 .PHONY: all tools lint test clean deps cog-relay
@@ -42,7 +55,7 @@ deps:
 	@go get github.com/fsouza/go-dockerclient
 
 minify: cog-relay
-	$(GOUPX_BIN) --strip-binary $<
+	$(GOUPX_BIN) $<
 
 $(GOUPX_BIN):
 	go get -u github.com/pwaller/goupx
@@ -52,3 +65,11 @@ $(GOVENDOR_BIN):
 
 $(GOLINT_BIN):
 	go get -u github.com/golang/lint/golint
+
+tarball: $(TARBALL_NAME)
+
+$(TARBALL_NAME): test $(TARBALL_BUILD)
+	mkdir -p $(TARBALL_NAME)
+	cp cog-relay $(TARBALL_NAME)
+	tar czf $(TARBALL_NAME).tar.gz $(TARBALL_NAME)
+	rm -rf $(TARBALL_NAME)
