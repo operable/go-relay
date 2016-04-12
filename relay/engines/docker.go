@@ -67,7 +67,7 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 			docker.RemoveImageOptions{Force: true}); removeErr != nil {
 			log.Errorf("Failed to remove old image %s: %s.", shortID(beforeID), removeErr)
 		} else {
-			log.Infof("Removed obsolete Docker image %s.", shortID(beforeID))
+			log.Infof("Replaced obsolete Docker image %s with %s.", shortID(beforeID), shortID(afterID))
 		}
 	}
 	return true, nil
