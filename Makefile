@@ -1,4 +1,3 @@
-GOUPX_BIN          = $(shell go env GOPATH)/bin/goupx
 GOVENDOR_BIN       = $(shell go env GOPATH)/bin/govendor
 GOLINT_BIN         = $(shell go env GOPATH)/bin/golint
 PKG_DIRS          := $(shell find . -type d | grep relay | grep -v vendor)
@@ -13,29 +12,30 @@ LINK_VARS         := -X main.buildstamp=$(BUILD_STAMP) -X main.buildhash=$(BUILD
 LINK_VARS         += -X main.buildtag=$(BUILD_TAG)
 OSNAME            := $(shell uname | tr A-Z a-z)
 ARCHNAME          := $(shell $(CC) -dumpmachine | cut -d\- -f1)
+BUILD_DIR          = _build
+EXENAME            = $(BUILD_DIR)/relay
+
 ifeq ($(ARCHNAME), x86_64)
 ARCHNAME           = amd64
 endif
-TARBALL_NAME       = cog-relay_$(OSNAME)_$(ARCHNAME)
+TARBALL_NAME       = $(EXENAME)_$(OSNAME)_$(ARCHNAME)
 
-ifeq ($(OSNAME), darwin)
-TARBALL_BUILD      = cog-relay
-else ifeq ($(OSNAME), linux)
-TARBALL_BUILD      = minify
-endif
+TARBALL_BUILD      = relay
 
 
 ifdef FORCE
-.PHONY: all tools lint test clean deps cog-relay docker
+.PHONY: all tools lint test clean deps relay docker
 else
 .PHONY: all tools lint test clean deps docker
 endif
 
-all: test cog-relay
+all: test exe
 
-tools: $(GOUPX_BIN) $(GOVENDOR_BIN) $(GOLINT_BIN)
+exe: $(EXENAME)
 
-cog-relay: $(SOURCES) deps
+tools: $(GOVENDOR_BIN) $(GOLINT_BIN)
+
+$(EXENAME): $(BUILD_DIR) $(SOURCES) deps
 	@rm -f `find . -name "*flymake*.go"`
 	go build -ldflags "$(LINK_VARS)" -o $@ github.com/operable/go-relay
 
@@ -47,19 +47,13 @@ test: tools deps lint
 	@go test -v -cover $(FULL_PKGS)
 
 clean:
-	rm -f cog-relay cog-relay-test
+	rm -f $(EXENAME) relay-test
 	find . -name "*.test" -type f | xargs rm -fv
 	find . -name "*-test" -type f | xargs rm -fv
 
 deps:
 	@$(GOVENDOR_BIN) sync
 	@go get github.com/fsouza/go-dockerclient
-
-minify: cog-relay
-	$(GOUPX_BIN) $<
-
-$(GOUPX_BIN):
-	go get -u github.com/pwaller/goupx
 
 $(GOVENDOR_BIN):
 	go get -u github.com/kardianos/govendor
@@ -71,11 +65,14 @@ tarball: $(TARBALL_NAME)
 
 $(TARBALL_NAME): test $(TARBALL_BUILD)
 	mkdir -p $(TARBALL_NAME)
-	cp cog-relay $(TARBALL_NAME)
-	cp example_cog_relay.conf $(TARBALL_NAME)
+	cp $(EXE_NAME) $(TARBALL_NAME)
+	cp example_relay.conf $(TARBALL_NAME)
 	tar czf $(TARBALL_NAME).tar.gz $(TARBALL_NAME)
 	rm -rf $(TARBALL_NAME)
 
 docker: clean
-	GOOS=linux GOARCH=amd64 make cog-relay
+	GOOS=linux GOARCH=amd64 make $(EXENAME)
 	docker build -t $(DOCKER_IMAGE) .
+
+$(BUILD_DIR):
+	mkdir -p $@

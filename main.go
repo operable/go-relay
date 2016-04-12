@@ -29,8 +29,8 @@ var buildhash string
 var buildtag string
 
 var configLocations = []string{
-	"/etc/cog_relay.conf",
-	"/usr/local/etc/cog_relay.conf",
+	"/etc/relay.conf",
+	"/usr/local/etc/relay.conf",
 }
 
 func init() {

@@ -1,6 +1,6 @@
 *
-!cog-relay
+!relay
 !docker
 !LICENSE
 !NOTICE
-
+!_build

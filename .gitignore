@@ -6,3 +6,4 @@ cog-relay
 */**/*.test
 cog-relay_*
 *.tar.gz
+_build
