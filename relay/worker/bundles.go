@@ -31,10 +31,7 @@ func updateBundles(ctx context.Context, listBundles *messages.ListBundlesRespons
 			if err != nil {
 				log.Errorf("Docker image %s for bundle %s is not available: %s.", bundleConfig.Docker.PrettyImageName(),
 					bundleConfig.Name, err)
-				images = newImages
-				continue
-			}
-			if isBundleNew(bundleConfig.Name, existingBundleNames) {
+			} else if isBundleNew(bundleConfig.Name, existingBundleNames) {
 				log.Infof("Docker image %s for bundle %s is available.", bundleConfig.Docker.PrettyImageName(),
 					bundleConfig.Name)
 			}
@@ -60,10 +57,6 @@ func fetchImage(relayConfig *config.Config, bundle *config.Bundle, fetched []str
 	prettyName := bundle.Docker.PrettyImageName()
 	for _, v := range fetched {
 		if v == prettyName {
-			bundle.Docker.ID, err = docker.IDForName(bundle.Docker.Image, bundle.Docker.Tag)
-			if err != nil {
-				return fetched, err
-			}
 			return fetched, nil
 		}
 	}
@@ -75,7 +68,6 @@ func fetchImage(relayConfig *config.Config, bundle *config.Bundle, fetched []str
 		return fetched, fmt.Errorf("Not found")
 	}
 	fetched = append(fetched, bundle.Docker.PrettyImageName())
-	bundle.Docker.ID, err = docker.IDForName(bundle.Docker.Image, bundle.Docker.Tag)
 	if err != nil {
 		return fetched, err
 	}

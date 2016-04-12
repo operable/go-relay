@@ -46,6 +46,7 @@ func NewDockerEngine(relayConfig config.Config) (Engine, error) {
 
 // IsAvailable returns true/false if a Docker image is found
 func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
+	beforeID, _ := de.IDForName(name, meta)
 	pullErr := de.client.PullImage(docker.PullImageOptions{
 		Repository: name,
 		Tag:        meta,
@@ -54,18 +55,31 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 		log.Errorf("Error ocurred when pulling image %s: %s.", name, pullErr)
 		image, inspectErr := de.client.InspectImage(name)
 		if inspectErr != nil || image == nil {
-			log.Errorf("Unable to find image %s locally or in remote registry.", name)
+			log.Errorf("Unable to find Docker image %s locally or in remote registry.", name)
 			return false, pullErr
 		}
-		log.Infof("Retrieving image %s from remote registry failed. Falling back to local copy, if it exists.", name)
+		log.Infof("Retrieving Docker image %s from remote registry failed. Falling back to local copy, if it exists.", name)
 		return image != nil, nil
+	}
+	afterID, _ := de.IDForName(name, meta)
+	if beforeID != "" && beforeID != afterID {
+		if removeErr := de.client.RemoveImageExtended(beforeID,
+			docker.RemoveImageOptions{Force: true}); removeErr != nil {
+			log.Errorf("Failed to remove old image %s: %s.", shortID(beforeID), removeErr)
+		} else {
+			log.Infof("Removed obsolete Docker image %s.", shortID(beforeID))
+		}
 	}
 	return true, nil
 }
 
 // Execute a command inside a Docker container
 func (de *DockerEngine) Execute(request *messages.ExecutionRequest, bundle *config.Bundle) ([]byte, []byte, error) {
-	container, err := de.client.CreateContainer(de.createContainerOptions(request, bundle))
+	createOptions, err := de.createContainerOptions(request, bundle)
+	if err != nil {
+		return emptyResult, emptyResult, err
+	}
+	container, err := de.client.CreateContainer(*createOptions)
 	if err != nil {
 		return emptyResult, emptyResult, err
 	}
@@ -91,7 +105,7 @@ func (de *DockerEngine) Execute(request *messages.ExecutionRequest, bundle *conf
 	}
 	de.client.WaitContainer(container.ID)
 	finish := time.Now()
-	log.Infof("Container %s ran %s for %f secs.", containerID, request.Command, finish.Sub(start).Seconds())
+	log.Infof("Docker container %s ran %s for %f secs.", containerID, request.Command, finish.Sub(start).Seconds())
 	return de.stdout.Bytes(), de.stderr.Bytes(), nil
 }
 
@@ -133,7 +147,7 @@ func (de *DockerEngine) Clean() int {
 	for _, container := range containers {
 		err = de.removeContainer(container.ID)
 		if err != nil {
-			log.Errorf("Error removing container %s: %s.", shortID(container.ID), err)
+			log.Errorf("Error removing Docker container %s: %s.", shortID(container.ID), err)
 		} else {
 			count++
 		}
@@ -163,12 +177,16 @@ func (de *DockerEngine) attachOutputReader(containerID string) (docker.CloseWait
 	})
 }
 
-func (de *DockerEngine) createContainerOptions(request *messages.ExecutionRequest, bundle *config.Bundle) docker.CreateContainerOptions {
+func (de *DockerEngine) createContainerOptions(request *messages.ExecutionRequest, bundle *config.Bundle) (*docker.CreateContainerOptions, error) {
+	imageID, err := de.IDForName(bundle.Docker.Image, bundle.Docker.Tag)
+	if err != nil {
+		return nil, err
+	}
 	command := request.CommandName()
-	return docker.CreateContainerOptions{
+	return &docker.CreateContainerOptions{
 		Name: "",
 		Config: &docker.Config{
-			Image:      bundle.Docker.ID,
+			Image:      imageID,
 			Env:        BuildEnvironment(*request, de.relayConfig),
 			Memory:     64 * 1024 * 1024, // 64MB
 			MemorySwap: 0,
@@ -182,7 +200,7 @@ func (de *DockerEngine) createContainerOptions(request *messages.ExecutionReques
 		HostConfig: &docker.HostConfig{
 			Privileged: false,
 		},
-	}
+	}, nil
 }
 
 func (de *DockerEngine) removeContainer(id string) error {
@@ -234,6 +252,6 @@ func newClient(dockerConfig config.DockerInfo) (*docker.Client, error) {
 
 func shortID(containerID string) string {
 	idEnd := len(containerID)
-	idStart := idEnd - 10
+	idStart := idEnd - 12
 	return containerID[idStart:idEnd]
 }

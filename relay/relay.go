@@ -365,7 +365,12 @@ func (r *Relay) triggerDockerClean() {
 			panic(err)
 		}
 		count := dockerEngine.Clean()
-		if count > 0 {
+		switch count {
+		case 0:
+			break
+		case 1:
+			log.Info("Removed 1 dead Docker container.")
+		default:
 			log.Infof("Removed %d dead Docker containers.", count)
 		}
 	}

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/asaskevich/govalidator"
-	"time"
 )
 
 // Bundle represents a command bundle's complete configuration
@@ -20,10 +19,8 @@ type Bundle struct {
 
 // DockerImage identifies the bundle's image name and version
 type DockerImage struct {
-	Image       string    `json:"image" valid:"notempty,required"`
-	Tag         string    `json:"tag" valid:"-"`
-	ID          string    `valid:"-"`
-	RetrievedAt time.Time `valid:"-"`
+	Image string `json:"image" valid:"notempty,required"`
+	Tag   string `json:"tag" valid:"-"`
 }
 
 // BundleCommand identifies a command within a bundle
