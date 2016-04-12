@@ -2,6 +2,7 @@ package worker
 
 import (
 	"encoding/json"
+	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/operable/go-relay/relay/messages"
 	"regexp"
@@ -20,10 +21,10 @@ var outputParsers = map[*regexp.Regexp]outputParser{
 	regexp.MustCompilePOSIX("^JSON$"):         flagJSON,
 }
 
-func parseOutput(output []byte, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
+func parseOutput(commandOutput []byte, commandErrors []byte, err error, resp *messages.ExecutionResponse,
+	req messages.ExecutionRequest) {
 	retained := []string{}
-	resp.IsJSON = false
-	for _, line := range strings.Split(string(output), "\n") {
+	for _, line := range strings.Split(string(commandOutput), "\n") {
 		matched := false
 		for re, cb := range outputParsers {
 			if re.MatchString(line) {
@@ -37,6 +38,17 @@ func parseOutput(output []byte, resp *messages.ExecutionResponse, req messages.E
 			retained = append(retained, line)
 		}
 	}
+	if err != nil {
+		resp.Status = "error"
+		resp.StatusMessage = fmt.Sprintf("%s", err)
+		return
+	}
+	if len(commandErrors) > 0 {
+		resp.Status = "error"
+		resp.StatusMessage = string(commandErrors)
+		return
+	}
+	resp.Status = "ok"
 	remaining := []byte(strings.Join(retained, "\n"))
 	if resp.IsJSON == true {
 		jsonBody := interface{}(nil)

@@ -29,18 +29,7 @@ func executeCommand(incoming *relay.Incoming) {
 			response.StatusMessage = fmt.Sprintf("%s", err)
 		} else {
 			commandOutput, commandErrors, err := engine.Execute(request, bundle)
-			if err != nil {
-				response.Status = "error"
-				response.StatusMessage = fmt.Sprintf("%s", err)
-			} else {
-				if len(commandErrors) > 0 {
-					response.Status = "error"
-					response.StatusMessage = string(commandErrors)
-				} else {
-					response.Status = "ok"
-					parseOutput([]byte(commandOutput), response, *request)
-				}
-			}
+			parseOutput(commandOutput, commandErrors, err, response, *request)
 		}
 	}
 	responseBytes, _ := json.Marshal(response)
