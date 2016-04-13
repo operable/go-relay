@@ -162,7 +162,7 @@ func (link *Link) connect() error {
 	passes, wait := nextIncrement(0)
 	for {
 		if token := link.conn.Connect(); token.Wait() && token.Error() != nil {
-			log.Errorf("Cog connection error: %s.", token.Error())
+			log.Error("Cog connection error.")
 			log.Infof("Waiting %d seconds before retrying.", wait)
 			time.Sleep(time.Duration(wait) * time.Second)
 			passes, wait = nextIncrement(passes)
