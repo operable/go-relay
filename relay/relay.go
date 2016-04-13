@@ -145,6 +145,7 @@ func (r *Relay) UpdateBundleList(bundles map[string]*config.Bundle) {
 	r.bundleLock.Lock()
 	defer r.bundleLock.Unlock()
 	newBundlesHash := computeBundleHash(bundles)
+	log.Infof("Old hash: %d; New hash: %d", r.bundlesHash, newBundlesHash)
 	if r.bundlesHash != newBundlesHash {
 		r.bundles = bundles
 		r.bundlesHash = newBundlesHash
@@ -152,7 +153,20 @@ func (r *Relay) UpdateBundleList(bundles map[string]*config.Bundle) {
 	}
 }
 
-// BundleNames returns list of bundles known by a Relay
+// GetBundles returns a list of bundles known by a Relay
+func (r *Relay) GetBundles() []config.Bundle {
+	r.bundleLock.RLock()
+	defer r.bundleLock.RUnlock()
+	retval := make([]config.Bundle, len(r.bundles))
+	i := 0
+	for _, v := range r.bundles {
+		retval[i] = *v
+		i++
+	}
+	return retval
+}
+
+// BundleNames returns list of bundle names known by a Relay
 func (r *Relay) BundleNames() []string {
 	r.bundleLock.RLock()
 	defer r.bundleLock.RUnlock()
@@ -326,7 +340,7 @@ func (r *Relay) logBadState(name string, required State) {
 }
 
 func (r *Relay) announceBundles() {
-	announcement := messages.NewBundleAnnouncement(r.Config.ID, r.BundleNames())
+	announcement := messages.NewBundleAnnouncement(r.Config.ID, r.GetBundles())
 	raw, _ := json.Marshal(announcement)
 	r.Bus.Publish(bus.RelayDiscoveryTopic, raw)
 }

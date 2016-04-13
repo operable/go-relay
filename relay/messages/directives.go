@@ -30,6 +30,13 @@ type BundleSpec struct {
 	ConfigFile config.Bundle `json:"config_file,omitempty"`
 }
 
+// BundleRef is a lightweight record describing the bundle name
+// and version installed on a Relay
+type BundleRef struct {
+	Name    string `json:"name,omitempty"`
+	Version string `json:"version,omitempty"`
+}
+
 // AnnouncementEnvelope is a wrapper around an Announcement directive.
 type AnnouncementEnvelope struct {
 	Announcement *Announcement `json:"announce" valid:"required"`
@@ -37,9 +44,9 @@ type AnnouncementEnvelope struct {
 
 // Announcement describes the online/offline status of a Relay
 type Announcement struct {
-	RelayID string       `json:"relay" valid:"required"`
-	Online  bool         `json:"online" valid:"bool,required"`
-	Bundles []BundleSpec `json:"bundles,omitempty"`
+	RelayID string      `json:"relay" valid:"required"`
+	Online  bool        `json:"online" valid:"bool,required"`
+	Bundles []BundleRef `json:"bundles,omitempty"`
 	// Deprecated
 	Snapshot bool `json:"snapshot" valid:"bool,required"`
 }
@@ -58,16 +65,17 @@ func NewAnnouncement(relayID string, online bool) *AnnouncementEnvelope {
 
 // NewBundleAnnouncement builds an Announcement directive describing
 // the list of bundles available on a Relay
-func NewBundleAnnouncement(relayID string, bundles []string) *AnnouncementEnvelope {
-	specs := make([]BundleSpec, len(bundles))
+func NewBundleAnnouncement(relayID string, bundles []config.Bundle) *AnnouncementEnvelope {
+	refs := make([]BundleRef, len(bundles))
 	for i, v := range bundles {
-		specs[i].Name = v
+		refs[i].Name = v.Name
+		refs[i].Version = v.Version
 	}
 	return &AnnouncementEnvelope{
 		Announcement: &Announcement{
 			RelayID:  relayID,
 			Online:   true,
-			Bundles:  specs,
+			Bundles:  refs,
 			Snapshot: true,
 		},
 	}
