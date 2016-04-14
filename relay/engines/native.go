@@ -59,10 +59,7 @@ func (ne *NativeEngine) Execute(request *messages.ExecutionRequest, bundle *conf
 		err := command.Run()
 		finish := time.Now()
 		log.Infof("Command %s ran for %f secs.", request.Command, finish.Sub(start).Seconds())
-		if err != nil {
-			return emptyResult, emptyResult, err
-		}
-		return ne.stdout.Bytes(), ne.stderr.Bytes(), nil
+		return ne.stdout.Bytes(), ne.stderr.Bytes(), err
 	}
 	return emptyResult, emptyResult, errorUnknownCommand
 }
