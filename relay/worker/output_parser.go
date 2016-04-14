@@ -24,7 +24,8 @@ var outputParsers = map[*regexp.Regexp]outputParser{
 func parseOutput(commandOutput []byte, commandErrors []byte, err error, resp *messages.ExecutionResponse,
 	req messages.ExecutionRequest) {
 	retained := []string{}
-	for _, line := range strings.Split(string(commandOutput), "\n") {
+	lines := strings.Split(strings.TrimSuffix(string(commandOutput), "\n"), "\n")
+	for _, line := range lines {
 		matched := false
 		for re, cb := range outputParsers {
 			if re.MatchString(line) {
@@ -49,9 +50,9 @@ func parseOutput(commandOutput []byte, commandErrors []byte, err error, resp *me
 		return
 	}
 	resp.Status = "ok"
-	remaining := []byte(strings.Join(retained, "\n"))
 	if resp.IsJSON == true {
 		jsonBody := interface{}(nil)
+		remaining := []byte(strings.Join(retained, "\n"))
 		if err := json.Unmarshal(remaining, &jsonBody); err != nil {
 			resp.Status = "error"
 			resp.StatusMessage = "Command returned invalid JSON."
@@ -59,9 +60,9 @@ func parseOutput(commandOutput []byte, commandErrors []byte, err error, resp *me
 			resp.Body = jsonBody
 		}
 	} else {
-		resp.Body = []map[string]string{
-			map[string]string{
-				"body": string(remaining),
+		resp.Body = []map[string][]string{
+			map[string][]string{
+				"body": retained,
 			},
 		}
 	}
