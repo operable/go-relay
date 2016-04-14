@@ -21,6 +21,7 @@ type NativeEngine struct {
 
 var errorNotImplemented = errors.New("Not implemented")
 var errorDisabled = errors.New("Native execution engine is disabled.")
+var errorUnknownCommand = errors.New("Unknown command")
 
 // NewNativeEngine constructs a new instance
 func NewNativeEngine(relayConfig config.Config) (Engine, error) {
@@ -47,20 +48,23 @@ func (ne *NativeEngine) IDForName(name string, meta string) (string, error) {
 // Execute runs a command invocation
 func (ne *NativeEngine) Execute(request *messages.ExecutionRequest, bundle *config.Bundle) ([]byte, []byte, error) {
 	emptyResult := []byte{}
-	command := exec.Command(request.CommandName())
-	command.Env = BuildEnvironment(*request, ne.relayConfig)
-	input, _ := json.Marshal(request.CogEnv)
-	command.Stdin = bytes.NewBuffer(input)
-	command.Stdout = ne.stdout
-	command.Stderr = ne.stderr
-	start := time.Now()
-	err := command.Run()
-	finish := time.Now()
-	log.Infof("Command %s ran for %f secs.", request.Command, finish.Sub(start).Seconds())
-	if err != nil {
-		return emptyResult, emptyResult, err
+	if bundleCommand := bundle.Commands[request.CommandName()]; bundleCommand != nil {
+		command := exec.Command(bundleCommand.Executable)
+		command.Env = BuildEnvironment(*request, ne.relayConfig)
+		input, _ := json.Marshal(request.CogEnv)
+		command.Stdin = bytes.NewBuffer(input)
+		command.Stdout = ne.stdout
+		command.Stderr = ne.stderr
+		start := time.Now()
+		err := command.Run()
+		finish := time.Now()
+		log.Infof("Command %s ran for %f secs.", request.Command, finish.Sub(start).Seconds())
+		if err != nil {
+			return emptyResult, emptyResult, err
+		}
+		return ne.stdout.Bytes(), ne.stderr.Bytes(), nil
 	}
-	return ne.stdout.Bytes(), ne.stderr.Bytes(), nil
+	return emptyResult, emptyResult, errorUnknownCommand
 }
 
 // Clean required by engines.Engine interface
