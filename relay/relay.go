@@ -145,7 +145,6 @@ func (r *Relay) UpdateBundleList(bundles map[string]*config.Bundle) {
 	r.bundleLock.Lock()
 	defer r.bundleLock.Unlock()
 	newBundlesHash := computeBundleHash(bundles)
-	log.Infof("Old hash: %d; New hash: %d", r.bundlesHash, newBundlesHash)
 	if r.bundlesHash != newBundlesHash {
 		r.bundles = bundles
 		r.bundlesHash = newBundlesHash
@@ -397,9 +396,10 @@ func computeBundleHash(bundles map[string]*config.Bundle) uint64 {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
+	log.Debugf("Available bundles: %v.", keys)
 	h := fnv.New64()
 	for _, k := range keys {
-		h.Sum([]byte(k))
+		h.Write([]byte(k))
 	}
 	return h.Sum64()
 }
