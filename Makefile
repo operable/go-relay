@@ -13,14 +13,12 @@ LINK_VARS         += -X main.buildtag=$(BUILD_TAG)
 OSNAME            := $(shell uname | tr A-Z a-z)
 ARCHNAME          := $(shell $(CC) -dumpmachine | cut -d\- -f1)
 BUILD_DIR          = _build
-EXENAME            = $(BUILD_DIR)/relay
+EXENAME            = relay
 
 ifeq ($(ARCHNAME), x86_64)
 ARCHNAME           = amd64
 endif
 TARBALL_NAME       = $(EXENAME)_$(OSNAME)_$(ARCHNAME)
-
-TARBALL_BUILD      = relay
 
 
 ifdef FORCE
@@ -31,23 +29,25 @@ endif
 
 all: test exe
 
-exe: $(EXENAME)
+exe: $(BUILD_DIR)/$(EXENAME)
 
 tools: $(GOVENDOR_BIN) $(GOLINT_BIN)
 
-$(EXENAME): $(BUILD_DIR) $(SOURCES) deps
+$(BUILD_DIR)/$(EXENAME): $(BUILD_DIR) $(SOURCES) deps
 	@rm -f `find . -name "*flymake*.go"`
+	@rm -rf relay_*_amd64
 	go build -ldflags "$(LINK_VARS)" -o $@ github.com/operable/go-relay
 
 lint: tools
 	@for pkg in $(FULL_PKGS); do $(GOLINT_BIN) $$pkg; done
 
 test: tools deps lint
+	@rm -rf relay_*_amd64
 	@go vet $(VET_FLAGS) $(FULL_PKGS)
 	@go test -v -cover $(FULL_PKGS)
 
 clean:
-	rm -f $(EXENAME) relay-test
+	rm -rf $(BUILD_DIR) relay-test
 	find . -name "*.test" -type f | xargs rm -fv
 	find . -name "*-test" -type f | xargs rm -fv
 
@@ -63,9 +63,9 @@ $(GOLINT_BIN):
 
 tarball: $(TARBALL_NAME)
 
-$(TARBALL_NAME): test $(TARBALL_BUILD)
+$(TARBALL_NAME): test exe
 	mkdir -p $(TARBALL_NAME)
-	cp $(EXE_NAME) $(TARBALL_NAME)
+	cp $(BUILD_DIR)/$(EXENAME) $(TARBALL_NAME)/$(EXENAME)
 	cp example_relay.conf $(TARBALL_NAME)
 	tar czf $(TARBALL_NAME).tar.gz $(TARBALL_NAME)
 	rm -rf $(TARBALL_NAME)
