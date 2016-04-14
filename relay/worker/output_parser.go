@@ -40,7 +40,11 @@ func parseOutput(commandOutput []byte, commandErrors []byte, err error, resp *me
 	}
 	if err != nil {
 		resp.Status = "error"
-		resp.StatusMessage = fmt.Sprintf("%s", err)
+		if len(commandErrors) > 0 {
+			resp.StatusMessage = string(commandErrors)
+		} else {
+			resp.StatusMessage = fmt.Sprintf("%s", err)
+		}
 		return
 	}
 	if len(commandErrors) > 0 {
