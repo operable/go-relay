@@ -67,9 +67,5 @@ func fetchImage(relayConfig *config.Config, bundle *config.Bundle, fetched []str
 	if isAvail == false {
 		return fetched, fmt.Errorf("Not found")
 	}
-	fetched = append(fetched, bundle.Docker.PrettyImageName())
-	if err != nil {
-		return fetched, err
-	}
-	return fetched, nil
+	return append(fetched, bundle.Docker.PrettyImageName()), nil
 }
