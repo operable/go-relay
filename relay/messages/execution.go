@@ -42,7 +42,7 @@ type ExecutionResponse struct {
 	Bundle        string      `json:"bundle"`
 	Status        string      `json:"status"`
 	StatusMessage string      `json:"status_message"`
-	Template      string      `json:"template"`
+	Template      interface{} `json:"template"`
 	Body          interface{} `json:"body"`
 	IsJSON        bool
 }
