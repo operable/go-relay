@@ -56,6 +56,7 @@ type Incoming struct {
 type Relay struct {
 	Config        *config.Config
 	Bus           bus.MessageBus
+	announcer     Announcer
 	bundleLock    sync.RWMutex
 	bundles       map[string]*config.Bundle
 	bundlesHash   uint64
@@ -105,6 +106,9 @@ func (r *Relay) Start(worker Worker) error {
 func (r *Relay) Stop() {
 	if r.state != RelayStopped {
 		r.stopTimers()
+		if r.announcer != nil {
+			r.announcer.Halt()
+		}
 		if r.Bus != nil {
 			r.Bus.Halt()
 		}
@@ -207,14 +211,20 @@ func (r *Relay) connectToCog() error {
 		log.Errorf("Error connecting to Cog: %s.", err)
 		return err
 	}
-
 	err = link.Run()
 	if err != nil {
 		log.Errorf("Error connecting to Cog: %s.", err)
 		return err
 	}
-	log.Infof("Connected to Cog host %s.", r.Config.Cog.Host)
 	r.Bus = link
+	if r.announcer == nil {
+		r.announcer, _ = NewAnnouncer(r, r.coordinator)
+	}
+	if err := r.announcer.Run(); err != nil {
+		r.Bus.Halt()
+		return err
+	}
+	log.Infof("Connected to Cog host %s.", r.Config.Cog.Host)
 	return nil
 }
 
@@ -282,6 +292,9 @@ func (r *Relay) handleRestartCommand() {
 	if r.Bus != nil {
 		r.Bus.Halt()
 	}
+	if r.announcer != nil {
+		r.announcer.Halt()
+	}
 	r.workQueue.Stop()
 	r.coordinator.Done()
 	r.coordinator.Wait()
@@ -292,7 +305,11 @@ func (r *Relay) handleRestartCommand() {
 	r.state = RelayStarting
 	r.workQueue.Start()
 	r.startWorkers(r.worker)
-	r.connectToCog()
+	if err := r.connectToCog(); err != nil {
+		log.Fatalf("Restarting Relay %s failed: %s.", r.Config.ID, err)
+		panic(err)
+	}
+	r.announce = true
 	r.control <- RelayUpdateBundles
 }
 
@@ -339,9 +356,7 @@ func (r *Relay) logBadState(name string, required State) {
 }
 
 func (r *Relay) announceBundles() {
-	announcement := messages.NewBundleAnnouncement(r.Config.ID, r.GetBundles())
-	raw, _ := json.Marshal(announcement)
-	r.Bus.Publish(bus.RelayDiscoveryTopic, raw)
+	r.announcer.SendAnnouncement()
 }
 
 func (r *Relay) stopTimers() {

@@ -156,8 +156,7 @@ func (link *Link) connect() error {
 	mqttOpts.SetClientID(link.id)
 	mqttOpts.SetCleanSession(true)
 	mqttOpts.SetWill(RelayDiscoveryTopic, newWill(link.id), 1, false)
-	url := fmt.Sprintf("tcp://%s:%d", link.cogConfig.Host, link.cogConfig.Port)
-	mqttOpts.AddBroker(url)
+	mqttOpts.AddBroker(link.cogConfig.URL())
 	link.conn = mqtt.NewClient(mqttOpts)
 	passes, wait := nextIncrement(0)
 	for {
