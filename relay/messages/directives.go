@@ -44,11 +44,20 @@ type AnnouncementEnvelope struct {
 
 // Announcement describes the online/offline status of a Relay
 type Announcement struct {
+	ID      string      `json:"announcement_id,omitempty" valid:"-"`
 	RelayID string      `json:"relay" valid:"required"`
 	Online  bool        `json:"online" valid:"bool,required"`
 	Bundles []BundleRef `json:"bundles,omitempty"`
 	// Deprecated
-	Snapshot bool `json:"snapshot" valid:"bool,required"`
+	Snapshot bool   `json:"snapshot" valid:"bool,required"`
+	ReplyTo  string `json:"reply_to,omitempty" valid:"-"`
+}
+
+// AnnouncementReceipt is sent by Cog to acknowledge a Relay's bundle announcement
+type AnnouncementReceipt struct {
+	ID      string      `json:"announcement_id" valid:"-"`
+	Status  string      `json:"status" valid:"-"`
+	Bundles interface{} `json:"bundles" valid:"-"`
 }
 
 // NewAnnouncement builds an Announcement directive suitable for
@@ -77,6 +86,26 @@ func NewBundleAnnouncement(relayID string, bundles []config.Bundle) *Announcemen
 			Online:   true,
 			Bundles:  refs,
 			Snapshot: true,
+		},
+	}
+}
+
+// NewBundleAnnouncementExtended builds an Announcement directive describing
+// the list of bundles available on a Relay
+func NewBundleAnnouncementExtended(relayID string, bundles []config.Bundle, replyTo string, id string) *AnnouncementEnvelope {
+	refs := make([]BundleRef, len(bundles))
+	for i, v := range bundles {
+		refs[i].Name = v.Name
+		refs[i].Version = v.Version
+	}
+	return &AnnouncementEnvelope{
+		Announcement: &Announcement{
+			ID:       id,
+			RelayID:  relayID,
+			Online:   true,
+			Bundles:  refs,
+			Snapshot: true,
+			ReplyTo:  replyTo,
 		},
 	}
 }

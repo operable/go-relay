@@ -98,6 +98,15 @@ func (c *Config) engineEnabled(name string) bool {
 	return false
 }
 
+// URL returns a MQTT URL for the upstream Cog host
+func (ci *CogInfo) URL() string {
+	proto := "tcp"
+	if ci.SSLEnabled {
+		proto = "ssl"
+	}
+	return fmt.Sprintf("%s://%s:%d", proto, ci.Host, ci.Port)
+}
+
 // CleanDuration returns CleanInterval as a time.Duration
 func (di *DockerInfo) CleanDuration() time.Duration {
 	duration, err := time.ParseDuration(di.CleanInterval)
