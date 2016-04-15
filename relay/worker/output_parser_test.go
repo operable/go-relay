@@ -28,11 +28,11 @@ var (
 func TestParseLogOutput(t *testing.T) {
 	req.Parse()
 	resp := &messages.ExecutionResponse{}
-	output := "COGCMD_DEBUG: Testing 123\nabc\n"
+	output := "COGCMD_DEBUG: Testing 123\nabc\n123\n"
 	parseOutput([]byte(output), []byte{}, nil, resp, req)
 	text, _ := json.Marshal(resp.Body)
-	if string(text) != "[{\"body\":\"abc\\n\"}]" {
-		t.Errorf("Unexpected parseOutput result: [{\"body\":\"abc\\n\"}] != %s", string(text))
+	if string(text) != "[{\"body\":[\"abc\",\"123\"]}]" {
+		t.Errorf("Unexpected parseOutput result: [{\"body\":[\"abc\",\"123\"]}] != %s", string(text))
 	}
 }
 
