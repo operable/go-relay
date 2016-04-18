@@ -22,10 +22,18 @@ Docker v1.10.3+
 
 3. Set environment variables and run `cog-relay`.
 
+   You'll need to have a docker machine running and have environment variables
+   set for the docker client to connect to it. If you haven't already, run the
+   following. (See more details at https://docs.docker.com/machine/get-started)
+
+   ```
+   docker-machine create --driver virtualbox default
+   docker-machine start default
+   eval $(docker-machine env default)`
+   ```
+
+   Then start relay:
+
    ```
    RELAY_DOCKER_USE_ENV=true ./cog-relay -file example_cog_relay.conf
    ```
-
-   NOTE: You'll need to have a docker machine running and have environment
-   variables set for the docker client to connect to it.
-   https://docs.docker.com/machine/get-started/
