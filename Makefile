@@ -33,7 +33,7 @@ exe: $(BUILD_DIR)/$(EXENAME)
 
 tools: $(GOVENDOR_BIN) $(GOLINT_BIN)
 
-$(BUILD_DIR)/$(EXENAME): $(BUILD_DIR) $(SOURCES) deps
+$(BUILD_DIR)/$(EXENAME): $(BUILD_DIR) $(SOURCES) tools deps
 	@rm -f `find . -name "*flymake*.go"`
 	@rm -rf relay_*_amd64
 	go build -ldflags "$(LINK_VARS)" -o $@ github.com/operable/go-relay
@@ -53,7 +53,7 @@ clean:
 
 deps:
 	@$(GOVENDOR_BIN) sync
-	@go get github.com/fsouza/go-dockerclient
+	@go get -u github.com/fsouza/go-dockerclient
 
 $(GOVENDOR_BIN):
 	go get -u github.com/kardianos/govendor
