@@ -232,7 +232,8 @@ func verifyCredentials(client *docker.Client, dockerConfig *config.DockerInfo) e
 		Email:         dockerConfig.RegistryEmail,
 		ServerAddress: dockerConfig.RegistryHost,
 	}
-	return client.AuthCheck(&authConf)
+	_, err := client.AuthCheck(&authConf)
+	return err
 }
 
 func newClient(dockerConfig config.DockerInfo) (*docker.Client, error) {
