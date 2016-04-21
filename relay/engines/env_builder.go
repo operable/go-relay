@@ -65,31 +65,44 @@ func loadDynamicConfig(relayConfig config.Config, bundle string) *map[string]int
 		log.Debugf("Dynamic config disabled.")
 		return nil
 	}
-	fullPath := path.Join(relayConfig.DynamicConfigRoot, bundle, "config.yaml")
-	fileInfo, err := os.Stat(fullPath)
-	if err != nil || fileInfo.IsDir() == true {
-		log.Debugf("Dynamic config file %s not found or isn't a file.", fullPath)
-		return nil
-	}
-	buf, err := ioutil.ReadFile(fullPath)
-	if err != nil {
-		log.Errorf("Reading dynamic config for bundle %s failed: %s.", bundle, err)
-		return nil
-	}
-	retval := make(map[string]interface{})
-	err = yaml.Unmarshal(buf, &retval)
-	if err != nil {
-		log.Errorf("Parsing dynamic config for bundle %s failed: %s.", bundle, err)
-		return nil
-	}
-	for k := range retval {
-		if strings.HasPrefix(k, "COG_") || strings.HasPrefix(k, "RELAY_") {
-			delete(retval, k)
-			log.Infof("Deleted illegal key %s from dynamic config for bundle %s.", k, bundle)
+	if fullPath := locateConfigFile(relayConfig.DynamicConfigRoot, bundle); fullPath != "" {
+		buf, err := ioutil.ReadFile(fullPath)
+		if err != nil {
+			log.Errorf("Reading dynamic config for bundle %s failed: %s.", bundle, err)
+			return nil
 		}
+		retval := make(map[string]interface{})
+		err = yaml.Unmarshal(buf, &retval)
+		if err != nil {
+			log.Errorf("Parsing dynamic config for bundle %s failed: %s.", bundle, err)
+			return nil
+		}
+		for k := range retval {
+			if strings.HasPrefix(k, "COG_") || strings.HasPrefix(k, "RELAY_") {
+				delete(retval, k)
+				log.Infof("Deleted illegal key %s from dynamic config for bundle %s.", k, bundle)
+			}
+		}
+		if len(retval) == 0 {
+			return nil
+		}
+		return &retval
 	}
-	if len(retval) == 0 {
-		return nil
+	return nil
+}
+
+func locateConfigFile(configRoot string, bundle string) string {
+	fullYamlPath := path.Join(configRoot, bundle, "config.yaml")
+	fullYmlPath := path.Join(configRoot, bundle, "config.yml")
+	yamlInfo, yamlErr := os.Stat(fullYamlPath)
+	if yamlErr != nil || yamlInfo.IsDir() == true {
+		ymlInfo, ymlErr := os.Stat(fullYmlPath)
+		if ymlErr != nil || ymlInfo.IsDir() == true {
+			log.Debugf("Dynamic config not found. Checked: '%s' and '%s'.",
+				fullYamlPath, fullYmlPath)
+			return ""
+		}
+		return fullYmlPath
 	}
-	return &retval
+	return fullYamlPath
 }
