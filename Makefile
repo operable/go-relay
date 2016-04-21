@@ -71,7 +71,7 @@ $(TARBALL_NAME): test exe
 	rm -rf $(TARBALL_NAME)
 
 docker: clean
-	GOOS=linux GOARCH=amd64 make $(EXENAME)
+	GOOS=linux GOARCH=amd64 make exe
 	docker build -t $(DOCKER_IMAGE) .
 
 $(BUILD_DIR):
