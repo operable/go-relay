@@ -2,9 +2,11 @@ package bus
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"sync"
 	"time"
@@ -27,6 +29,8 @@ const (
 	// RelayDiscoveryTopic is the topic Cog uses to discover new Relays
 	RelayDiscoveryTopic = "bot/relays/discover"
 )
+
+var errorBadTLSCert = errors.New("Bad TLS certificate")
 
 // MessageBus is the interface used by worker code to
 // publish messages
@@ -142,12 +146,8 @@ func (link *Link) connect() error {
 		}
 		mqttOpts.SetConnectionLostHandler(handler)
 	}
-	if link.cogConfig.SSLEnabled == true {
-		mqttOpts.TLSConfig = tls.Config{
-			ServerName:             link.cogConfig.Host,
-			SessionTicketsDisabled: true,
-			InsecureSkipVerify:     false,
-		}
+	if err := link.configureSSL(mqttOpts); err != nil {
+		return err
 	}
 	mqttOpts.SetKeepAlive(time.Duration(60) * time.Second)
 	mqttOpts.SetPingTimeout(time.Duration(15) * time.Second)
@@ -156,17 +156,52 @@ func (link *Link) connect() error {
 	mqttOpts.SetClientID(link.id)
 	mqttOpts.SetCleanSession(true)
 	mqttOpts.SetWill(RelayDiscoveryTopic, newWill(link.id), 1, false)
-	mqttOpts.AddBroker(link.cogConfig.URL())
+	cogURL := link.cogConfig.URL()
+	mqttOpts.AddBroker(cogURL)
 	link.conn = mqtt.NewClient(mqttOpts)
 	passes, wait := nextIncrement(0)
 	for {
 		if token := link.conn.Connect(); token.Wait() && token.Error() != nil {
-			log.Error("Cog connection error.")
+			log.Errorf("Error connecting to %s.", cogURL)
 			log.Infof("Waiting %d seconds before retrying.", wait)
 			time.Sleep(time.Duration(wait) * time.Second)
 			passes, wait = nextIncrement(passes)
 		} else {
 			break
+		}
+	}
+	return nil
+}
+
+func (link *Link) configureSSL(mqttOpts *mqtt.ClientOptions) error {
+	if !link.cogConfig.SSLEnabled {
+		log.Info("SSL disabled on MQTT connection to Cog")
+		return nil
+	}
+	log.Info("SSL enabled on MQTT connection to Cog")
+	if link.cogConfig.SSLCertPath == "" {
+		log.Warn("TLS certificate verification disabled.")
+		mqttOpts.TLSConfig = tls.Config{
+			InsecureSkipVerify: true,
+		}
+	} else {
+		buf, err := ioutil.ReadFile(link.cogConfig.SSLCertPath)
+		if err != nil {
+			log.Errorf("Error reading TLS certificate file %s: %s.",
+				link.cogConfig.SSLCertPath, err)
+			return err
+		}
+		roots := x509.NewCertPool()
+		ok := roots.AppendCertsFromPEM(buf)
+		if !ok {
+			log.Errorf("Failed to parse TLS certificate file %s.",
+				link.cogConfig.SSLCertPath)
+			return errorBadTLSCert
+		}
+		log.Info("TLS certificate verification enabled.")
+		mqttOpts.TLSConfig = tls.Config{
+			InsecureSkipVerify: false,
+			RootCAs:            roots,
 		}
 	}
 	return nil

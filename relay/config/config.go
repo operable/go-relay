@@ -50,6 +50,7 @@ type CogInfo struct {
 	Port            int    `yaml:"port" env:"RELAY_COG_PORT" valid:"int64,required" default:"1883"`
 	Token           string `yaml:"token" env:"RELAY_COG_TOKEN" valid:"required"`
 	SSLEnabled      bool   `yaml:"enable_ssl" env:"RELAY_COG_ENABLE_SSL" valid:"bool" default:"false"`
+	SSLCertPath     string `yaml:"ssl_cert_path" env:"RELAY_COG_SSL_CERT_PATH" valid:"-"`
 	RefreshInterval string `yaml:"refresh_interval" env:"RELAY_COG_REFRESH_INTERVAL" valid:"required" default:"15m"`
 }
 
