@@ -18,6 +18,7 @@ type ExecutionRequest struct {
 	bundleName    string
 	commandName   string
 	pipelineID    string
+	ServiceToken  string                 `json:"service_token"`
 }
 
 // ChatUser contains chat information about the submittor
