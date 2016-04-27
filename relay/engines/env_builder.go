@@ -24,7 +24,7 @@ func BuildEnvironment(request messages.ExecutionRequest, relayConfig config.Conf
 		cogOpts := ""
 		for k, v := range request.Options {
 			optName := fmt.Sprintf("COG_OPT_%s", strings.ToUpper(k))
-			vars[optName] = fmt.Sprintf("%s", v)
+			vars[optName] = fmt.Sprintf("%v", v)
 			if cogOpts == "" {
 				cogOpts = k
 			} else {
