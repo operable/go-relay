@@ -37,6 +37,7 @@ func BuildEnvironment(request messages.ExecutionRequest, relayConfig config.Conf
 	vars["COG_COMMAND"] = request.CommandName()
 	vars["COG_CHAT_HANDLE"] = request.Requestor.Handle
 	vars["COG_PIPELINE_ID"] = request.PipelineID()
+	vars["COG_SERVICE_TOKEN"] = request.ServiceToken
 
 	dyn := loadDynamicConfig(relayConfig, request.BundleName())
 	if dyn != nil {
