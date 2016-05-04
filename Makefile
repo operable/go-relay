@@ -6,8 +6,8 @@ SOURCES           := $(shell find . -name "*.go" -type f)
 VET_FLAGS          = -v
 BUILD_STAMP       := $(shell date -u '+%Y%m%d%H%M%S')
 BUILD_HASH        := $(shell git rev-parse HEAD)
-BUILD_TAG         := $(shell git describe --tags)
-DOCKER_IMAGE      ?= "operable/relay:0.5-dev"
+BUILD_TAG         ?= $(shell git describe --tags)
+DOCKER_IMAGE      ?= "operable/relay:0.6-dev"
 LINK_VARS         := -X main.buildstamp=$(BUILD_STAMP) -X main.buildhash=$(BUILD_HASH)
 LINK_VARS         += -X main.buildtag=$(BUILD_TAG)
 OSNAME            := $(shell uname | tr A-Z a-z)
