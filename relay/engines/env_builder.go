@@ -39,6 +39,10 @@ func BuildEnvironment(request messages.ExecutionRequest, relayConfig config.Conf
 	vars["COG_PIPELINE_ID"] = request.PipelineID()
 	vars["COG_SERVICE_TOKEN"] = request.ServiceToken
 
+	if request.StagePos != "" {
+		vars["COG_STAGE_POS"] = request.StagePos
+	}
+
 	dyn := loadDynamicConfig(relayConfig, request.BundleName())
 	if dyn != nil {
 		for k, v := range *dyn {
