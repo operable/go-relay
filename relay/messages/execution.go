@@ -10,6 +10,7 @@ type ExecutionRequest struct {
 	Options       map[string]interface{} `json:"options"`
 	Args          []interface{}          `json:"args"`
 	CogEnv        interface{}            `json:"cog_env"`
+	StagePos      string                 `json:"stage_pos"`
 	Command       string                 `json:"command"`
 	CommandConfig map[string]interface{} `json:"command_config"`
 	ReplyTo       string                 `json:"reply_to"`
