@@ -18,6 +18,7 @@ type ExecutionRequest struct {
 	Requestor      ChatUser               `json:"requestor"`
 	User           CogUser                `json:"user"`
 	ServiceToken   string                 `json:"service_token"`
+	ServicesRoot   string                 `json:"services_root"`
 	bundleName     string
 	commandName    string
 	pipelineID     string
