@@ -7,20 +7,20 @@ import (
 // ExecutionRequest is a request to execute a command
 // as part of a Cog pipeline
 type ExecutionRequest struct {
-	Options       map[string]interface{} `json:"options"`
-	Args          []interface{}          `json:"args"`
-	CogEnv        interface{}            `json:"cog_env"`
-	StagePos      string                 `json:"stage_pos"`
-	InvocationID  string                 `json:"invocation_id"`
-	Command       string                 `json:"command"`
-	CommandConfig map[string]interface{} `json:"command_config"`
-	ReplyTo       string                 `json:"reply_to"`
-	Requestor     ChatUser               `json:"requestor"`
-	User          CogUser                `json:"user"`
-	bundleName    string
-	commandName   string
-	pipelineID    string
-	ServiceToken  string                 `json:"service_token"`
+	Options        map[string]interface{} `json:"options"`
+	Args           []interface{}          `json:"args"`
+	CogEnv         interface{}            `json:"cog_env"`
+	InvocationID   string                 `json:"invocation_id"`
+	InvocationStep string                 `json:"invocation_step"`
+	Command        string                 `json:"command"`
+	CommandConfig  map[string]interface{} `json:"command_config"`
+	ReplyTo        string                 `json:"reply_to"`
+	Requestor      ChatUser               `json:"requestor"`
+	User           CogUser                `json:"user"`
+	ServiceToken   string                 `json:"service_token"`
+	bundleName     string
+	commandName    string
+	pipelineID     string
 }
 
 // ChatUser contains chat information about the submittor

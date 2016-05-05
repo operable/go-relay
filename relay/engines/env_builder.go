@@ -40,8 +40,8 @@ func BuildEnvironment(request messages.ExecutionRequest, relayConfig config.Conf
 	vars["COG_SERVICE_TOKEN"] = request.ServiceToken
 	vars["COG_INVOCATION_ID"] = request.InvocationID
 
-	if request.StagePos != "" {
-		vars["COG_STAGE_POS"] = request.StagePos
+	if request.InvocationStep != "" {
+		vars["COG_INVOCATION_STEP"] = request.InvocationStep
 	}
 
 	dyn := loadDynamicConfig(relayConfig, request.BundleName())
