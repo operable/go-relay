@@ -38,6 +38,7 @@ func BuildEnvironment(request messages.ExecutionRequest, relayConfig config.Conf
 	vars["COG_CHAT_HANDLE"] = request.Requestor.Handle
 	vars["COG_PIPELINE_ID"] = request.PipelineID()
 	vars["COG_SERVICE_TOKEN"] = request.ServiceToken
+	vars["COG_INVOCATION_ID"] = request.InvocationID
 
 	if request.StagePos != "" {
 		vars["COG_STAGE_POS"] = request.StagePos

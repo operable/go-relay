@@ -11,6 +11,7 @@ type ExecutionRequest struct {
 	Args          []interface{}          `json:"args"`
 	CogEnv        interface{}            `json:"cog_env"`
 	StagePos      string                 `json:"stage_pos"`
+	InvocationID  string                 `json:"invocation_id"`
 	Command       string                 `json:"command"`
 	CommandConfig map[string]interface{} `json:"command_config"`
 	ReplyTo       string                 `json:"reply_to"`
