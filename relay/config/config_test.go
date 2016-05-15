@@ -172,3 +172,10 @@ func TestDisabledDocker(t *testing.T) {
 		t.Error("Expected DockerEnabled() to return false")
 	}
 }
+
+func TestEmptyRawConfig(t *testing.T) {
+	rawConfig := RawConfig([]byte{})
+	if rawConfig.IsEmpty() == false {
+		t.Error("Expected IsEmpty() to return false")
+	}
+}
