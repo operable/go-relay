@@ -43,7 +43,8 @@ execution:
 func TestLoadConfig(t *testing.T) {
 	os.Clearenv()
 	relayID := "2bba0d1f-a30c-45ec-87e6-e4c5d8c6104f"
-	config, err := ParseConfig([]byte(fullConfig))
+	rawConfig := RawConfig(fullConfig)
+	config, err := rawConfig.Parse()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,9 +54,6 @@ func TestLoadConfig(t *testing.T) {
 	}
 	if config.Docker == nil {
 		t.Errorf("Expected non-nil Docker config")
-	}
-	if config.Execution != nil {
-		t.Errorf("Expected non-nil Execution config")
 	}
 	if config.ID != relayID {
 		t.Errorf("Expected Relay ID '%s'", relayID)
@@ -67,7 +65,8 @@ func TestLoadConfig(t *testing.T) {
 
 func TestApplyConfigDefaults(t *testing.T) {
 	os.Clearenv()
-	config, err := ParseConfig([]byte(usingDefaultsConfig))
+	rawConfig := RawConfig(usingDefaultsConfig)
+	config, err := rawConfig.Parse()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +98,8 @@ func TestApplyEnvVars(t *testing.T) {
 	os.Setenv("RELAY_DOCKER_SOCKET_PATH", "unix:///foo/bar/baz.sock")
 	os.Setenv("RELAY_DOCKER_REGISTRY_USER", "testuser")
 	os.Setenv("RELAY_DOCKER_REGISTRY_PASSWORD", "testy")
-	config, err := ParseConfig([]byte(fullConfig))
+	rawConfig := RawConfig(fullConfig)
+	config, err := rawConfig.Parse()
 
 	if err != nil {
 		t.Fatal(err)
@@ -130,10 +130,27 @@ func TestApplyEnvVars(t *testing.T) {
 	}
 }
 
+func TestOnlyEnvVars(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("RELAY_ID", "2bba0d1f-a30c-45ec-87e6-e4c5d8c6104f")
+	os.Setenv("RELAY_COG_TOKEN", "sekrit")
+	config, err := new(RawConfig).Parse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.ID != "2bba0d1f-a30c-45ec-87e6-e4c5d8c6104f" {
+		t.Error("Unexpected Relay ID")
+	}
+	if config.Cog.Token != "sekrit" {
+		t.Error("Unexpected Cog token")
+	}
+}
+
 func TestBadExecutionEngineName(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("RELAY_ENABLED_ENGINES", "kvm")
-	config, err := ParseConfig([]byte(fullConfig))
+	rawConfig := RawConfig(fullConfig)
+	config, err := rawConfig.Parse()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,14 +163,12 @@ func TestBadExecutionEngineName(t *testing.T) {
 }
 
 func TestDisabledDocker(t *testing.T) {
-	config, err := ParseConfig([]byte(disabledDockerConfig))
+	rawConfig := RawConfig(fullConfig)
+	config, err := rawConfig.Parse()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if config.DockerEnabled() == true {
 		t.Error("Expected DockerEnabled() to return false")
-	}
-	if config.Docker != nil {
-		t.Errorf("Expected missing Docker config: %+v", config.Docker)
 	}
 }

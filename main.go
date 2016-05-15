@@ -92,6 +92,18 @@ func configureLogger(config *config.Config) {
 	}
 }
 
+func tryLoadingConfig(locations []string) config.RawConfig {
+	for _, location := range locations {
+		rawConfig, err := config.LoadConfig(location)
+		if err != nil {
+			return rawConfig
+		} else {
+			log.Warnf("Error loading config file '%s': %s.", location, err)
+		}
+	}
+	return make(config.RawConfig, 0)
+}
+
 func prepare() *config.Config {
 	flag.Parse()
 	locations := configLocations
@@ -101,28 +113,31 @@ func prepare() *config.Config {
 		}
 	}
 
-	var relayConfig *config.Config
-	var err error
-	for _, possibleConfig := range locations {
-		relayConfig, err = config.LoadConfig(possibleConfig)
-		if err != nil {
-			errstr := fmt.Sprintf("%s", err)
-			msgs := strings.Split(errstr, ";")
-			log.Warnf("Error loading %s:", possibleConfig)
-			for _, msg := range msgs {
-				log.Warnf("  %s", msg)
+	rawConfig := tryLoadingConfig(locations)
+	relayConfig, err := rawConfig.Parse()
+	if err != nil {
+		logMessage := ""
+		msgs := []string{}
+		for _, msg := range strings.Split(fmt.Sprintf("%s", err), ";") {
+			if msg != "" {
+				msgs = append(msgs, msg)
 			}
-			continue
 		}
-		configureLogger(relayConfig)
-		log.Infof("Loaded configuration file %s.", possibleConfig)
-		return relayConfig
+		count := len(msgs) - 1
+		for i, msg := range msgs {
+			fmt.Printf("i: %d (%d)\n", i, count)
+			if i < count {
+				logMessage = fmt.Sprintf("%s  %s\n", logMessage, msg)
+			} else {
+				logMessage = fmt.Sprintf("%s  %s", logMessage, msg)
+			}
+		}
+		log.Errorf("Error configuring Relay:\n%s", logMessage)
+		log.Error("Relay start aborted.")
+		os.Exit(BAD_CONFIG)
+		return nil
 	}
-	log.Errorf("All attempts to load configuration from these locations failed:\n  %s",
-		strings.Join(locations, "\n  "))
-	log.Error("Relay start aborted.")
-	os.Exit(BAD_CONFIG)
-	return nil
+	return relayConfig
 }
 
 func main() {
