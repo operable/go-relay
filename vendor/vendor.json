@@ -15,6 +15,13 @@
 			"revisionTime": "2016-03-29T17:14:54Z"
 		},
 		{
+			"checksumSHA1": "vaw9Iq+C+yRsiTVLIhSF2MhBQQ8=",
+			"path": "github.com/coreos/go-semver",
+			"revision": "294930c1e79c64e7dbe360054274fdad492c8cf5",
+			"revisionTime": "2016-05-03T00:57:44Z",
+			"tree": true
+		},
+		{
 			"checksumSHA1": "SO0OsE27mXm7guJw6zA1LaWq7to=",
 			"path": "github.com/eclipse/paho.mqtt.golang",
 			"revision": "183329365eb3c151b3f8403f90c89cf4e21ed739",
