@@ -1,7 +1,6 @@
 package relay
 
 import (
-	"github.com/coreos/go-semver/semver"
 	"github.com/operable/go-relay/relay/config"
 	"testing"
 )
@@ -83,52 +82,5 @@ func TestBundleCatalogFindLatest2(t *testing.T) {
 	latest2 := bc.FindLatest(bundle.Name)
 	if latest == latest2 {
 		t.Error("Expected FindLatest() to return newest bundle")
-	}
-}
-
-func TestAddVersionList(t *testing.T) {
-	vl := NewVersionList()
-	v1, _ := semver.NewVersion("1.0.0")
-	v2, _ := semver.NewVersion("2.0.0")
-	vl.Add(v1)
-	if vl.Len() != 1 {
-		t.Error("Bad length")
-	}
-	if vl.Largest() != v1 {
-		t.Error("Bad Largest()")
-	}
-	vl.Add(v2)
-	if vl.Len() != 2 {
-		t.Error("Bad length")
-	}
-	if vl.Largest() != v2 {
-		t.Error("Bad Largest()")
-	}
-}
-
-func TestRemoveVersionList(t *testing.T) {
-	vl := NewVersionList()
-	v1, _ := semver.NewVersion("1.0.0")
-	v2, _ := semver.NewVersion("2.0.0")
-	vl.Add(v2)
-	if vl.Len() != 1 {
-		t.Error("Bad length")
-	}
-	if vl.Largest() != v2 {
-		t.Error("Bad Largest()")
-	}
-	vl.Add(v1)
-	if vl.Len() != 2 {
-		t.Error("Bad length")
-	}
-	if vl.Largest() != v2 {
-		t.Error("Bad Largest()")
-	}
-	vl.Remove(v2)
-	if vl.Len() != 1 {
-		t.Error("Bad length")
-	}
-	if vl.Largest() != v1 {
-		t.Error("Bad Largest()")
 	}
 }
