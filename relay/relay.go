@@ -10,8 +10,6 @@ import (
 	"github.com/operable/go-relay/relay/engines"
 	"github.com/operable/go-relay/relay/messages"
 	"golang.org/x/net/context"
-	"hash/fnv"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -57,10 +55,7 @@ type Relay struct {
 	Config        *config.Config
 	Bus           bus.MessageBus
 	announcer     Announcer
-	bundleLock    sync.RWMutex
-	bundles       map[string]*config.Bundle
-	bundlesHash   uint64
-	announce      bool
+	bundles       *BundleCatalog
 	fetchedImages *list.List
 	workQueue     *Queue
 	worker        Worker
@@ -76,7 +71,7 @@ type Relay struct {
 func New(relayConfig *config.Config) *Relay {
 	return &Relay{
 		Config:        relayConfig,
-		bundles:       make(map[string]*config.Bundle),
+		bundles:       NewBundleCatalog(),
 		fetchedImages: list.New(),
 		// Create work queue with some burstable capacity
 		workQueue: NewQueue(relayConfig.MaxConcurrent * 2),
@@ -138,32 +133,29 @@ func (r *Relay) FinishedUpdateBundles() bool {
 
 // GetBundle returns the named config.Bundle or nil
 func (r *Relay) GetBundle(name string) *config.Bundle {
-	r.bundleLock.RLock()
-	defer r.bundleLock.RUnlock()
-	return r.bundles[name]
+	return r.bundles.FindLatest(name)
 }
 
 // UpdateBundleList atomically replaces the existing master bundle list
 // with a new one
 func (r *Relay) UpdateBundleList(bundles map[string]*config.Bundle) {
-	r.bundleLock.Lock()
-	defer r.bundleLock.Unlock()
-	newBundlesHash := computeBundleHash(bundles)
-	if r.bundlesHash != newBundlesHash {
-		r.bundles = bundles
-		r.bundlesHash = newBundlesHash
-		r.announce = true
+	batch := make([]*config.Bundle, len(bundles))
+	i := 0
+	for _, b := range bundles {
+		batch[i] = b
+		i++
 	}
+	r.bundles.AddBatch(batch)
 }
 
 // GetBundles returns a list of bundles known by a Relay
 func (r *Relay) GetBundles() []config.Bundle {
-	r.bundleLock.RLock()
-	defer r.bundleLock.RUnlock()
-	retval := make([]config.Bundle, len(r.bundles))
+	names := r.bundles.BundleNames()
+	retval := make([]config.Bundle, len(names))
 	i := 0
-	for _, v := range r.bundles {
-		retval[i] = *v
+	for _, name := range names {
+		bundle := r.bundles.FindLatest(name)
+		retval[i] = *bundle
 		i++
 	}
 	return retval
@@ -171,16 +163,7 @@ func (r *Relay) GetBundles() []config.Bundle {
 
 // BundleNames returns list of bundle names known by a Relay
 func (r *Relay) BundleNames() []string {
-	r.bundleLock.RLock()
-	defer r.bundleLock.RUnlock()
-	bundleCount := len(r.bundles)
-	retval := make([]string, bundleCount)
-	i := 0
-	for k := range r.bundles {
-		retval[i] = k
-		i++
-	}
-	return retval
+	return r.bundles.BundleNames()
 }
 
 func (r *Relay) startWorkers(worker Worker) {
@@ -301,6 +284,7 @@ func (r *Relay) handleRestartCommand() {
 	r.state = RelayStopped
 
 	log.Infof("Relay %s restarting.", r.Config.ID)
+	r.bundles = NewBundleCatalog()
 	r.coordinator.Add(1)
 	r.state = RelayStarting
 	r.workQueue.Start()
@@ -309,15 +293,13 @@ func (r *Relay) handleRestartCommand() {
 		log.Fatalf("Restarting Relay %s failed: %s.", r.Config.ID, err)
 		panic(err)
 	}
-	r.announce = true
 	r.control <- RelayUpdateBundles
 }
 
 func (r *Relay) handleUpdateBundlesDone() {
 	if r.state == RelayUpdatingBundles {
-		if r.announce {
+		if r.bundles.ShouldAnnounce() {
 			r.announceBundles()
-			r.announce = false
 		}
 		log.Info("Bundle refresh complete.")
 		if r.hasStarted == false {
@@ -403,18 +385,4 @@ func (r *Relay) triggerDockerClean() {
 		}
 	}
 	r.setDockerTimer()
-}
-
-func computeBundleHash(bundles map[string]*config.Bundle) uint64 {
-	keys := []string{}
-	for k := range bundles {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	log.Debugf("Available bundles: %v.", keys)
-	h := fnv.New64()
-	for _, k := range keys {
-		h.Write([]byte(k))
-	}
-	return h.Sum64()
 }

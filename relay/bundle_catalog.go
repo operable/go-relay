@@ -29,29 +29,53 @@ func NewBundleCatalog() *BundleCatalog {
 	return &bc
 }
 
+// AddBatch adds new bundles to the catalog. Batch is
+// processed atomically. Returns true if at least one config.Bundle
+// entry was added.
+func (bc *BundleCatalog) AddBatch(bundles []*config.Bundle) bool {
+	bc.lock.Lock()
+	defer bc.lock.Unlock()
+	dirty := false
+	for _, bundle := range bundles {
+		if bc.addToCatalog(bundle) == true && dirty == false {
+			dirty = true
+		}
+	}
+	if dirty == true {
+		bc.epoch++
+	}
+	return dirty
+}
+
 // Add stores a config.Bundle instance in the catalog. Duplicates
 // are not allowed. config.Bundle identity is composed of name
 // and version.
 func (bc *BundleCatalog) Add(bundle *config.Bundle) bool {
-	key := bc.makeBundleKey(bundle)
-	version, err := semver.NewVersion(bundle.Version)
-	if err != nil {
-		return false
-	}
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
-	if bc.bundles[key] == nil {
-		bc.bundles[key] = bundle
+	if bc.addToCatalog(bundle) == true {
 		bc.epoch++
-		if bc.versions[bundle.Name] == nil {
-			bc.versions[bundle.Name] = NewVersionList()
-		}
-		versions := bc.versions[bundle.Name]
-		versions.Add(version)
-		bc.versions[bundle.Name] = versions
 		return true
 	}
 	return false
+}
+
+// Len returns the number of bundle versions stored
+func (bc *BundleCatalog) Len() int {
+	bc.lock.RLock()
+	defer bc.lock.RUnlock()
+	return len(bc.bundles)
+}
+
+// BundleNames returns a unique list of bundles stored
+func (bc *BundleCatalog) BundleNames() []string {
+	retval := make([]string, len(bc.versions))
+	i := 0
+	for k, _ := range bc.versions {
+		retval[i] = k
+		i++
+	}
+	return retval
 }
 
 // Remove deletes the named config.Bundle instance from the catalog.
@@ -111,15 +135,41 @@ func (bc *BundleCatalog) ShouldAnnounce() bool {
 	return bc.lastAcked < bc.epoch
 }
 
-// AnnouncementAcked updates the catalog's state to reflect the latest
+// CurrentEpoch returns the catalog's current epoch
+func (bc *BundleCatalog) CurrentEpoch() uint64 {
+	bc.lock.RLock()
+	defer bc.lock.RUnlock()
+	return bc.epoch
+}
+
+// EpochAcked updates the catalog's state to reflect the latest
 // acked epoch
-func (bc *BundleCatalog) AnnouncementAcked(acked uint64) {
+func (bc *BundleCatalog) EpochAcked(acked uint64) {
 	if acked > bc.epoch {
-		log.Warnf("Ignored bundle announcement ack from the future. Current bundle catalog epoch is %d; acked epoch is %d.",
+		log.Warnf("Ignored bundle catalog epoch ack from the future. Current bundle catalog epoch is %d; acked epoch is %d.",
 			bc.epoch, acked)
 		return
 	}
 	bc.lastAcked = acked
+}
+
+func (bc *BundleCatalog) addToCatalog(bundle *config.Bundle) bool {
+	key := bc.makeKey(bundle.Name, bundle.Version)
+	version, err := semver.NewVersion(bundle.Version)
+	if err != nil {
+		return false
+	}
+	if bc.bundles[key] == nil {
+		bc.bundles[key] = bundle
+		if bc.versions[bundle.Name] == nil {
+			bc.versions[bundle.Name] = NewVersionList()
+		}
+		versions := bc.versions[bundle.Name]
+		versions.Add(version)
+		bc.versions[bundle.Name] = versions
+		return true
+	}
+	return false
 }
 
 func (bc *BundleCatalog) makeBundleKey(bundle *config.Bundle) string {

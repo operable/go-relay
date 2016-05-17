@@ -8,6 +8,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/operable/go-relay/relay/messages"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -46,7 +47,7 @@ type relayAnnouncer struct {
 	stateLock           sync.Mutex
 	control             chan relayAnnouncerCommand
 	coordinator         sync.WaitGroup
-	announcementID      byte
+	announcementID      uint64
 	receiptFor          string
 	announceTimer       *time.Timer
 	announcementPending bool
@@ -135,6 +136,8 @@ func (ra *relayAnnouncer) cogReceipt(client *mqtt.Client, message mqtt.Message) 
 	if receipt.ID != ra.receiptFor {
 		log.Infof("Ignoring receipt for unknown bundle announcement %s.", receipt.ID)
 	} else {
+		epoch, _ := strconv.ParseUint(ra.receiptFor, 10, 64)
+		ra.relay.bundles.EpochAcked(epoch)
 		ra.receiptFor = ""
 		if receipt.Status != "success" {
 			log.Warnf("Cog returned unsuccessful status for bundle announcement %s: %s.", receipt.ID, receipt.Status)
@@ -178,7 +181,7 @@ func (ra *relayAnnouncer) sendAnnouncement(skipTimer bool) {
 	defer ra.stateLock.Unlock()
 	log.Debug("Preparing announcement")
 	// We're waiting on Cog to reply to a previous announcement
-	announcementID := ra.nextID()
+	announcementID := fmt.Sprintf("%d", ra.relay.bundles.CurrentEpoch())
 	announcement := messages.NewBundleAnnouncementExtended(ra.id, ra.relay.GetBundles(), ra.receiptTopic, announcementID)
 	raw, _ := json.Marshal(announcement)
 	for {
@@ -198,19 +201,4 @@ func (ra *relayAnnouncer) sendAnnouncement(skipTimer bool) {
 	if skipTimer == false {
 		ra.announceTimer.Reset(reannounceInterval)
 	}
-}
-
-func (ra *relayAnnouncer) nextID() string {
-	if ra.receiptFor != "" {
-		return ra.receiptFor
-	}
-	switch ra.announcementID {
-	case 0:
-		ra.announcementID = 1
-	case 254:
-		ra.announcementID = 1
-	default:
-		ra.announcementID = ra.announcementID + 1
-	}
-	return fmt.Sprintf("%d", ra.announcementID)
 }
