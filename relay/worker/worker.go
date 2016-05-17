@@ -11,10 +11,10 @@ import (
 )
 
 // RunWorker is a the logic loop for a request worker
-func RunWorker(workQueue *relay.Queue, coordinator sync.WaitGroup) {
+func RunWorker(workQueue relay.Queue, coordinator sync.WaitGroup) {
 	coordinator.Add(1)
 	defer coordinator.Done()
-	for thing := workQueue.Dequeue(); thing != nil; thing = workQueue.Dequeue() {
+	for thing, _ := workQueue.Dequeue(); thing != nil; thing, _ = workQueue.Dequeue() {
 		// Convert dequeued thing to context
 		ctx, ok := thing.(context.Context)
 

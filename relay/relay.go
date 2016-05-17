@@ -41,7 +41,7 @@ const (
 var errorNoExecutionEngines = errors.New("Invalid Relay configuration detected. At least one execution engine must be enabled.")
 
 // Worker pulls work items from a Relay's work queue
-type Worker func(*Queue, sync.WaitGroup)
+type Worker func(Queue, sync.WaitGroup)
 
 // Incoming request or directive
 type Incoming struct {
@@ -58,7 +58,7 @@ type Relay struct {
 	announcer     Announcer
 	bundles       *bundle.Catalog
 	fetchedImages *list.List
-	workQueue     *Queue
+	workQueue     Queue
 	worker        Worker
 	refreshTimer  *time.Timer
 	dockerTimer   *time.Timer
@@ -74,10 +74,9 @@ func New(relayConfig *config.Config) *Relay {
 		Config:        relayConfig,
 		bundles:       bundle.NewCatalog(),
 		fetchedImages: list.New(),
-		// Create work queue with some burstable capacity
-		workQueue: NewQueue(relayConfig.MaxConcurrent * 2),
-		control:   make(chan ControlCommand, 2),
-		state:     RelayStopped,
+		workQueue:     NewQueue(uint(relayConfig.MaxConcurrent)),
+		control:       make(chan ControlCommand, 2),
+		state:         RelayStopped,
 	}
 }
 
@@ -108,7 +107,7 @@ func (r *Relay) Stop() {
 		if r.Bus != nil {
 			r.Bus.Halt()
 		}
-		r.workQueue.Stop()
+		r.workQueue.Stop(true)
 		r.control <- RelayStop
 		r.coordinator.Wait()
 		r.state = RelayStopped
@@ -279,7 +278,7 @@ func (r *Relay) handleRestartCommand() {
 	if r.announcer != nil {
 		r.announcer.Halt()
 	}
-	r.workQueue.Stop()
+	r.workQueue.Stop(true)
 	r.coordinator.Done()
 	r.coordinator.Wait()
 	r.state = RelayStopped

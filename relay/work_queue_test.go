@@ -13,7 +13,7 @@ func TestQueueDequeue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dequeued := workQueue.Dequeue()
+	dequeued, _ := workQueue.Dequeue()
 	if enqueued != dequeued {
 		t.Errorf("Work queue changed enqueued object: %v", dequeued)
 	}
@@ -23,7 +23,7 @@ func TestMultiQueueDequeue(t *testing.T) {
 	coord := make(chan interface{})
 	workQueue := NewQueue(2)
 	go func() {
-		thing := workQueue.Dequeue()
+		thing, _ := workQueue.Dequeue()
 		coord <- thing
 	}()
 	time.Sleep(time.Duration(rand.Int31n(100)) * time.Millisecond)
@@ -42,14 +42,14 @@ func TestStoppedQueue(t *testing.T) {
 	coord := make(chan interface{})
 	workQueue := NewQueue(2)
 	go func() {
-		thing := workQueue.Dequeue()
+		thing, _ := workQueue.Dequeue()
 		coord <- thing
-		thing = workQueue.Dequeue()
+		thing, _ = workQueue.Dequeue()
 		coord <- thing
 	}()
 	enqueued := time.Now()
 	workQueue.Enqueue(enqueued)
-	workQueue.Stop()
+	workQueue.Stop(true)
 	dequeued := <-coord
 	if enqueued != dequeued {
 		t.Errorf("Concurrent queue usage is broken. Enqueued %v and dequeued %v", enqueued, dequeued)

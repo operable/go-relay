@@ -5,85 +5,85 @@ import (
 	"sync"
 )
 
-// A Queue is a Go channel with some basic in/out accounting
-type Queue struct {
-	queue    chan interface{}
-	enqueued int64
-	dequeued int64
-	guard    sync.Mutex
-	stopped  bool
+var errorQueueStopped = errors.New("Queue is stopped")
+
+// WorkQueue is an interface used by Relay
+// and workers.
+type Queue interface {
+	Enqueue(interface{}) error
+	Dequeue() (interface{}, error)
+	Stop(bool)
+	Start()
+	IsStopped() bool
 }
 
-type queueSignal byte
+type workQueue struct {
+	lock    sync.Mutex
+	depth   uint
+	pending uint
+	drain   bool
+	stopped bool
+	queue   chan interface{}
+}
 
-// NewQueue creates a new work queue
-func NewQueue(size int) *Queue {
-	return &Queue{
-		queue:   make(chan interface{}, size),
+func NewQueue(depth uint) Queue {
+	return &workQueue{
+		depth:   depth,
+		pending: 0,
 		stopped: false,
+		queue:   make(chan interface{}, depth+1),
 	}
 }
 
-// Enqueue adds a work item to the queue.
-// Returns an error if the queue is stopped.
-func (q *Queue) Enqueue(thing interface{}) error {
-	if q.stopped {
-		return errors.New("Work queue is stopped")
+func (wq *workQueue) Enqueue(item interface{}) error {
+	if wq.IsStopped() {
+		return errorQueueStopped
 	}
-	q.queue <- thing
-	q.updateEnqueued()
+	wq.queue <- item
+	wq.lock.Lock()
+	wq.pending++
+	wq.lock.Unlock()
 	return nil
 }
 
-// Dequeue removes the next item from the queue. Blocks
-// when the queue is empty.
-// Returns nil if the queue is stopped and empty.
-func (q *Queue) Dequeue() interface{} {
-	if isStopped, backlog := q.Status(); isStopped && backlog == 0 {
-		return nil
+func (wq *workQueue) Dequeue() (interface{}, error) {
+	if wq.IsStopped() {
+		return nil, errorQueueStopped
 	}
-	thing := <-q.queue
-	switch thing.(type) {
-	case queueSignal:
-		return nil
-	default:
-		q.updateDequeued()
-		return thing
-	}
+	item := <-wq.queue
+	wq.lock.Lock()
+	wq.pending--
+	wq.lock.Unlock()
+	return item, nil
 }
 
-// Status returns stopped flag and number of pending work items
-func (q *Queue) Status() (bool, int64) {
-	q.guard.Lock()
-	defer q.guard.Unlock()
-	backlog := q.enqueued - q.dequeued
-	return q.stopped, backlog
-}
-
-// Stop prevents new work from being queued and allows
-// consumers to drain remaining work
-func (q *Queue) Stop() {
-	if q.stopped == false {
-		q.stopped = true
-		q.queue <- queueSignal(0)
+func (wq *workQueue) Stop(drain bool) {
+	wq.lock.Lock()
+	defer wq.lock.Unlock()
+	if !wq.stopped {
+		wq.stopped = true
+		wq.drain = drain
 	}
 }
 
-// Start unblocks a previously stopped queue
-func (q *Queue) Start() {
-	if q.stopped == true {
-		q.stopped = false
+func (wq *workQueue) Start() {
+	wq.lock.Lock()
+	defer wq.lock.Unlock()
+	if !wq.stopped {
+		return
 	}
+	wq.stopped = false
+	wq.drain = false
 }
 
-func (q *Queue) updateDequeued() {
-	q.guard.Lock()
-	defer q.guard.Unlock()
-	q.dequeued++
-}
-
-func (q *Queue) updateEnqueued() {
-	q.guard.Lock()
-	defer q.guard.Unlock()
-	q.enqueued++
+func (wq *workQueue) IsStopped() bool {
+	wq.lock.Lock()
+	defer wq.lock.Unlock()
+	if wq.stopped {
+		if wq.drain == true {
+			return wq.pending == 0
+		}
+		return true
+	}
+	return false
 }
