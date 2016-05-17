@@ -96,10 +96,10 @@ func tryLoadingConfig(locations []string) config.RawConfig {
 	for _, location := range locations {
 		rawConfig, err := config.LoadConfig(location)
 		if err != nil {
-			return rawConfig
-		} else {
 			log.Warnf("Error loading config file '%s': %s.", location, err)
+			continue
 		}
+		return rawConfig
 	}
 	return make(config.RawConfig, 0)
 }
@@ -125,7 +125,6 @@ func prepare() *config.Config {
 		}
 		count := len(msgs) - 1
 		for i, msg := range msgs {
-			fmt.Printf("i: %d (%d)\n", i, count)
 			if i < count {
 				logMessage = fmt.Sprintf("%s  %s\n", logMessage, msg)
 			} else {
