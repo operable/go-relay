@@ -5,31 +5,34 @@ import (
 	"sort"
 )
 
-// List of semantic versions sorted in descending order
-type NewestFirst []*semver.Version
+// LargestFirst sorts versions in descending order
+type LargestFirst []*semver.Version
 
-func (nf NewestFirst) Len() int {
+// Len is required by Sort.interface
+func (nf LargestFirst) Len() int {
 	return len(nf)
 }
 
-func (nf NewestFirst) Swap(i, j int) {
+// Swap is required by Sort.interface
+func (nf LargestFirst) Swap(i, j int) {
 	nf[i], nf[j] = nf[j], nf[i]
 }
 
-func (nf NewestFirst) Less(i, j int) bool {
+// Less is required by Sort.interface
+func (nf LargestFirst) Less(i, j int) bool {
 	return nf[j].LessThan(*nf[i])
 }
 
-// VersionList is a list of semantic versions sorted in descending
-// order.
+// VersionList is a list of semantic versions. It uses
+// LargestFirst to keep versions in descending order.
 type VersionList struct {
-	members NewestFirst
+	members LargestFirst
 }
 
 // NewVersionList constructs an empty version list
 func NewVersionList() *VersionList {
 	vl := &VersionList{
-		members: make(NewestFirst, 0),
+		members: make(LargestFirst, 0),
 	}
 	return vl
 }
@@ -57,6 +60,7 @@ func (vlp *VersionList) Remove(version *semver.Version) {
 	}
 }
 
+// Len returns current size
 func (vlp *VersionList) Len() int {
 	return len(vlp.members)
 }
