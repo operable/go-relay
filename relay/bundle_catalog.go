@@ -2,6 +2,7 @@ package relay
 
 import (
 	"fmt"
+	log "github.com/Sirupsen/logrus"
 	"github.com/coreos/go-semver/semver"
 	"github.com/operable/go-relay/relay/config"
 	"sync"
@@ -10,20 +11,20 @@ import (
 // BundleCatalog tracks installed and available bundles. Catalog
 // reads and writes are guarded by a single RWMutex.
 type BundleCatalog struct {
-	lock          sync.RWMutex
-	lastAnnounced uint64
-	epoch         uint64
-	versions      map[string]*VersionList
-	bundles       map[string]*config.Bundle
+	lock      sync.RWMutex
+	lastAcked uint64
+	epoch     uint64
+	versions  map[string]*VersionList
+	bundles   map[string]*config.Bundle
 }
 
 // NewBundleCatalog returns a initialized and empty catalog.
 func NewBundleCatalog() *BundleCatalog {
 	bc := BundleCatalog{
-		lastAnnounced: 0,
-		epoch:         0,
-		versions:      make(map[string]*VersionList),
-		bundles:       make(map[string]*config.Bundle),
+		lastAcked: 0,
+		epoch:     0,
+		versions:  make(map[string]*VersionList),
+		bundles:   make(map[string]*config.Bundle),
 	}
 	return &bc
 }
@@ -107,7 +108,18 @@ func (bc *BundleCatalog) Count() int {
 func (bc *BundleCatalog) ShouldAnnounce() bool {
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
-	return bc.lastAnnounced != bc.epoch
+	return bc.lastAcked < bc.epoch
+}
+
+// AnnouncementAcked updates the catalog's state to reflect the latest
+// acked epoch
+func (bc *BundleCatalog) AnnouncementAcked(acked uint64) {
+	if acked > bc.epoch {
+		log.Warnf("Ignored bundle announcement ack from the future. Current bundle catalog epoch is %d; acked epoch is %d.",
+			bc.epoch, acked)
+		return
+	}
+	bc.lastAcked = acked
 }
 
 func (bc *BundleCatalog) makeBundleKey(bundle *config.Bundle) string {
