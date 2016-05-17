@@ -1,4 +1,4 @@
-package relay
+package bundle
 
 import (
 	"fmt"
@@ -8,9 +8,9 @@ import (
 	"sync"
 )
 
-// BundleCatalog tracks installed and available bundles. Catalog
+// Catalog tracks installed and available bundles. Catalog
 // reads and writes are guarded by a single RWMutex.
-type BundleCatalog struct {
+type Catalog struct {
 	lock      sync.RWMutex
 	lastAcked uint64
 	epoch     uint64
@@ -18,9 +18,9 @@ type BundleCatalog struct {
 	bundles   map[string]*config.Bundle
 }
 
-// NewBundleCatalog returns a initialized and empty catalog.
-func NewBundleCatalog() *BundleCatalog {
-	bc := BundleCatalog{
+// NewCatalog returns a initialized and empty catalog.
+func NewCatalog() *Catalog {
+	bc := Catalog{
 		lastAcked: 0,
 		epoch:     0,
 		versions:  make(map[string]*VersionList),
@@ -32,7 +32,7 @@ func NewBundleCatalog() *BundleCatalog {
 // AddBatch adds new bundles to the catalog. Batch is
 // processed atomically. Returns true if at least one config.Bundle
 // entry was added.
-func (bc *BundleCatalog) AddBatch(bundles []*config.Bundle) bool {
+func (bc *Catalog) AddBatch(bundles []*config.Bundle) bool {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 	dirty := false
@@ -50,7 +50,7 @@ func (bc *BundleCatalog) AddBatch(bundles []*config.Bundle) bool {
 // Add stores a config.Bundle instance in the catalog. Duplicates
 // are not allowed. config.Bundle identity is composed of name
 // and version.
-func (bc *BundleCatalog) Add(bundle *config.Bundle) bool {
+func (bc *Catalog) Add(bundle *config.Bundle) bool {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 	if bc.addToCatalog(bundle) == true {
@@ -61,14 +61,14 @@ func (bc *BundleCatalog) Add(bundle *config.Bundle) bool {
 }
 
 // Len returns the number of bundle versions stored
-func (bc *BundleCatalog) Len() int {
+func (bc *Catalog) Len() int {
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
 	return len(bc.bundles)
 }
 
 // BundleNames returns a unique list of bundles stored
-func (bc *BundleCatalog) BundleNames() []string {
+func (bc *Catalog) BundleNames() []string {
 	retval := make([]string, len(bc.versions))
 	i := 0
 	for k, _ := range bc.versions {
@@ -79,8 +79,8 @@ func (bc *BundleCatalog) BundleNames() []string {
 }
 
 // Remove deletes the named config.Bundle instance from the catalog.
-func (bc *BundleCatalog) Remove(name string, version string) {
-	key := bc.makeKey(name, version)
+func (bc *Catalog) Remove(name string, version string) {
+	key := makeKey(name, version)
 	sv, err := semver.NewVersion(version)
 	if err != nil {
 		return
@@ -96,8 +96,8 @@ func (bc *BundleCatalog) Remove(name string, version string) {
 
 // Find retrieves a config.Bundle instance by name and version. nil is
 // returned if the entry doesn't exist.
-func (bc *BundleCatalog) Find(name string, version string) *config.Bundle {
-	key := bc.makeKey(name, version)
+func (bc *Catalog) Find(name string, version string) *config.Bundle {
+	key := makeKey(name, version)
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
 	return bc.bundles[key]
@@ -105,7 +105,7 @@ func (bc *BundleCatalog) Find(name string, version string) *config.Bundle {
 
 // FindLatest returns the config.Bundle instance with the highest known semantic version.
 // nil is returned if the entry doesn't exist.
-func (bc *BundleCatalog) FindLatest(name string) *config.Bundle {
+func (bc *Catalog) FindLatest(name string) *config.Bundle {
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
 	versions := bc.versions[name]
@@ -116,12 +116,12 @@ func (bc *BundleCatalog) FindLatest(name string) *config.Bundle {
 	if latest == nil {
 		return nil
 	}
-	key := bc.makeKey(name, latest.String())
+	key := makeKey(name, latest.String())
 	return bc.bundles[key]
 }
 
 // Count returns the number of stored entries.
-func (bc *BundleCatalog) Count() int {
+func (bc *Catalog) Count() int {
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
 	return len(bc.bundles)
@@ -129,14 +129,14 @@ func (bc *BundleCatalog) Count() int {
 
 // ShouldAnnounce returns true if the catalog has been modified since
 // the last announcement.
-func (bc *BundleCatalog) ShouldAnnounce() bool {
+func (bc *Catalog) ShouldAnnounce() bool {
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
 	return bc.lastAcked < bc.epoch
 }
 
 // CurrentEpoch returns the catalog's current epoch
-func (bc *BundleCatalog) CurrentEpoch() uint64 {
+func (bc *Catalog) CurrentEpoch() uint64 {
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
 	return bc.epoch
@@ -144,7 +144,7 @@ func (bc *BundleCatalog) CurrentEpoch() uint64 {
 
 // EpochAcked updates the catalog's state to reflect the latest
 // acked epoch
-func (bc *BundleCatalog) EpochAcked(acked uint64) {
+func (bc *Catalog) EpochAcked(acked uint64) {
 	if acked > bc.epoch {
 		log.Warnf("Ignored bundle catalog epoch ack from the future. Current bundle catalog epoch is %d; acked epoch is %d.",
 			bc.epoch, acked)
@@ -153,8 +153,8 @@ func (bc *BundleCatalog) EpochAcked(acked uint64) {
 	bc.lastAcked = acked
 }
 
-func (bc *BundleCatalog) addToCatalog(bundle *config.Bundle) bool {
-	key := bc.makeKey(bundle.Name, bundle.Version)
+func (bc *Catalog) addToCatalog(bundle *config.Bundle) bool {
+	key := makeKey(bundle.Name, bundle.Version)
 	version, err := semver.NewVersion(bundle.Version)
 	if err != nil {
 		return false
@@ -172,10 +172,10 @@ func (bc *BundleCatalog) addToCatalog(bundle *config.Bundle) bool {
 	return false
 }
 
-func (bc *BundleCatalog) makeBundleKey(bundle *config.Bundle) string {
-	return bc.makeKey(bundle.Name, bundle.Version)
+func (bc *Catalog) makeBundleKey(bundle *config.Bundle) string {
+	return makeKey(bundle.Name, bundle.Version)
 }
 
-func (bc *BundleCatalog) makeKey(name string, version string) string {
+func makeKey(name string, version string) string {
 	return fmt.Sprintf("%s@%s", name, version)
 }

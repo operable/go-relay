@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	log "github.com/Sirupsen/logrus"
+	"github.com/operable/go-relay/relay/bundle"
 	"github.com/operable/go-relay/relay/bus"
 	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/engines"
@@ -55,7 +56,7 @@ type Relay struct {
 	Config        *config.Config
 	Bus           bus.MessageBus
 	announcer     Announcer
-	bundles       *BundleCatalog
+	bundles       *bundle.Catalog
 	fetchedImages *list.List
 	workQueue     *Queue
 	worker        Worker
@@ -71,7 +72,7 @@ type Relay struct {
 func New(relayConfig *config.Config) *Relay {
 	return &Relay{
 		Config:        relayConfig,
-		bundles:       NewBundleCatalog(),
+		bundles:       bundle.NewCatalog(),
 		fetchedImages: list.New(),
 		// Create work queue with some burstable capacity
 		workQueue: NewQueue(relayConfig.MaxConcurrent * 2),
@@ -284,7 +285,7 @@ func (r *Relay) handleRestartCommand() {
 	r.state = RelayStopped
 
 	log.Infof("Relay %s restarting.", r.Config.ID)
-	r.bundles = NewBundleCatalog()
+	r.bundles = bundle.NewCatalog()
 	r.coordinator.Add(1)
 	r.state = RelayStarting
 	r.workQueue.Start()

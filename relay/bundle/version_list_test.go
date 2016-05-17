@@ -1,4 +1,4 @@
-package relay
+package bundle
 
 import (
 	"github.com/coreos/go-semver/semver"
