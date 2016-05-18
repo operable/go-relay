@@ -12,7 +12,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/operable/go-relay/relay"
 	"github.com/operable/go-relay/relay/config"
-	"github.com/operable/go-relay/relay/worker"
 )
 
 const (
@@ -136,19 +135,30 @@ func prepare() *config.Config {
 		os.Exit(BAD_CONFIG)
 		return nil
 	}
+	configureLogger(relayConfig)
 	return relayConfig
 }
 
 func main() {
 	relayConfig := prepare()
+	if err := relayConfig.Verify(); err != nil {
+		log.Error(err)
+		os.Exit(BAD_CONFIG)
+		return
+	}
 	log.Infof("Relay %s is initializing.", relayConfig.ID)
 
-	myRelay := relay.New(relayConfig)
-	if err := myRelay.Start(worker.RunWorker); err != nil {
+	myRelay, err := relay.NewRelay(relayConfig)
+	if err != nil {
+		log.Error(err)
 		os.Exit(1)
 	}
-	myRelay.UpdateBundles()
-
+	if err := myRelay.Start(); err != nil {
+		log.Error(err)
+		os.Exit(1)
+		return
+	}
+	log.Infof("Relay %s online.", relayConfig.ID)
 	// Set up signal handlers
 	incomingSignal := make(chan os.Signal, 1)
 	signal.Notify(incomingSignal, syscall.SIGINT)
@@ -163,5 +173,4 @@ func main() {
 	log.Info("Starting shut down.")
 	myRelay.Stop()
 	log.Infof("Relay %s shut down complete.", relayConfig.ID)
-
 }

@@ -72,3 +72,12 @@ func (vlp *VersionList) Largest() *semver.Version {
 	}
 	return vlp.members[0]
 }
+
+// Versions returns a copy of the list of stored versions
+func (vlp *VersionList) Versions() []*semver.Version {
+	retval := make([]*semver.Version, len(vlp.members))
+	for i, m := range vlp.members {
+		retval[i] = m
+	}
+	return retval
+}

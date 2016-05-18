@@ -1,4 +1,4 @@
-package relay
+package util
 
 import (
 	"errors"
@@ -7,30 +7,36 @@ import (
 
 var errorQueueStopped = errors.New("Queue is stopped")
 
-// WorkQueue is an interface used by Relay
-// and workers.
+// Queue is a asynchronous work queue
 type Queue interface {
 	Enqueue(interface{}) error
 	Dequeue() (interface{}, error)
-	Stop(bool)
+	Stop(evt QueueEvents) bool
 	Start()
 	IsStopped() bool
 }
+
+// QueueEvents is used to notify waiting processes about
+// administrative events. This is currently only used to
+// notify when the queue is drained.
+type QueueEvents chan byte
 
 type workQueue struct {
 	lock    sync.Mutex
 	depth   uint
 	pending uint
-	drain   bool
+	events  QueueEvents
 	stopped bool
 	queue   chan interface{}
 }
 
+// NewQueue constructs a new queue instance with the
+// specified depth.
 func NewQueue(depth uint) Queue {
 	return &workQueue{
 		depth:   depth,
 		pending: 0,
-		stopped: false,
+		stopped: true,
 		queue:   make(chan interface{}, depth+1),
 	}
 }
@@ -53,17 +59,34 @@ func (wq *workQueue) Dequeue() (interface{}, error) {
 	item := <-wq.queue
 	wq.lock.Lock()
 	wq.pending--
+	if wq.pending == 0 && wq.events != nil {
+		events := wq.events
+		go func() {
+			events <- 1
+		}()
+		wq.events = nil
+	}
 	wq.lock.Unlock()
 	return item, nil
 }
 
-func (wq *workQueue) Stop(drain bool) {
+func (wq *workQueue) Stop(evt QueueEvents) bool {
 	wq.lock.Lock()
 	defer wq.lock.Unlock()
-	if !wq.stopped {
-		wq.stopped = true
-		wq.drain = drain
+	if wq.stopped {
+		return false
 	}
+	wq.stopped = true
+	if evt != nil {
+		if wq.pending == 0 {
+			go func() {
+				evt <- 1
+			}()
+		} else {
+			wq.events = evt
+		}
+	}
+	return true
 }
 
 func (wq *workQueue) Start() {
@@ -73,17 +96,11 @@ func (wq *workQueue) Start() {
 		return
 	}
 	wq.stopped = false
-	wq.drain = false
+	wq.events = nil
 }
 
 func (wq *workQueue) IsStopped() bool {
 	wq.lock.Lock()
 	defer wq.lock.Unlock()
-	if wq.stopped {
-		if wq.drain == true {
-			return wq.pending == 0
-		}
-		return true
-	}
-	return false
+	return wq.stopped && wq.pending == 0
 }

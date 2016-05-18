@@ -9,6 +9,7 @@ import (
 	"github.com/fsouza/go-dockerclient"
 	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/messages"
+	"strings"
 	"time"
 )
 
@@ -46,6 +47,7 @@ func NewDockerEngine(relayConfig config.Config) (Engine, error) {
 
 // IsAvailable returns true/false if a Docker image is found
 func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
+	log.Debugf("Retrieving latest Docker image for %s:%s from upstream Docker hub.", name, meta)
 	beforeID, _ := de.IDForName(name, meta)
 	pullErr := de.client.PullImage(docker.PullImageOptions{
 		Repository: name,
@@ -61,14 +63,23 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 		log.Infof("Retrieving Docker image %s from remote registry failed. Falling back to local copy, if it exists.", name)
 		return image != nil, nil
 	}
-	afterID, _ := de.IDForName(name, meta)
-	if beforeID != "" && beforeID != afterID {
+	afterID, err := de.IDForName(name, meta)
+	if err != nil {
+		return false, err
+	}
+	if beforeID == "" {
+		log.Infof("Retrieved Docker image %s for %s:%s.", shortImageID(afterID), name, meta)
+		return true, nil
+	}
+	if beforeID != afterID {
 		if removeErr := de.client.RemoveImageExtended(beforeID,
 			docker.RemoveImageOptions{Force: true}); removeErr != nil {
-			log.Errorf("Failed to remove old image %s: %s.", shortID(beforeID), removeErr)
+			log.Errorf("Failed to remove old Docker image %s: %s.", shortImageID(beforeID), removeErr)
 		} else {
-			log.Infof("Replaced obsolete Docker image %s with %s.", shortID(beforeID), shortID(afterID))
+			log.Infof("Replaced obsolete Docker image %s with %s.", shortImageID(beforeID), shortImageID(afterID))
 		}
+	} else {
+		log.Infof("Docker image %s for %s:%s is up to date.", shortImageID(beforeID), name, meta)
 	}
 	return true, nil
 }
@@ -83,7 +94,7 @@ func (de *DockerEngine) Execute(request *messages.ExecutionRequest, bundle *conf
 	if err != nil {
 		return emptyResult, emptyResult, err
 	}
-	containerID := shortID(container.ID)
+	containerID := shortContainerID(container.ID)
 	input, _ := json.Marshal(request.CogEnv)
 	inputWaiter, err := de.attachInputWriter(container.ID, input)
 	if err != nil {
@@ -147,7 +158,7 @@ func (de *DockerEngine) Clean() int {
 	for _, container := range containers {
 		err = de.removeContainer(container.ID)
 		if err != nil {
-			log.Errorf("Error removing Docker container %s: %s.", shortID(container.ID), err)
+			log.Errorf("Error removing Docker container %s: %s.", shortContainerID(container.ID), err)
 		} else {
 			count++
 		}
@@ -251,8 +262,13 @@ func newClient(dockerConfig config.DockerInfo) (*docker.Client, error) {
 	return client, nil
 }
 
-func shortID(containerID string) string {
+func shortContainerID(containerID string) string {
 	idEnd := len(containerID)
 	idStart := idEnd - 12
 	return containerID[idStart:idEnd]
+}
+
+func shortImageID(imageID string) string {
+	chunks := strings.Split(imageID, ":")
+	return chunks[1][:11]
 }

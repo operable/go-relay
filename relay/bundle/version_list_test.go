@@ -94,3 +94,15 @@ func TestRemoveMissingVersion(t *testing.T) {
 		t.Error("Bad length")
 	}
 }
+
+func TestListVersions(t *testing.T) {
+	vl := NewVersionList()
+	vl.Add(v1)
+	vl.Add(v2)
+
+	for _, v := range vl.Versions() {
+		if v != v1 && v != v2 {
+			t.Error("Bad version stored")
+		}
+	}
+}

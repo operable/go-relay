@@ -38,8 +38,8 @@ func TestCatalogWrite(t *testing.T) {
 	if bc.Count() != 1 {
 		t.Error("Expected Count() to return 1")
 	}
-	if !bc.ShouldAnnounce() {
-		t.Error("Expected ShouldAnnounce() to return true")
+	if !bc.IsChanged() {
+		t.Error("Expected IsChanged() to return true")
 	}
 }
 
@@ -145,5 +145,18 @@ func TestCatalogBatchAddDupes(t *testing.T) {
 	found := bc.FindLatest(bundle12.Name)
 	if found.Name != bundle121.Name || found.Version != bundle121.Version {
 		t.Error("Expected FindLatest() to return newest bundle")
+	}
+}
+
+func TestCatalogRemoveAll(t *testing.T) {
+	bc := NewCatalog()
+	bc.Add(&bundle12)
+	bc.Add(&bundle121)
+	bc.RemoveAll(bundle12.Name)
+	if bc.Len() != 0 {
+		t.Error("Bad length")
+	}
+	if bc.IsChanged() == false {
+		t.Error("Change detection failed")
 	}
 }

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -21,6 +22,7 @@ const (
 )
 
 var validEngineNames = []string{DockerEngine, NativeEngine}
+var errorNoExecutionEngines = errors.New("Invalid Relay configuration detected. At least one execution engine must be enabled.")
 
 // Config is the top level struct for all Relay configuration
 type Config struct {
@@ -64,6 +66,14 @@ func (c *Config) engineEnabled(name string) bool {
 		}
 	}
 	return false
+}
+
+// Verify sanity checks the configuration to ensure it's correct
+func (c *Config) Verify() error {
+	if c.DockerEnabled() == false && c.NativeEnabled() == false {
+		return errorNoExecutionEngines
+	}
+	return nil
 }
 
 func (c *Config) populate() {

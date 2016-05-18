@@ -1,4 +1,4 @@
-package relay
+package util
 
 import (
 	"math/rand"
@@ -8,6 +8,7 @@ import (
 
 func TestQueueDequeue(t *testing.T) {
 	workQueue := NewQueue(2)
+	workQueue.Start()
 	enqueued := time.Now()
 	err := workQueue.Enqueue(enqueued)
 	if err != nil {
@@ -22,6 +23,7 @@ func TestQueueDequeue(t *testing.T) {
 func TestMultiQueueDequeue(t *testing.T) {
 	coord := make(chan interface{})
 	workQueue := NewQueue(2)
+	workQueue.Start()
 	go func() {
 		thing, _ := workQueue.Dequeue()
 		coord <- thing
@@ -41,6 +43,7 @@ func TestMultiQueueDequeue(t *testing.T) {
 func TestStoppedQueue(t *testing.T) {
 	coord := make(chan interface{})
 	workQueue := NewQueue(2)
+	workQueue.Start()
 	go func() {
 		thing, _ := workQueue.Dequeue()
 		coord <- thing
@@ -49,7 +52,7 @@ func TestStoppedQueue(t *testing.T) {
 	}()
 	enqueued := time.Now()
 	workQueue.Enqueue(enqueued)
-	workQueue.Stop(true)
+	workQueue.Stop(nil)
 	dequeued := <-coord
 	if enqueued != dequeued {
 		t.Errorf("Concurrent queue usage is broken. Enqueued %v and dequeued %v", enqueued, dequeued)
