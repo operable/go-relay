@@ -6,7 +6,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/operable/go-relay/relay/bundle"
 	"github.com/operable/go-relay/relay/bus"
-	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/engines"
 	"github.com/operable/go-relay/relay/messages"
 	"github.com/operable/go-relay/relay/util"
@@ -16,12 +15,12 @@ import (
 
 // CommandInvocation request
 type CommandInvocation struct {
-	RelayConfig config.Config
-	Publisher   bus.MessagePublisher
-	Catalog     bundle.Catalog
-	Topic       string
-	Payload     []byte
-	Shutdown    bool
+	Publisher     bus.MessagePublisher
+	BundleCatalog *bundle.Catalog
+	Engines       *engines.Engines
+	Topic         string
+	Payload       []byte
+	Shutdown      bool
 }
 
 // ExecutionWorker is the entry point for command execution
@@ -50,13 +49,6 @@ func ExecutionWorker(workQueue util.Queue) {
 	}
 }
 
-func engineForBundle(bundle config.Bundle, config config.Config) (engines.Engine, error) {
-	if bundle.IsDocker() == true {
-		return engines.NewDockerEngine(config)
-	}
-	return engines.NewNativeEngine(config)
-}
-
 func executeCommand(invoke *CommandInvocation) {
 	request := &messages.ExecutionRequest{}
 	if err := json.Unmarshal(invoke.Payload, request); err != nil {
@@ -70,7 +62,7 @@ func executeCommand(invoke *CommandInvocation) {
 		response.Status = "error"
 		response.StatusMessage = fmt.Sprintf("Unknown command bundle %s", request.BundleName())
 	} else {
-		engine, err := engineForBundle(*bundle, invoke.RelayConfig)
+		engine, err := invoke.Engines.EngineForBundle(bundle)
 		if err != nil {
 			response.Status = "error"
 			response.StatusMessage = fmt.Sprintf("%s", err)

@@ -3,7 +3,6 @@ package engines
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/fsouza/go-dockerclient"
@@ -12,8 +11,6 @@ import (
 	"strings"
 	"time"
 )
-
-var errorDockerDisabled = errors.New("Docker engine is disabled")
 
 var relayCreatedLabel = "io.operable.cog.relay.created"
 var relayCreatedFilter = "io.operable.cog.relay.created=yes"
@@ -30,9 +27,6 @@ type DockerEngine struct {
 
 // NewDockerEngine makes a new DockerEngine instance
 func NewDockerEngine(relayConfig config.Config) (Engine, error) {
-	if relayConfig.DockerEnabled() == false {
-		return nil, errorDockerDisabled
-	}
 	dockerConfig := *relayConfig.Docker
 	client, err := newClient(dockerConfig)
 	if err != nil {
