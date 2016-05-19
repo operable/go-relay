@@ -97,6 +97,8 @@ func tryLoadingConfig(locations []string) config.RawConfig {
 		if err != nil {
 			log.Warnf("Error loading config file '%s': %s.", location, err)
 			continue
+		} else {
+			log.Infof("Using config file '%s'.", location)
 		}
 		return rawConfig
 	}
@@ -146,6 +148,7 @@ func main() {
 		os.Exit(BAD_CONFIG)
 		return
 	}
+	log.Info("%+v", relayConfig)
 	log.Infof("Relay %s is initializing.", relayConfig.ID)
 
 	myRelay, err := relay.NewRelay(relayConfig)

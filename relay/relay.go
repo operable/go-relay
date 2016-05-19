@@ -13,6 +13,7 @@ import (
 	"github.com/operable/go-relay/relay/worker"
 	"golang.org/x/net/context"
 	"strings"
+	"time"
 )
 
 const (
@@ -45,6 +46,8 @@ type cogRelay struct {
 	catalog           *bundle.Catalog
 	announcer         Announcer
 	directivesReplyTo string
+	bundleTimer       *time.Timer
+	cleanTimer        *time.Timer
 }
 
 // NewRelay constructs a new Relay instance
@@ -84,10 +87,23 @@ func (r *cogRelay) Start() error {
 	if err := conn.Connect(r.connOpts); err != nil {
 		return err
 	}
+	if r.config.DockerEnabled() {
+		r.cleanTimer = time.AfterFunc(r.config.Docker.CleanDuration(), r.scheduledDockerCleanup)
+		log.Infof("Cleaning up Docker environment on %d second intervals.", r.config.Docker.CleanDuration()/time.Second)
+	}
+	log.Infof("Refreshing bundle catalog on %d second intervals.", r.config.RefreshDuration()/time.Second)
 	return nil
 }
 
 func (r *cogRelay) Stop() error {
+	if r.bundleTimer != nil {
+		r.bundleTimer.Stop()
+	}
+	if r.config.DockerEnabled() {
+		if r.bundleTimer != nil {
+			r.cleanTimer.Stop()
+		}
+	}
 	return nil
 }
 
@@ -134,9 +150,11 @@ func (r *cogRelay) handleCommand(conn bus.Connection, topic string, message []by
 		Payload:     message,
 	}
 	ctx := context.WithValue(context.Background(), "invoke", invoke)
-	log.Debugf("Queue stopped: %v", r.queue.IsStopped())
-	log.Debugf("Eqneueud request: %s", r.queue.Enqueue(ctx))
-	log.Debugf("Enqueued invocation request for %s", topic)
+	if err := r.queue.Enqueue(ctx); err != nil {
+		log.Debugf("Failed enqueuing invocation request: %s.", err)
+	} else {
+		log.Debugf("Enqueued invocation request for %s", topic)
+	}
 }
 
 func (r *cogRelay) handleDirective(conn bus.Connection, topic string, message []byte) {
@@ -148,7 +166,7 @@ func (r *cogRelay) handleDirective(conn bus.Connection, topic string, message []
 	// Dispatch on mesasge type
 	switch tm.(type) {
 	case *messages.ListBundlesResponseEnvelope:
-		log.Info("Processing bundle list")
+		log.Debug("Processing bundle catalog updates.")
 		r.updateCatalog(tm.(*messages.ListBundlesResponseEnvelope))
 	}
 }
@@ -174,21 +192,34 @@ func (r *cogRelay) updateCatalog(envelope *messages.ListBundlesResponseEnvelope)
 	// TODO: This should be bi-directional sync to catch bundle unassignments too
 	r.catalog.AddBatch(bundles)
 	if r.catalog.IsChanged() {
-		r.refreshBundles()
-		log.Info("Changes to bundle assignments detected.")
-		r.announcer.SendAnnouncement()
+		if err := r.refreshBundles(); err != nil {
+			log.Errorf("Bundle catalog refresh failed: %s.", err)
+		} else {
+			log.Info("Changes to bundle catalog detected.")
+			r.announcer.SendAnnouncement()
+		}
 	}
+	r.bundleTimer = time.AfterFunc(r.config.RefreshDuration(), r.scheduledBundleRefresh)
 }
 
 func (r *cogRelay) refreshBundles() error {
 	dockerEngine, err := engines.NewDockerEngine(*r.config)
 	if err != nil {
-		return err
+		if r.config.DockerEnabled() == false {
+			dockerEngine = nil
+		} else {
+			return err
+		}
 	}
 	for _, name := range r.catalog.BundleNames() {
 		if bundle := r.catalog.FindLatest(name); bundle != nil {
 			if bundle.NeedsRefresh() {
 				if bundle.IsDocker() {
+					if r.config.DockerEnabled() == false {
+						log.Infof("Skipping Docker-based bundle %s %s.", bundle.Name, bundle.Version)
+						bundle.SetAvailable(false)
+						continue
+					}
 					avail, _ := dockerEngine.IsAvailable(bundle.Docker.Image, bundle.Docker.Tag)
 					bundle.SetAvailable(avail)
 				} else {
@@ -208,8 +239,32 @@ func (r *cogRelay) requestBundles() error {
 		},
 	}
 	raw, _ := json.Marshal(&msg)
-	log.Info("Refreshing command bundles.")
+	log.Debug("Refreshing command catalog.")
 	return r.conn.Publish(infoTopic, raw)
+}
+
+func (r *cogRelay) scheduledBundleRefresh() {
+	if err := r.requestBundles(); err != nil {
+		log.Errorf("Scheduled bundle catalog refresh failed: %s.", err)
+		r.bundleTimer = time.AfterFunc(r.config.RefreshDuration(), r.scheduledBundleRefresh)
+	}
+}
+
+func (r *cogRelay) scheduledDockerCleanup() {
+	engine, err := engines.NewDockerEngine(*r.config)
+	if err != nil {
+		log.Errorf("Scheduled clean up of Docker environment failed: %s.", err)
+	} else {
+		cleaned := engine.Clean()
+		container := "containers"
+		if cleaned == 1 {
+			container = "container"
+		}
+		if cleaned > 0 {
+			log.Infof("Scheduled Docker clean up removed %d %s.", cleaned, container)
+		}
+	}
+	r.cleanTimer = time.AfterFunc(r.config.Docker.CleanDuration(), r.scheduledDockerCleanup)
 }
 
 func verifyDockerConfig(c *config.Config) error {

@@ -30,18 +30,18 @@ type DockerEngine struct {
 
 // NewDockerEngine makes a new DockerEngine instance
 func NewDockerEngine(relayConfig config.Config) (Engine, error) {
-	dockerConfig := relayConfig.Docker
-	if dockerConfig == nil {
+	if relayConfig.DockerEnabled() == false {
 		return nil, errorDockerDisabled
 	}
-	client, err := newClient(*dockerConfig)
+	dockerConfig := *relayConfig.Docker
+	client, err := newClient(dockerConfig)
 	if err != nil {
 		return nil, err
 	}
 	return &DockerEngine{
 		client:      client,
 		relayConfig: relayConfig,
-		config:      *dockerConfig,
+		config:      dockerConfig,
 	}, nil
 }
 

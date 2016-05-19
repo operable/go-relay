@@ -95,7 +95,6 @@ func (mqc *MQTTConnection) buildMQTTOptions(options ConnectionOptions) *mqtt.Cli
 
 func configureSSL(options ConnectionOptions, mqttOpts *mqtt.ClientOptions) error {
 	if !options.SSLEnabled {
-		log.Info("SSL disabled on MQTT connection to Cog")
 		return nil
 	}
 	log.Info("SSL enabled on MQTT connection to Cog")
