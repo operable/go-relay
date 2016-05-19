@@ -3,7 +3,7 @@ package engines
 import (
 	"errors"
 	"github.com/operable/go-relay/relay/config"
-	"github.com/operable/go-relay/relay/messages"
+	"github.com/operable/go-relay/relay/engines/exec"
 )
 
 // EngineType is an enum describing the various engine types
@@ -24,18 +24,17 @@ var ErrDockerDisabled = errors.New("Docker engine is disabled")
 // Engine defines the execution engine interface
 type Engine interface {
 	IsAvailable(name string, meta string) (bool, error)
-	Execute(request *messages.ExecutionRequest, bundle *config.Bundle) ([]byte, []byte, error)
-	IDForName(name string, meta string) (string, error)
+	NewEnvironment(bundle *config.Bundle) (exec.Environment, error)
 	Clean() int
 }
 
 // Engines knows how to create engines based on bundle type
 type Engines struct {
-	relayConfig config.Config
+	relayConfig *config.Config
 }
 
 // NewEngines constructs a new Engines instance
-func NewEngines(relayConfig config.Config) *Engines {
+func NewEngines(relayConfig *config.Config) *Engines {
 	return &Engines{
 		relayConfig: relayConfig,
 	}

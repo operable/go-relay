@@ -58,7 +58,7 @@ func NewRelay(config *config.Config) (Relay, error) {
 	}
 	return &cogRelay{
 		config:            config,
-		engines:           engines.NewEngines(*config),
+		engines:           engines.NewEngines(config),
 		bundleCatalog:     bundle.NewCatalog(),
 		queue:             util.NewQueue(uint(config.MaxConcurrent)),
 		directivesReplyTo: fmt.Sprintf(directiveTopicTemplate, config.ID),
@@ -201,7 +201,7 @@ func (r *cogRelay) updateCatalog(envelope *messages.ListBundlesResponseEnvelope)
 }
 
 func (r *cogRelay) refreshBundles() error {
-	dockerEngine, err := engines.NewDockerEngine(*r.config)
+	dockerEngine, err := r.engines.GetEngine(engines.DockerEngineType)
 	if err != nil {
 		if r.config.DockerEnabled() == false {
 			dockerEngine = nil

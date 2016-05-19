@@ -68,13 +68,22 @@ func executeCommand(invoke *CommandInvocation) {
 	} else {
 		engine, err := invoke.Engines.EngineForBundle(bundle)
 		if err != nil {
-			response.Status = "error"
-			response.StatusMessage = fmt.Sprintf("%s", err)
+			setError(response, err)
 		} else {
-			commandOutput, commandErrors, err := engine.Execute(request, bundle)
-			parseOutput(commandOutput, commandErrors, err, response, *request)
+			env, err := engine.NewEnvironment(bundle)
+			if err != nil {
+				setError(response, err)
+			} else {
+				commandOutput, commandErrors, err := env.Execute(request)
+				parseOutput(commandOutput, commandErrors, err, response, *request)
+			}
 		}
 	}
 	responseBytes, _ := json.Marshal(response)
 	invoke.Publisher.Publish(request.ReplyTo, responseBytes)
+}
+
+func setError(resp *messages.ExecutionResponse, err error) {
+	resp.Status = "error"
+	resp.StatusMessage = fmt.Sprintf("%s", err)
 }

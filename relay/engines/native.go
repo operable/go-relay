@@ -1,22 +1,15 @@
 package engines
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
-	log "github.com/Sirupsen/logrus"
 	"github.com/operable/go-relay/relay/config"
-	"github.com/operable/go-relay/relay/messages"
-	"os/exec"
-	"time"
+	"github.com/operable/go-relay/relay/engines/exec"
 )
 
 // NativeEngine executes commands natively, that is directly,
 // on the Relay host.
 type NativeEngine struct {
-	relayConfig config.Config
-	stdout      *bytes.Buffer
-	stderr      *bytes.Buffer
+	relayConfig *config.Config
 }
 
 var errorNotImplemented = errors.New("Not implemented")
@@ -24,12 +17,10 @@ var errorDisabled = errors.New("Native execution engine is disabled.")
 var errorUnknownCommand = errors.New("Unknown command")
 
 // NewNativeEngine constructs a new instance
-func NewNativeEngine(relayConfig config.Config) (Engine, error) {
+func NewNativeEngine(relayConfig *config.Config) (Engine, error) {
 	if relayConfig.NativeEnabled() == true {
 		return &NativeEngine{
 			relayConfig: relayConfig,
-			stdout:      new(bytes.Buffer),
-			stderr:      new(bytes.Buffer),
 		}, nil
 	}
 	return nil, errorDisabled
@@ -40,28 +31,9 @@ func (ne *NativeEngine) IsAvailable(name string, meta string) (bool, error) {
 	return false, errorNotImplemented
 }
 
-// IDForName required by engines.Engine interface
-func (ne *NativeEngine) IDForName(name string, meta string) (string, error) {
-	return "", errorNotImplemented
-}
-
-// Execute runs a command invocation
-func (ne *NativeEngine) Execute(request *messages.ExecutionRequest, bundle *config.Bundle) ([]byte, []byte, error) {
-	emptyResult := []byte{}
-	if bundleCommand := bundle.Commands[request.CommandName()]; bundleCommand != nil {
-		command := exec.Command(bundleCommand.Executable)
-		command.Env = BuildEnvironment(*request, ne.relayConfig)
-		input, _ := json.Marshal(request.CogEnv)
-		command.Stdin = bytes.NewBuffer(input)
-		command.Stdout = ne.stdout
-		command.Stderr = ne.stderr
-		start := time.Now()
-		err := command.Run()
-		finish := time.Now()
-		log.Infof("Command %s ran for %f secs.", request.Command, finish.Sub(start).Seconds())
-		return ne.stdout.Bytes(), ne.stderr.Bytes(), err
-	}
-	return emptyResult, emptyResult, errorUnknownCommand
+// NewEnvironment is required by the engines.Engine interface
+func (ne *NativeEngine) NewEnvironment(bundle *config.Bundle) (exec.Environment, error) {
+	return exec.NewNativeEnvironment(ne.relayConfig, bundle)
 }
 
 // Clean required by engines.Engine interface
