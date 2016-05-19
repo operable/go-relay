@@ -71,7 +71,7 @@ func (bc *Catalog) Len() int {
 func (bc *Catalog) BundleNames() []string {
 	retval := make([]string, len(bc.versions))
 	i := 0
-	for k, _ := range bc.versions {
+	for k := range bc.versions {
 		retval[i] = k
 		i++
 	}
@@ -94,6 +94,20 @@ func (bc *Catalog) Remove(name string, version string) {
 	}
 }
 
+// RemoveAll deletes all versions associated with the named bundle from the catalog.
+func (bc *Catalog) RemoveAll(name string) {
+	bc.lock.Lock()
+	defer bc.lock.Unlock()
+	if versions := bc.versions[name]; versions != nil {
+		for _, version := range versions.Versions() {
+			key := makeKey(name, version.String())
+			delete(bc.bundles, key)
+		}
+		delete(bc.versions, name)
+		bc.epoch++
+	}
+}
+
 // Find retrieves a config.Bundle instance by name and version. nil is
 // returned if the entry doesn't exist.
 func (bc *Catalog) Find(name string, version string) *config.Bundle {
@@ -108,16 +122,7 @@ func (bc *Catalog) Find(name string, version string) *config.Bundle {
 func (bc *Catalog) FindLatest(name string) *config.Bundle {
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
-	versions := bc.versions[name]
-	if versions == nil {
-		return nil
-	}
-	latest := versions.Largest()
-	if latest == nil {
-		return nil
-	}
-	key := makeKey(name, latest.String())
-	return bc.bundles[key]
+	return bc.findLatestBundle(name)
 }
 
 // Count returns the number of stored entries.
@@ -127,9 +132,9 @@ func (bc *Catalog) Count() int {
 	return len(bc.bundles)
 }
 
-// ShouldAnnounce returns true if the catalog has been modified since
+// IsChanged returns true if the catalog has been modified since
 // the last announcement.
-func (bc *Catalog) ShouldAnnounce() bool {
+func (bc *Catalog) IsChanged() bool {
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
 	return bc.lastAcked < bc.epoch
@@ -153,6 +158,25 @@ func (bc *Catalog) EpochAcked(acked uint64) {
 	bc.lastAcked = acked
 }
 
+// MarkReady updates the catalog entry to indicate the bundle is
+// ready for execution
+func (bc *Catalog) MarkReady(name string, version string) {
+	key := makeKey(name, version)
+	bc.lock.Lock()
+	defer bc.lock.Unlock()
+	if bundle := bc.bundles[key]; bundle != nil {
+		bundle.SetAvailable(true)
+	}
+}
+
+// Reconnected increments the catalog's epoch to indicate the Relay
+// has reconnected to Cog and should re-announce.
+func (bc *Catalog) Reconnected() {
+	bc.lock.Lock()
+	defer bc.lock.Unlock()
+	bc.epoch++
+}
+
 func (bc *Catalog) addToCatalog(bundle *config.Bundle) bool {
 	key := makeKey(bundle.Name, bundle.Version)
 	version, err := semver.NewVersion(bundle.Version)
@@ -172,8 +196,17 @@ func (bc *Catalog) addToCatalog(bundle *config.Bundle) bool {
 	return false
 }
 
-func (bc *Catalog) makeBundleKey(bundle *config.Bundle) string {
-	return makeKey(bundle.Name, bundle.Version)
+func (bc *Catalog) findLatestBundle(name string) *config.Bundle {
+	versions := bc.versions[name]
+	if versions == nil {
+		return nil
+	}
+	latest := versions.Largest()
+	if latest == nil {
+		return nil
+	}
+	key := makeKey(name, latest.String())
+	return bc.bundles[key]
 }
 
 func makeKey(name string, version string) string {

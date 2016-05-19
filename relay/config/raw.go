@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"github.com/asaskevich/govalidator"
 	"github.com/go-yaml/yaml"
 	"strings"
@@ -46,5 +47,6 @@ func (rc RawConfig) Parse() (*Config, error) {
 		_, err = govalidator.ValidateStruct(config.Docker)
 		return &config, err
 	}
+	fmt.Printf("log level: %s", config.LogLevel)
 	return &config, err
 }

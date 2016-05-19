@@ -1,12 +1,13 @@
 package relay
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/operable/go-relay/relay/bundle"
+	"github.com/operable/go-relay/relay/bus"
+	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/messages"
 	"strconv"
 	"sync"
@@ -24,7 +25,7 @@ type relayAnnouncerCommand byte
 type relayAnnouncerState byte
 
 var errorStartAnnouncer = errors.New("Relay bundle announcer failed to start.")
-var reannounceInterval = time.Duration(5) * time.Second
+var reannounceInterval2 = time.Duration(5) * time.Second
 
 const (
 	relayAnnouncerAnnounceCommand (relayAnnouncerCommand) = iota
@@ -41,12 +42,12 @@ type relayAnnouncer struct {
 	id                  string
 	receiptTopic        string
 	relay               *Relay
-	options             *mqtt.ClientOptions
-	conn                *mqtt.Client
+	options             bus.ConnectionOptions
+	conn                bus.Connection
+	catalog             *bundle.Catalog
 	state               relayAnnouncerState
 	stateLock           sync.Mutex
 	control             chan relayAnnouncerCommand
-	coordinator         sync.WaitGroup
 	announcementID      uint64
 	receiptFor          string
 	announceTimer       *time.Timer
@@ -54,55 +55,26 @@ type relayAnnouncer struct {
 }
 
 // NewAnnouncer creates a new Announcer
-func NewAnnouncer(relay *Relay, wg sync.WaitGroup) (Announcer, error) {
-	busConfig := relay.Config.Cog
+func NewAnnouncer(relayID string, busOpts bus.ConnectionOptions, catalog *bundle.Catalog) Announcer {
 	announcer := &relayAnnouncer{
-		id:                  relay.Config.ID,
-		receiptTopic:        fmt.Sprintf("bot/relays/%s/announcer", relay.Config.ID),
-		relay:               relay,
-		options:             mqtt.NewClientOptions(),
+		id:                  relayID,
+		receiptTopic:        fmt.Sprintf("bot/relays/%s/announcer", relayID),
+		options:             busOpts,
+		catalog:             catalog,
 		state:               relayAnnouncerStoppedState,
 		control:             make(chan relayAnnouncerCommand, 2),
-		coordinator:         wg,
 		announcementPending: false,
 	}
-	announcer.options.SetAutoReconnect(false)
-	announcer.options.SetKeepAlive(time.Duration(60) * time.Second)
-	announcer.options.SetPingTimeout(time.Duration(15) * time.Second)
-	announcer.options.SetCleanSession(true)
-	announcer.options.SetClientID(fmt.Sprintf("%s-a", announcer.id))
-	announcer.options.SetUsername(announcer.id)
-	announcer.options.SetPassword(busConfig.Token)
-	announcer.options.AddBroker(busConfig.URL())
-	if busConfig.SSLEnabled == true {
-		announcer.options.TLSConfig = tls.Config{
-			ServerName:             busConfig.Host,
-			SessionTicketsDisabled: true,
-			InsecureSkipVerify:     false,
-		}
-	}
-
-	return announcer, nil
+	return announcer
 }
 
 // Run connects the announcer to Cog and starts its main
 // loop in a goroutine
 func (ra *relayAnnouncer) Run() error {
-	ra.conn = mqtt.NewClient(ra.options)
-	if token := ra.conn.Connect(); token.Wait() {
-		err := token.Error()
-		if err != nil {
-			log.Errorf("1 Cog connection error: %s", err)
-			return errorStartAnnouncer
-		}
-	}
-	if token := ra.conn.Subscribe(ra.receiptTopic, 1, ra.cogReceipt); token.Wait() {
-		err := token.Error()
-		if err != nil {
-			log.Errorf("2 Cog connection error: %s", err)
-			ra.conn.Disconnect(0)
-			return errorStartAnnouncer
-		}
+	ra.options.EventsHandler = ra.handleBusEvents
+	conn := &bus.MQTTConnection{}
+	if err := conn.Connect(ra.options); err != nil {
+		return err
 	}
 	ra.state = relayAnnouncerWaitingState
 	go func() {
@@ -120,13 +92,20 @@ func (ra *relayAnnouncer) SendAnnouncement() {
 	log.Debug("Called relayAnnouncer.SendAnnouncement()")
 }
 
-func (ra *relayAnnouncer) disconnected(client *mqtt.Client, err error) {
-	ra.Halt()
+func (ra *relayAnnouncer) handleBusEvents(conn bus.Connection, event bus.Event) {
+	if event == bus.ConnectedEvent {
+		ra.conn = conn
+		if err := ra.conn.Subscribe(ra.receiptTopic, ra.cogReceipt); err != nil {
+			log.Errorf("Failed to set up announcer subscriptions: %s.", err)
+			panic(err)
+		}
+	}
+
 }
 
-func (ra *relayAnnouncer) cogReceipt(client *mqtt.Client, message mqtt.Message) {
+func (ra *relayAnnouncer) cogReceipt(conn bus.Connection, topic string, payload []byte) {
 	receipt := messages.AnnouncementReceipt{}
-	err := json.Unmarshal(message.Payload(), &receipt)
+	err := json.Unmarshal(payload, &receipt)
 	if err != nil {
 		log.Errorf("Ignoring illegal JSON receipt reply: %s.", err)
 		return
@@ -137,12 +116,12 @@ func (ra *relayAnnouncer) cogReceipt(client *mqtt.Client, message mqtt.Message) 
 		log.Infof("Ignoring receipt for unknown bundle announcement %s.", receipt.ID)
 	} else {
 		epoch, _ := strconv.ParseUint(ra.receiptFor, 10, 64)
-		ra.relay.bundles.EpochAcked(epoch)
+		ra.catalog.EpochAcked(epoch)
 		ra.receiptFor = ""
 		if receipt.Status != "success" {
 			log.Warnf("Cog returned unsuccessful status for bundle announcement %s: %s.", receipt.ID, receipt.Status)
 		} else {
-			log.Debugf("Cog successfully ack'd bundle announcement %s.", receipt.ID)
+			log.Infof("Cog successfully ack'd bundle announcement %s.", receipt.ID)
 		}
 		if ra.announcementPending == false {
 			ra.state = relayAnnouncerWaitingState
@@ -152,8 +131,6 @@ func (ra *relayAnnouncer) cogReceipt(client *mqtt.Client, message mqtt.Message) 
 }
 
 func (ra *relayAnnouncer) loop() {
-	ra.coordinator.Add(1)
-	defer ra.coordinator.Done()
 	for ra.state != relayAnnouncerStoppedState {
 		switch <-ra.control {
 		case relayAnnouncerStopCommand:
@@ -167,7 +144,7 @@ func (ra *relayAnnouncer) loop() {
 			} else {
 				ra.stateLock.Unlock()
 				ra.sendAnnouncement(true)
-				ra.announceTimer = time.AfterFunc(reannounceInterval, func() {
+				ra.announceTimer = time.AfterFunc(reannounceInterval2, func() {
 					log.Debugf("Retrying announcement %s.", ra.receiptFor)
 					ra.sendAnnouncement(false)
 				})
@@ -180,14 +157,14 @@ func (ra *relayAnnouncer) sendAnnouncement(skipTimer bool) {
 	ra.stateLock.Lock()
 	defer ra.stateLock.Unlock()
 	log.Debug("Preparing announcement")
-	// We're waiting on Cog to reply to a previous announcement
-	announcementID := fmt.Sprintf("%d", ra.relay.bundles.CurrentEpoch())
-	announcement := messages.NewBundleAnnouncementExtended(ra.id, ra.relay.GetBundles(), ra.receiptTopic, announcementID)
+	announcementID := fmt.Sprintf("%d", ra.catalog.CurrentEpoch())
+	announcement := messages.NewBundleAnnouncementExtended(ra.id, getBundles(ra.catalog), ra.receiptTopic, announcementID)
 	raw, _ := json.Marshal(announcement)
 	for {
 		log.Debug("Publishing bundle announcement to bot/relays/discover")
-		if token := ra.conn.Publish("bot/relays/discover", 1, false, raw); token.Wait() && token.Error() != nil {
+		if err := ra.conn.Publish("bot/relays/discover", raw); err != nil {
 			ra.stateLock.Unlock()
+			log.Error(err)
 			log.Debug("Retrying announcement")
 			time.Sleep(time.Duration(1) * time.Second)
 			ra.stateLock.Lock()
@@ -199,6 +176,18 @@ func (ra *relayAnnouncer) sendAnnouncement(skipTimer bool) {
 	ra.receiptFor = announcementID
 	ra.state = relayAnnouncerReceiptWaitingState
 	if skipTimer == false {
-		ra.announceTimer.Reset(reannounceInterval)
+		ra.announceTimer.Reset(reannounceInterval2)
 	}
+}
+
+func getBundles(catalog *bundle.Catalog) []config.Bundle {
+	names := catalog.BundleNames()
+	var retval []config.Bundle
+	for _, name := range names {
+		bundle := catalog.FindLatest(name)
+		if bundle != nil && bundle.IsAvailable() {
+			retval = append(retval, *bundle)
+		}
+	}
+	return retval
 }

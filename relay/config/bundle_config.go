@@ -15,6 +15,7 @@ type Bundle struct {
 	Docker        *DockerImage               `json:"docker" valid:"-"`
 	Commands      map[string]*BundleCommand  `json:"commands" valid:"-"`
 	Templates     map[string]*BundleTemplate `json:"templates" valid:"-"`
+	available     bool
 }
 
 // DockerImage identifies the bundle's image name and version
@@ -51,6 +52,26 @@ type BundleTemplate struct {
 // IsDocker returns true if the bundle contains a Docker stanza
 func (b *Bundle) IsDocker() bool {
 	return b.Docker != nil
+}
+
+// IsAvailable always returns true for native bundles. For Docker
+// bundles, it returns true if the image has been downloaded successfully.
+func (b *Bundle) IsAvailable() bool {
+	return b.available
+}
+
+// SetAvailable sets the availability flag
+func (b *Bundle) SetAvailable(flag bool) {
+	b.available = flag
+}
+
+// NeedsRefresh returns true if Relay needs to refresh
+// associated bundle assets (like Docker images)
+func (b *Bundle) NeedsRefresh() bool {
+	if b.IsDocker() {
+		return b.Docker.Tag == "latest" || !b.available
+	}
+	return !b.available
 }
 
 // PrettyImageName returns a prettified version of a Docker image
