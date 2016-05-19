@@ -7,8 +7,8 @@ import (
 )
 
 // intervalTable is the schedule of backoff intervals in seconds
-var intervalTable = []int{5, 5, 10, 10,
-	30, 30, 60, 60, 90, 90}
+var intervalTable = []int{5, 5, 5, 15, 15, 15,
+	30, 30, 30, 60, 60, 60, 90}
 var intervals = byte(len(intervalTable) - 1)
 
 // Backoff implements a basic increasing backoff strategy
