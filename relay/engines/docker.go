@@ -1,32 +1,26 @@
 package engines
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/operable/go-relay/relay/config"
-	"github.com/operable/go-relay/relay/messages"
+	"github.com/operable/go-relay/relay/engines/exec"
 	"strings"
-	"time"
 )
 
-var relayCreatedLabel = "io.operable.cog.relay.created"
 var relayCreatedFilter = "io.operable.cog.relay.created=yes"
 
 // DockerEngine is responsible for managing execution of
 // Docker bundled commands.
 type DockerEngine struct {
 	client      *docker.Client
-	relayConfig config.Config
+	relayConfig *config.Config
 	config      config.DockerInfo
-	stdout      bytes.Buffer
-	stderr      bytes.Buffer
 }
 
 // NewDockerEngine makes a new DockerEngine instance
-func NewDockerEngine(relayConfig config.Config) (Engine, error) {
+func NewDockerEngine(relayConfig *config.Config) (Engine, error) {
 	dockerConfig := *relayConfig.Docker
 	client, err := newClient(dockerConfig)
 	if err != nil {
@@ -78,40 +72,9 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 	return true, nil
 }
 
-// Execute a command inside a Docker container
-func (de *DockerEngine) Execute(request *messages.ExecutionRequest, bundle *config.Bundle) ([]byte, []byte, error) {
-	createOptions, err := de.createContainerOptions(request, bundle)
-	if err != nil {
-		return emptyResult, emptyResult, err
-	}
-	container, err := de.client.CreateContainer(*createOptions)
-	if err != nil {
-		return emptyResult, emptyResult, err
-	}
-	containerID := shortContainerID(container.ID)
-	input, _ := json.Marshal(request.CogEnv)
-	inputWaiter, err := de.attachInputWriter(container.ID, input)
-	if err != nil {
-		de.removeContainer(container.ID)
-		return emptyResult, emptyResult, err
-	}
-	outputWaiter, err := de.attachOutputReader(container.ID)
-	if err != nil {
-		inputWaiter.Close()
-		de.removeContainer(container.ID)
-		return emptyResult, emptyResult, err
-	}
-	start := time.Now()
-	err = de.client.StartContainer(container.ID, nil)
-	if err != nil {
-		inputWaiter.Close()
-		outputWaiter.Close()
-		return emptyResult, emptyResult, err
-	}
-	de.client.WaitContainer(container.ID)
-	finish := time.Now()
-	log.Infof("Docker container %s ran %s for %f secs.", containerID, request.Command, finish.Sub(start).Seconds())
-	return de.stdout.Bytes(), de.stderr.Bytes(), nil
+// NewEnvironment is required by the engines.Engine interface
+func (de *DockerEngine) NewEnvironment(bundle *config.Bundle) (exec.Environment, error) {
+	return exec.NewDockerEnvironment(de.relayConfig, bundle)
 }
 
 // VerifyDockerConfig sanity checks Docker configuration and ensures Relay
@@ -158,54 +121,6 @@ func (de *DockerEngine) Clean() int {
 		}
 	}
 	return count
-}
-
-func (de *DockerEngine) attachInputWriter(containerID string, input []byte) (docker.CloseWaiter, error) {
-	client, _ := newClient(de.config)
-	return client.AttachToContainerNonBlocking(docker.AttachToContainerOptions{
-		Container:   containerID,
-		InputStream: bytes.NewBuffer(input),
-		Stdin:       true,
-		Stream:      true,
-	})
-}
-
-func (de *DockerEngine) attachOutputReader(containerID string) (docker.CloseWaiter, error) {
-	client, _ := newClient(de.config)
-	return client.AttachToContainerNonBlocking(docker.AttachToContainerOptions{
-		Container:    containerID,
-		Stdout:       true,
-		Stderr:       true,
-		Stream:       true,
-		OutputStream: &de.stdout,
-		ErrorStream:  &de.stderr,
-	})
-}
-
-func (de *DockerEngine) createContainerOptions(request *messages.ExecutionRequest, bundle *config.Bundle) (*docker.CreateContainerOptions, error) {
-	imageID, err := de.IDForName(bundle.Docker.Image, bundle.Docker.Tag)
-	if err != nil {
-		return nil, err
-	}
-	command := request.CommandName()
-	return &docker.CreateContainerOptions{
-		Name: "",
-		Config: &docker.Config{
-			Image:      imageID,
-			Env:        BuildEnvironment(*request, de.relayConfig),
-			Memory:     64 * 1024 * 1024, // 64MB
-			MemorySwap: 0,
-			StdinOnce:  true,
-			OpenStdin:  true,
-			Labels: map[string]string{
-				relayCreatedLabel: "yes",
-			},
-			Cmd: []string{bundle.Commands[command].Executable},
-		},
-		HostConfig: &docker.HostConfig{
-			Privileged: false,
-		},
-	}, nil
 }
 
 func (de *DockerEngine) removeContainer(id string) error {
