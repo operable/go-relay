@@ -182,7 +182,7 @@ func (ra *relayAnnouncer) sendAnnouncement(skipTimer bool) {
 
 func getBundles(catalog *bundle.Catalog) []config.Bundle {
 	names := catalog.BundleNames()
-	retval := make([]config.Bundle, 0)
+	var retval []config.Bundle
 	for _, name := range names {
 		bundle := catalog.FindLatest(name)
 		if bundle != nil && bundle.IsAvailable() {

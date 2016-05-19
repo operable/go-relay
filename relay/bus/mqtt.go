@@ -31,7 +31,7 @@ func (mqc *MQTTConnection) Connect(options ConnectionOptions) error {
 	mqc.conn = mqtt.NewClient(mqttOpts)
 	for {
 		if token := mqc.conn.Connect(); token.Wait() && token.Error() != nil {
-			log.Errorf("Error connecting to %s.", brokerURL)
+			log.Errorf("Error connecting to %s.", brokerURL(options))
 			mqc.backoff.Wait()
 		} else {
 			mqc.backoff.Reset()
