@@ -9,6 +9,7 @@ import (
 // Environments are used to execute commands.
 type Environment interface {
 	Execute(request *messages.ExecutionRequest) ([]byte, []byte, error)
+	Terminate(kill bool)
 }
 
 // EmptyResult is used to signify empty normal or error output

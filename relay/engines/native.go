@@ -12,7 +12,6 @@ type NativeEngine struct {
 	relayConfig *config.Config
 }
 
-var errorNotImplemented = errors.New("Not implemented")
 var errorDisabled = errors.New("Native execution engine is disabled.")
 var errorUnknownCommand = errors.New("Unknown command")
 
@@ -26,9 +25,14 @@ func NewNativeEngine(relayConfig *config.Config) (Engine, error) {
 	return nil, errorDisabled
 }
 
+// Init required by engines.Engine interface
+func (ne *NativeEngine) Init() error {
+	return nil
+}
+
 // IsAvailable required by engines.Engine interface
 func (ne *NativeEngine) IsAvailable(name string, meta string) (bool, error) {
-	return false, errorNotImplemented
+	return true, nil
 }
 
 // NewEnvironment is required by the engines.Engine interface

@@ -23,6 +23,7 @@ var ErrDockerDisabled = errors.New("Docker engine is disabled")
 
 // Engine defines the execution engine interface
 type Engine interface {
+	Init() error
 	IsAvailable(name string, meta string) (bool, error)
 	NewEnvironment(bundle *config.Bundle) (exec.Environment, error)
 	Clean() int
