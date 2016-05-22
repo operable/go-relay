@@ -66,6 +66,13 @@ func NewRelay(config *config.Config) (Relay, error) {
 }
 
 func (r *cogRelay) Start() error {
+	dockerEngine, err := r.engines.GetEngine(engines.DockerEngineType)
+	if err != nil {
+		return err
+	}
+	if err := dockerEngine.Init(); err != nil {
+		return err
+	}
 	r.connOpts = bus.ConnectionOptions{
 		Userid:        r.config.ID,
 		Password:      r.config.Cog.Token,

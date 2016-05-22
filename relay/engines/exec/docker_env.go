@@ -2,14 +2,19 @@ package exec
 
 import (
 	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/fsouza/go-dockerclient"
+	exemsg "github.com/operable/cogexec/messages"
 	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/messages"
-	"io"
 	"time"
+)
+
+const (
+	Megabyte = 1024 * 1024
 )
 
 // RelayCreatedDockerLabel is used to mark all containers
@@ -19,9 +24,18 @@ var RelayCreatedDockerLabel = "io.operable.cog.relay.created"
 // DockerEnvironment is an execution environment which runs inside a
 // Docker container.
 type DockerEnvironment struct {
-	client      *docker.Client
-	relayConfig *config.Config
-	bundle      *config.Bundle
+	client       *docker.Client
+	container    *docker.Container
+	shortID      string
+	relayConfig  *config.Config
+	bundle       *config.Bundle
+	encoder      *gob.Encoder
+	stdin        *bytes.Buffer
+	inputWaiter  docker.CloseWaiter
+	decoder      *gob.Decoder
+	stdout       *bytes.Buffer
+	outputWaiter docker.CloseWaiter
+	barrier      chan struct{}
 }
 
 // NewDockerEnvironment creates a new DockerEnvironment instance
@@ -30,97 +44,153 @@ func NewDockerEnvironment(relayConfig *config.Config, bundle *config.Bundle) (En
 	if err != nil {
 		return nil, err
 	}
-	return &DockerEnvironment{
+	de := &DockerEnvironment{
 		client:      client,
 		relayConfig: relayConfig,
 		bundle:      bundle,
-	}, nil
+		stdin:       bytes.NewBuffer([]byte{}),
+		stdout:      bytes.NewBuffer([]byte{}),
+		barrier:     make(chan struct{}),
+	}
+	createOptions, err := de.createContainerOptions()
+	if err != nil {
+		return nil, err
+	}
+	container, err := client.CreateContainer(*createOptions)
+	if err != nil {
+		return nil, err
+	}
+	de.container = container
+	de.shortID = shortContainerID(container.ID)
+	log.Debugf("Created container %s with %d MB RAM.", de.shortID, (createOptions.Config.Memory / Megabyte))
+	err = de.client.StartContainer(de.container.ID, nil)
+	if err != nil {
+		de.Terminate(true)
+		return nil, err
+	}
+	if err = de.connectStreams(); err != nil {
+		de.Terminate(true)
+		return nil, err
+	}
+	return de, nil
+}
+
+func (de *DockerEnvironment) Terminate(kill bool) {
+	if kill == true {
+		de.client.RemoveContainer(docker.RemoveContainerOptions{
+			ID:    de.container.ID,
+			Force: true,
+		})
+		return
+	}
+	start := time.Now()
+	de.inputWaiter.Close()
+	de.outputWaiter.Close()
+	de.client.StopContainer(de.container.ID, 0)
+	de.client.WaitContainer(de.container.ID)
+	finish := time.Now()
+	log.Debugf("Container %s terminated in %f seconds.", de.shortID,
+		finish.Sub(start).Seconds())
 }
 
 func (de *DockerEnvironment) Execute(request *messages.ExecutionRequest) ([]byte, []byte, error) {
-	createOptions, err := de.createContainerOptions(request)
-	if err != nil {
-		return EmptyResult, EmptyResult, err
-	}
-	container, err := de.client.CreateContainer(*createOptions)
-	if err != nil {
-		return EmptyResult, EmptyResult, err
-	}
-	containerID := shortContainerID(container.ID)
-	input, _ := json.Marshal(request.CogEnv)
-	stdout := bytes.NewBuffer([]byte{})
-	stderr := bytes.NewBuffer([]byte{})
-	inputWaiter, err := de.attachInputWriter(container.ID, input)
-	if err != nil {
-		de.client.KillContainer(docker.KillContainerOptions{
-			ID: container.ID,
-		})
-		return EmptyResult, EmptyResult, err
-	}
-	outputWaiter, err := de.attachOutputReader(container.ID, stdout, stderr)
-	if err != nil {
-		inputWaiter.Close()
-		de.client.KillContainer(docker.KillContainerOptions{
-			ID: container.ID,
-		})
-		return EmptyResult, EmptyResult, err
-	}
+	de.resetStreams()
 	start := time.Now()
-	err = de.client.StartContainer(container.ID, nil)
-	if err != nil {
-		inputWaiter.Close()
-		outputWaiter.Close()
-		return EmptyResult, EmptyResult, err
+	execRequest := de.prepareRequest(request)
+	de.encoder.Encode(execRequest)
+	for {
+		if de.stdout.Len() > 0 {
+			break
+		}
 	}
-	de.client.WaitContainer(container.ID)
 	finish := time.Now()
-	log.Infof("Docker container %s ran %s for %f secs.", containerID, request.Command, finish.Sub(start).Seconds())
-	return stdout.Bytes(), stderr.Bytes(), nil
+	log.Infof("Docker container %s ran %s for %f secs.", de.shortID, request.Command, finish.Sub(start).Seconds())
+	output, errors, err := de.parseResponse(execRequest.Executable)
+	go func() {
+		de.Terminate(false)
+	}()
+	return output, errors, err
 }
 
-func (de *DockerEnvironment) createContainerOptions(request *messages.ExecutionRequest) (*docker.CreateContainerOptions, error) {
+func (de *DockerEnvironment) resetStreams() {
+	de.stdin.Reset()
+	de.stdout.Reset()
+}
+
+func (de *DockerEnvironment) connectStreams() error {
+	outputWaiter, err := de.client.AttachToContainerNonBlocking(docker.AttachToContainerOptions{
+		Container:    de.container.ID,
+		OutputStream: de.stdout,
+		Stream:       true,
+		Stdout:       true,
+		Success:      de.barrier,
+	})
+	if err != nil {
+		return err
+	}
+	de.outputWaiter = outputWaiter
+	// Wait for client to set up streams w/Docker
+	<-de.barrier
+	de.barrier <- struct{}{}
+	inputWaiter, err := de.client.AttachToContainerNonBlocking(docker.AttachToContainerOptions{
+		Container:   de.container.ID,
+		InputStream: de.stdin,
+		Stream:      true,
+		Stdin:       true,
+	})
+	if err != nil {
+		outputWaiter.Close()
+		outputWaiter.Wait()
+		de.outputWaiter = nil
+		return err
+	}
+	de.inputWaiter = inputWaiter
+	de.encoder = gob.NewEncoder(de.stdin)
+	de.decoder = gob.NewDecoder(de.stdout)
+	return err
+}
+
+func (de *DockerEnvironment) createContainerOptions() (*docker.CreateContainerOptions, error) {
 	imageID := fmt.Sprintf("%s:%s", de.bundle.Docker.Image, de.bundle.Docker.Tag)
-	command := request.CommandName()
+	containerMemory := de.relayConfig.Docker.ContainerMemory
 	return &docker.CreateContainerOptions{
 		Name: "",
 		Config: &docker.Config{
 			Image:      imageID,
-			Env:        BuildCallingEnvironment(request, de.relayConfig),
-			Memory:     64 * 1024 * 1024, // 64MB
+			Memory:     int64(containerMemory * Megabyte),
 			MemorySwap: 0,
-			StdinOnce:  true,
 			OpenStdin:  true,
 			Labels: map[string]string{
 				RelayCreatedDockerLabel: "yes",
 			},
-			Cmd: []string{de.bundle.Commands[command].Executable},
+			Cmd: []string{"/operable/cogexec/bin/cogexec"},
 		},
 		HostConfig: &docker.HostConfig{
-			Privileged: false,
+			VolumesFrom: []string{"cogexec"},
+			Privileged:  false,
 		},
 	}, nil
 }
 
-func (de *DockerEnvironment) attachInputWriter(containerID string, input []byte) (docker.CloseWaiter, error) {
-	client, _ := newClient(de.relayConfig.Docker)
-	return client.AttachToContainerNonBlocking(docker.AttachToContainerOptions{
-		Container:   containerID,
-		InputStream: bytes.NewBuffer(input),
-		Stdin:       true,
-		Stream:      true,
-	})
+func (de *DockerEnvironment) prepareRequest(request *messages.ExecutionRequest) exemsg.ExecCommandRequest {
+	input, _ := json.Marshal(request.CogEnv)
+	return exemsg.ExecCommandRequest{
+		Executable: de.bundle.Commands[request.CommandName()].Executable,
+		CogEnv:     input,
+		Env:        BuildCallingEnvironment(request, de.relayConfig),
+		Die:        false,
+	}
 }
 
-func (de *DockerEnvironment) attachOutputReader(containerID string, stdout io.Writer, stderr io.Writer) (docker.CloseWaiter, error) {
-	client, _ := newClient(de.relayConfig.Docker)
-	return client.AttachToContainerNonBlocking(docker.AttachToContainerOptions{
-		Container:    containerID,
-		Stdout:       true,
-		Stderr:       true,
-		Stream:       true,
-		OutputStream: stdout,
-		ErrorStream:  stderr,
-	})
+func (de *DockerEnvironment) parseResponse(executable string) ([]byte, []byte, error) {
+	resp := &exemsg.ExecCommandResponse{}
+	if err := de.decoder.Decode(resp); err != nil {
+		log.Errorf("Error decoding cogexec response: %s.", err)
+		return EmptyResult, EmptyResult, err
+	} else {
+		log.Debugf("Docker container %s executed '%s' in %f secs.", de.shortID, executable, resp.Elapsed.Seconds())
+	}
+	return resp.Stdout, resp.Stderr, nil
 }
 
 func newClient(dockerConfig *config.DockerInfo) (*docker.Client, error) {

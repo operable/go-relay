@@ -33,6 +33,18 @@ func NewDockerEngine(relayConfig *config.Config) (Engine, error) {
 	}, nil
 }
 
+func (de *DockerEngine) Init() error {
+	err := de.client.PullImage(docker.PullImageOptions{
+		Repository: "operable/cogexec",
+	}, de.makeAuthConfig())
+	if err != nil {
+		log.Errorf("Failed to pull required operable/cogexec image: %s.", err)
+		return err
+	}
+	log.Info("Updated operable/cogexec image.")
+	return de.createCogexec()
+}
+
 // IsAvailable returns true/false if a Docker image is found
 func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 	imageName := fmt.Sprintf("%s:%s", name, meta)
@@ -138,6 +150,27 @@ func (de *DockerEngine) makeAuthConfig() docker.AuthConfiguration {
 		Username:      de.config.RegistryUser,
 		Password:      de.config.RegistryPassword,
 	}
+}
+
+func (de *DockerEngine) createCogexec() error {
+	// Just in case
+	de.client.RemoveContainer(docker.RemoveContainerOptions{
+		ID:    "cogexec",
+		Force: true,
+	})
+	_, err := de.client.CreateContainer(docker.CreateContainerOptions{
+		Name: "cogexec",
+		Config: &docker.Config{
+			Cmd:   []string{"/bin/date"},
+			Image: "operable/cogexec",
+		},
+	})
+	if err != nil {
+		log.Errorf("Creation of required cogexec container failed: %s.", err)
+		return err
+	}
+	log.Info("Created required cogexec container.")
+	return nil
 }
 
 func verifyCredentials(client *docker.Client, dockerConfig *config.DockerInfo) error {
