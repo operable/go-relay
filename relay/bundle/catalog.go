@@ -35,6 +35,10 @@ func NewCatalog() *Catalog {
 func (bc *Catalog) AddBatch(bundles []*config.Bundle) bool {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
+	// Filthy hack to reset catalog contents each time
+	// AddBatch is called
+	bc.versions = make(map[string]*VersionList)
+	bc.bundles = make(map[string]*config.Bundle)
 	dirty := false
 	for _, bundle := range bundles {
 		if bc.addToCatalog(bundle) == true && dirty == false {

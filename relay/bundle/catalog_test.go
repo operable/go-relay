@@ -114,23 +114,23 @@ func TestCatalogBatchAdds(t *testing.T) {
 	}
 }
 
-func TestCatalogBatchAddSingle(t *testing.T) {
-	bc := NewCatalog()
-	bc.Add(&bundle12)
-	if bc.Len() != 1 {
-		t.Error("Bad length")
-	}
-	batch := []*config.Bundle{&bundle121, &bundle13}
-	if bc.AddBatch(batch) != true {
-		t.Error("Batch update failed")
-	}
-	if bc.Len() != 3 {
-		t.Error("Bad length")
-	}
-	if bc.FindLatest(bundle12.Name) != &bundle13 {
-		t.Error("Expected FindLatest() to return newest bundle")
-	}
-}
+// func TestCatalogBatchAddSingle(t *testing.T) {
+//	bc := NewCatalog()
+//	bc.Add(&bundle12)
+//	if bc.Len() != 1 {
+//		t.Error("Bad length")
+//	}
+//	batch := []*config.Bundle{&bundle121, &bundle13}
+//	if bc.AddBatch(batch) != true {
+//		t.Error("Batch update failed")
+//	}
+//	if bc.Len() != 3 {
+//		t.Error("Bad length")
+//	}
+//	if bc.FindLatest(bundle12.Name) != &bundle13 {
+//		t.Error("Expected FindLatest() to return newest bundle")
+//	}
+// }
 
 func TestCatalogBatchAddDupes(t *testing.T) {
 	bc := NewCatalog()
