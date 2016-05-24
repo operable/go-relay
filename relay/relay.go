@@ -174,10 +174,8 @@ func (r *cogRelay) handleDirective(conn bus.Connection, topic string, message []
 func (r *cogRelay) updateCatalog(envelope *messages.ListBundlesResponseEnvelope) {
 	bundles := []*config.Bundle{}
 	for _, b := range envelope.Bundles {
-		if b.Enabled {
-			b.ConfigFile.Version = fixBundleVersion(b.ConfigFile.Version)
-			bundles = append(bundles, &b.ConfigFile)
-		}
+		b.ConfigFile.Version = fixBundleVersion(b.ConfigFile.Version)
+		bundles = append(bundles, &b.ConfigFile)
 	}
 	if !r.queue.IsStopped() {
 		events := make(util.QueueEvents)
@@ -189,8 +187,7 @@ func (r *cogRelay) updateCatalog(envelope *messages.ListBundlesResponseEnvelope)
 		}
 	}
 	defer r.queue.Start()
-	// TODO: This should be bi-directional sync to catch bundle unassignments too
-	r.catalog.AddBatch(bundles)
+	r.catalog.Replace(bundles)
 	if r.catalog.IsChanged() {
 		if err := r.refreshBundles(); err != nil {
 			log.Errorf("Bundle catalog refresh failed: %s.", err)
@@ -198,6 +195,8 @@ func (r *cogRelay) updateCatalog(envelope *messages.ListBundlesResponseEnvelope)
 			log.Info("Changes to bundle catalog detected.")
 			r.announcer.SendAnnouncement()
 		}
+	} else {
+		log.Debug("Bundle catalog is unchanged.")
 	}
 	r.bundleTimer = time.AfterFunc(r.config.RefreshDuration(), r.scheduledBundleRefresh)
 }
@@ -212,7 +211,7 @@ func (r *cogRelay) refreshBundles() error {
 		}
 	}
 	for _, name := range r.catalog.BundleNames() {
-		if bundle := r.catalog.FindLatest(name); bundle != nil {
+		if bundle := r.catalog.Find(name); bundle != nil {
 			if bundle.NeedsRefresh() {
 				if bundle.IsDocker() {
 					if r.config.DockerEnabled() == false {
@@ -223,7 +222,7 @@ func (r *cogRelay) refreshBundles() error {
 					avail, _ := dockerEngine.IsAvailable(bundle.Docker.Image, bundle.Docker.Tag)
 					bundle.SetAvailable(avail)
 				} else {
-					r.catalog.MarkReady(bundle.Name, bundle.Version)
+					r.catalog.MarkReady(bundle.Name)
 				}
 			}
 		}

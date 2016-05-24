@@ -1,10 +1,9 @@
 package bundle
 
 import (
-	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"github.com/coreos/go-semver/semver"
 	"github.com/operable/go-relay/relay/config"
+	"sort"
 	"sync"
 )
 
@@ -14,7 +13,6 @@ type Catalog struct {
 	lock      sync.RWMutex
 	lastAcked uint64
 	epoch     uint64
-	versions  map[string]*VersionList
 	bundles   map[string]*config.Bundle
 }
 
@@ -23,25 +21,44 @@ func NewCatalog() *Catalog {
 	bc := Catalog{
 		lastAcked: 0,
 		epoch:     0,
-		versions:  make(map[string]*VersionList),
 		bundles:   make(map[string]*config.Bundle),
 	}
 	return &bc
 }
 
-// AddBatch adds new bundles to the catalog. Batch is
-// processed atomically. Returns true if at least one config.Bundle
-// entry was added.
-func (bc *Catalog) AddBatch(bundles []*config.Bundle) bool {
+type diffResult struct {
+	added   []*config.Bundle
+	removed []string
+}
+
+func newDiffResult() *diffResult {
+	return &diffResult{
+		added:   []*config.Bundle{},
+		removed: []string{},
+	}
+}
+
+// Replace atomically replaces the current bundle catalog contents with
+// new a new snapshot. Returns true if at least one config.Bundle
+// entry was added or deleted.
+func (bc *Catalog) Replace(bundles []*config.Bundle) bool {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
-	// Filthy hack to reset catalog contents each time
-	// AddBatch is called
-	bc.versions = make(map[string]*VersionList)
-	bc.bundles = make(map[string]*config.Bundle)
 	dirty := false
-	for _, bundle := range bundles {
-		if bc.addToCatalog(bundle) == true && dirty == false {
+	result := bc.diff(bundles)
+	log.Debugf("Updating bundle catalog. Adds: %d, Deletions: %d.", len(result.added), len(result.removed))
+	for _, name := range result.removed {
+		before := len(bc.bundles)
+		delete(bc.bundles, name)
+		after := len(bc.bundles)
+		if !dirty && before != after {
+			dirty = true
+		}
+	}
+
+	for _, newBundle := range result.added {
+		bc.bundles[newBundle.Name] = newBundle
+		if !dirty {
 			dirty = true
 		}
 	}
@@ -49,19 +66,6 @@ func (bc *Catalog) AddBatch(bundles []*config.Bundle) bool {
 		bc.epoch++
 	}
 	return dirty
-}
-
-// Add stores a config.Bundle instance in the catalog. Duplicates
-// are not allowed. config.Bundle identity is composed of name
-// and version.
-func (bc *Catalog) Add(bundle *config.Bundle) bool {
-	bc.lock.Lock()
-	defer bc.lock.Unlock()
-	if bc.addToCatalog(bundle) == true {
-		bc.epoch++
-		return true
-	}
-	return false
 }
 
 // Len returns the number of bundle versions stored
@@ -73,60 +77,31 @@ func (bc *Catalog) Len() int {
 
 // BundleNames returns a unique list of bundles stored
 func (bc *Catalog) BundleNames() []string {
-	retval := make([]string, len(bc.versions))
-	i := 0
-	for k := range bc.versions {
-		retval[i] = k
-		i++
+	bc.lock.RLock()
+	defer bc.lock.RUnlock()
+	names := []string{}
+	for k := range bc.bundles {
+		names = append(names, k)
 	}
-	return retval
+	return names
 }
 
 // Remove deletes the named config.Bundle instance from the catalog.
-func (bc *Catalog) Remove(name string, version string) {
-	key := makeKey(name, version)
-	sv, err := semver.NewVersion(version)
-	if err != nil {
-		return
-	}
+func (bc *Catalog) Remove(name string) {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
-	if bc.bundles[key] != nil {
-		delete(bc.bundles, key)
-		bc.epoch++
-		bc.versions[name].Remove(sv)
-	}
-}
-
-// RemoveAll deletes all versions associated with the named bundle from the catalog.
-func (bc *Catalog) RemoveAll(name string) {
-	bc.lock.Lock()
-	defer bc.lock.Unlock()
-	if versions := bc.versions[name]; versions != nil {
-		for _, version := range versions.Versions() {
-			key := makeKey(name, version.String())
-			delete(bc.bundles, key)
-		}
-		delete(bc.versions, name)
+	if bc.bundles[name] != nil {
+		delete(bc.bundles, name)
 		bc.epoch++
 	}
 }
 
-// Find retrieves a config.Bundle instance by name and version. nil is
+// Find retrieves a config.Bundle instance by name.
 // returned if the entry doesn't exist.
-func (bc *Catalog) Find(name string, version string) *config.Bundle {
-	key := makeKey(name, version)
+func (bc *Catalog) Find(name string) *config.Bundle {
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
-	return bc.bundles[key]
-}
-
-// FindLatest returns the config.Bundle instance with the highest known semantic version.
-// nil is returned if the entry doesn't exist.
-func (bc *Catalog) FindLatest(name string) *config.Bundle {
-	bc.lock.RLock()
-	defer bc.lock.RUnlock()
-	return bc.findLatestBundle(name)
+	return bc.bundles[name]
 }
 
 // Count returns the number of stored entries.
@@ -164,11 +139,10 @@ func (bc *Catalog) EpochAcked(acked uint64) {
 
 // MarkReady updates the catalog entry to indicate the bundle is
 // ready for execution
-func (bc *Catalog) MarkReady(name string, version string) {
-	key := makeKey(name, version)
+func (bc *Catalog) MarkReady(name string) {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
-	if bundle := bc.bundles[key]; bundle != nil {
+	if bundle := bc.bundles[name]; bundle != nil {
 		bundle.SetAvailable(true)
 	}
 }
@@ -181,38 +155,31 @@ func (bc *Catalog) Reconnected() {
 	bc.epoch++
 }
 
-func (bc *Catalog) addToCatalog(bundle *config.Bundle) bool {
-	key := makeKey(bundle.Name, bundle.Version)
-	version, err := semver.NewVersion(bundle.Version)
-	if err != nil {
-		return false
+func (bc *Catalog) diff(bundles []*config.Bundle) *diffResult {
+	result := newDiffResult()
+	newNames := []string{}
+	for _, b := range bundles {
+		newNames = append(newNames, b.Name)
 	}
-	if bc.bundles[key] == nil {
-		bc.bundles[key] = bundle
-		if bc.versions[bundle.Name] == nil {
-			bc.versions[bundle.Name] = NewVersionList()
+	sort.Strings(newNames)
+	for _, value := range bundles {
+		if existing := bc.bundles[value.Name]; existing != nil {
+			// Delete existing and add new if versions don't match
+			if existing.Version != value.Version {
+				result.added = append(result.added, value)
+				result.removed = append(result.removed, value.Name)
+			}
+			// If new doesn't exist in existing then add it
+		} else {
+			result.added = append(result.added, value)
 		}
-		versions := bc.versions[bundle.Name]
-		versions.Add(version)
-		bc.versions[bundle.Name] = versions
-		return true
 	}
-	return false
-}
-
-func (bc *Catalog) findLatestBundle(name string) *config.Bundle {
-	versions := bc.versions[name]
-	if versions == nil {
-		return nil
+	// Scan existing bundles to find deleted ones
+	for name := range bc.bundles {
+		// Not found
+		if sort.SearchStrings(newNames, name) == len(newNames) {
+			result.removed = append(result.removed, name)
+		}
 	}
-	latest := versions.Largest()
-	if latest == nil {
-		return nil
-	}
-	key := makeKey(name, latest.String())
-	return bc.bundles[key]
-}
-
-func makeKey(name string, version string) string {
-	return fmt.Sprintf("%s@%s", name, version)
+	return result
 }
