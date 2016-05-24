@@ -20,20 +20,25 @@ var bundle13 = config.Bundle{
 	Version: "1.3.0",
 }
 
+var barBundle10 = config.Bundle{
+	Name:    "bar",
+	Version: "1.0.0",
+}
+
 func TestEmptyCatalog(t *testing.T) {
 	bc := NewCatalog()
 	if bc.Count() != 0 {
 		t.Error("Expected empty catalog")
 	}
-	if bc.Find("foo", "1.2") != nil {
+	if bc.Find("foo") != nil {
 		t.Error("Expected Find() to return nil")
 	}
 }
 
 func TestCatalogWrite(t *testing.T) {
 	bc := NewCatalog()
-	if !bc.Add(&bundle12) {
-		t.Error("Expected Add() to succeed")
+	if !bc.Replace([]*config.Bundle{&bundle12}) {
+		t.Error("Expected Replace() to succeed")
 	}
 	if bc.Count() != 1 {
 		t.Error("Expected Count() to return 1")
@@ -43,117 +48,39 @@ func TestCatalogWrite(t *testing.T) {
 	}
 }
 
-func TestCatalogWriteDupe(t *testing.T) {
-	bc := NewCatalog()
-	if !bc.Add(&bundle12) {
-		t.Error("Expected Add() to succeed")
-	}
-	if bc.Add(&bundle12) {
-		t.Error("Expected Add() with duplicate to fail")
-	}
-	if bc.Len() != 1 {
-		t.Error("Bad length")
-	}
-}
-
 func TestCatalogFind(t *testing.T) {
 	bc := NewCatalog()
-	if !bc.Add(&bundle12) {
-		t.Error("Expected Add() to succeed")
+	if !bc.Replace([]*config.Bundle{&bundle12}) {
+		t.Error("Expected Replace() to succeed")
 	}
-	found := bc.Find(bundle12.Name, bundle12.Version)
+	found := bc.Find(bundle12.Name)
 	if found == nil || found.Name != bundle12.Name || found.Version != bundle12.Version {
 		t.Error("Expected Find() to return stored bundle")
-	}
-}
-
-func TestCatalogFindLatest(t *testing.T) {
-	bc := NewCatalog()
-	if !bc.Add(&bundle121) {
-		t.Error("Expected Add() to succeed")
-	}
-	latest := bc.FindLatest(bundle121.Name)
-	if latest == nil || latest.Name != bundle121.Name || latest.Version != bundle121.Version {
-		t.Error("Expected FindLatest() to return newest bundle")
-	}
-	if !bc.Add(&bundle12) {
-		t.Error("Expected Add() to succeed")
-	}
-	latest2 := bc.FindLatest(bundle12.Name)
-	if latest != latest2 {
-		t.Error("Expected FindLatest() to return newest bundle")
-	}
-}
-
-func TestCatalogFindLatest2(t *testing.T) {
-	bc := NewCatalog()
-	if !bc.Add(&bundle12) {
-		t.Error("Expected Add() to succeed")
-	}
-	latest := bc.FindLatest(bundle12.Name)
-	if latest == nil || latest.Name != bundle12.Name || latest.Version != bundle12.Version {
-		t.Error("Expected FindLatest() to return newest bundle")
-	}
-	if !bc.Add(&bundle121) {
-		t.Error("Expected Add() to succeed")
-	}
-	latest2 := bc.FindLatest(bundle12.Name)
-	if latest == latest2 {
-		t.Error("Expected FindLatest() to return newest bundle")
 	}
 }
 
 func TestCatalogBatchAdds(t *testing.T) {
 	bc := NewCatalog()
 	batch := []*config.Bundle{&bundle12, &bundle121}
-	if bc.AddBatch(batch) != true {
+	if bc.Replace(batch) != true {
+		t.Error("Batch update failed")
+	}
+	if bc.Len() != 1 {
+		t.Errorf("Bad length: %d", bc.Len())
+	}
+	if bc.Replace([]*config.Bundle{&bundle121, &barBundle10}) != true {
 		t.Error("Batch update failed")
 	}
 	if bc.Len() != 2 {
-		t.Error("Bad length")
+		t.Errorf("Bad length: %d", bc.Len())
 	}
 }
 
-func TestCatalogBatchAddSingle(t *testing.T) {
+func TestCatalogRemove(t *testing.T) {
 	bc := NewCatalog()
-	bc.Add(&bundle12)
+	bc.Replace([]*config.Bundle{&bundle12, &barBundle10})
+	bc.Remove(bundle12.Name)
 	if bc.Len() != 1 {
-		t.Error("Bad length")
-	}
-	batch := []*config.Bundle{&bundle121, &bundle13}
-	if bc.AddBatch(batch) != true {
-		t.Error("Batch update failed")
-	}
-	if bc.Len() != 3 {
-		t.Error("Bad length")
-	}
-	if bc.FindLatest(bundle12.Name) != &bundle13 {
-		t.Error("Expected FindLatest() to return newest bundle")
-	}
-}
-
-func TestCatalogBatchAddDupes(t *testing.T) {
-	bc := NewCatalog()
-	bc.Add(&bundle12)
-	batch := []*config.Bundle{&bundle12, &bundle121}
-	if bc.AddBatch(batch) != true {
-		t.Error("Batch update failed")
-	}
-	if bc.Len() == 3 {
-		t.Error("De-duplication failed")
-	}
-	found := bc.FindLatest(bundle12.Name)
-	if found.Name != bundle121.Name || found.Version != bundle121.Version {
-		t.Error("Expected FindLatest() to return newest bundle")
-	}
-}
-
-func TestCatalogRemoveAll(t *testing.T) {
-	bc := NewCatalog()
-	bc.Add(&bundle12)
-	bc.Add(&bundle121)
-	bc.RemoveAll(bundle12.Name)
-	if bc.Len() != 0 {
 		t.Error("Bad length")
 	}
 	if bc.IsChanged() == false {

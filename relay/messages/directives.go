@@ -22,11 +22,8 @@ type ListBundlesResponseEnvelope struct {
 	Bundles []BundleSpec `json:"bundles"`
 }
 
-// BundleSpec describes a command bundle and its current
-// enabled status
+// BundleSpec is just a reference to a parsed config file.
 type BundleSpec struct {
-	Name       string        `json:"name,omitempty"`
-	Enabled    bool          `json:"enabled,omitempty"`
 	ConfigFile config.Bundle `json:"config_file,omitempty"`
 }
 

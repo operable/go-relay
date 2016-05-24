@@ -64,7 +64,7 @@ func executeCommand(invoke *CommandInvocation) {
 		return
 	}
 	request.Parse()
-	bundle := invoke.Catalog.FindLatest(request.BundleName())
+	bundle := invoke.Catalog.Find(request.BundleName())
 	response := &messages.ExecutionResponse{}
 	if bundle == nil {
 		response.Status = "error"

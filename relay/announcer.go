@@ -184,7 +184,7 @@ func getBundles(catalog *bundle.Catalog) []config.Bundle {
 	names := catalog.BundleNames()
 	var retval []config.Bundle
 	for _, name := range names {
-		bundle := catalog.FindLatest(name)
+		bundle := catalog.Find(name)
 		if bundle != nil && bundle.IsAvailable() {
 			retval = append(retval, *bundle)
 		}
