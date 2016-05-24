@@ -148,7 +148,6 @@ func main() {
 		os.Exit(BAD_CONFIG)
 		return
 	}
-	log.Info("%+v", relayConfig)
 	log.Infof("Relay %s is initializing.", relayConfig.ID)
 
 	myRelay, err := relay.NewRelay(relayConfig)
