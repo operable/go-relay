@@ -47,7 +47,7 @@ func NewDockerEngine(relayConfig config.Config) (Engine, error) {
 
 // IsAvailable returns true/false if a Docker image is found
 func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
-	log.Debugf("Retrieving latest Docker image for %s:%s from upstream Docker hub.", name, meta)
+	log.Debugf("Retrieving latest Docker image for %s:%s from upstream Docker registry.", name, meta)
 	beforeID, _ := de.IDForName(name, meta)
 	pullErr := de.client.PullImage(docker.PullImageOptions{
 		Repository: name,
