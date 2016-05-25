@@ -27,6 +27,10 @@ func NewNativeEnvironment(relayConfig *config.Config, bundle *config.Bundle) (En
 
 func (ne *NativeEnvironment) Terminate(kill bool) {}
 
+func (ne *NativeEnvironment) BundleName() string {
+	return ne.bundle.Name
+}
+
 // Execute is required by the exec.Environment interface
 func (ne *NativeEnvironment) Execute(request *messages.ExecutionRequest) ([]byte, []byte, error) {
 	if bundleCommand := ne.bundle.Commands[request.CommandName()]; bundleCommand != nil {

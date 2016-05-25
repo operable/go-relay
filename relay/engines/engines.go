@@ -26,6 +26,7 @@ type Engine interface {
 	Init() error
 	IsAvailable(name string, meta string) (bool, error)
 	NewEnvironment(bundle *config.Bundle) (exec.Environment, error)
+	ReleaseEnvironment(exec.Environment)
 	Clean() int
 }
 
@@ -60,6 +61,3 @@ func (e *Engines) GetEngine(engineType EngineType) (Engine, error) {
 	}
 	return NewNativeEngine(e.relayConfig)
 }
-
-// Placeholder for empty results
-var emptyResult = []byte{}

@@ -8,6 +8,7 @@ import (
 // Environment is an execution environment managed by an Engine.
 // Environments are used to execute commands.
 type Environment interface {
+	BundleName() string
 	Execute(request *messages.ExecutionRequest) ([]byte, []byte, error)
 	Terminate(kill bool)
 }

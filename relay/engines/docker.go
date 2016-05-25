@@ -7,9 +7,13 @@ import (
 	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/engines/exec"
 	"strings"
+	"sync"
 )
 
 var relayCreatedFilter = "io.operable.cog.relay.created=yes"
+
+var environmentPools = make(map[string]*EnvironmentPool)
+var environmentPoolsLock sync.Mutex
 
 // DockerEngine is responsible for managing execution of
 // Docker bundled commands.
@@ -86,7 +90,36 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 
 // NewEnvironment is required by the engines.Engine interface
 func (de *DockerEngine) NewEnvironment(bundle *config.Bundle) (exec.Environment, error) {
-	return exec.NewDockerEnvironment(de.relayConfig, bundle)
+	environmentPoolsLock.Lock()
+	defer environmentPoolsLock.Unlock()
+	pool := environmentPools[bundle.Name]
+	if pool == nil {
+		pool, err := NewEnvironmentPool(EnvironmentPoolCreateOptions{
+			Min:    1,
+			Max:    3,
+			Bundle: bundle,
+			Maker: func() (exec.Environment, error) {
+				return exec.NewDockerEnvironment(de.relayConfig, bundle)
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+		environmentPools[bundle.Name] = pool
+	}
+	pool = environmentPools[bundle.Name]
+	return pool.Acquire()
+}
+
+// ReleaseEnvironment is required by the engines.Engine interface
+func (de *DockerEngine) ReleaseEnvironment(env exec.Environment) {
+	environmentPoolsLock.Lock()
+	defer environmentPoolsLock.Unlock()
+	pool := environmentPools[env.BundleName()]
+	if pool == nil {
+		env.Terminate(true)
+	}
+	pool.Release(env)
 }
 
 // VerifyDockerConfig sanity checks Docker configuration and ensures Relay

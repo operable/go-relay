@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
+	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/fsouza/go-dockerclient"
@@ -16,6 +17,12 @@ import (
 const (
 	Megabyte = 1024 * 1024
 )
+
+var timeout = time.Duration(60) * time.Second
+
+// ErrorTimeout is returned when an execute request fails
+// to respond within 1 minute
+var ErrorTimeout = errors.New("Command execution timed out.")
 
 // RelayCreatedDockerLabel is used to mark all containers
 // started by Relay for later clean up.
@@ -75,6 +82,10 @@ func NewDockerEnvironment(relayConfig *config.Config, bundle *config.Bundle) (En
 	return de, nil
 }
 
+func (de *DockerEnvironment) BundleName() string {
+	return de.bundle.Name
+}
+
 func (de *DockerEnvironment) Terminate(kill bool) {
 	if kill == true {
 		de.client.RemoveContainer(docker.RemoveContainerOptions{
@@ -94,7 +105,6 @@ func (de *DockerEnvironment) Terminate(kill bool) {
 }
 
 func (de *DockerEnvironment) Execute(request *messages.ExecutionRequest) ([]byte, []byte, error) {
-	de.resetStreams()
 	start := time.Now()
 	execRequest := de.prepareRequest(request)
 	de.encoder.Encode(execRequest)
@@ -102,14 +112,13 @@ func (de *DockerEnvironment) Execute(request *messages.ExecutionRequest) ([]byte
 		if de.stdout.Len() > 0 {
 			break
 		}
+		if time.Now().Sub(start) > timeout {
+			return EmptyResult, EmptyResult, ErrorTimeout
+		}
 	}
 	finish := time.Now()
 	log.Infof("Docker container %s ran %s for %f secs.", de.shortID, request.Command, finish.Sub(start).Seconds())
-	output, errors, err := de.parseResponse(execRequest.Executable)
-	go func() {
-		de.Terminate(false)
-	}()
-	return output, errors, err
+	return de.parseResponse(execRequest.Executable)
 }
 
 func (de *DockerEnvironment) resetStreams() {
