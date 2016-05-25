@@ -16,12 +16,12 @@ import (
 
 // CommandInvocation request
 type CommandInvocation struct {
-	Publisher     bus.MessagePublisher
-	BundleCatalog *bundle.Catalog
-	Engines       *engines.Engines
-	Topic         string
-	Payload       []byte
-	Shutdown      bool
+	Publisher bus.MessagePublisher
+	Catalog   *bundle.Catalog
+	Engines   *engines.Engines
+	Topic     string
+	Payload   []byte
+	Shutdown  bool
 }
 
 // ExecutionWorker is the entry point for command execution

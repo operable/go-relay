@@ -44,7 +44,7 @@ type cogRelay struct {
 	conn              bus.Connection
 	queue             util.Queue
 	engines           *engines.Engines
-	bundleCatalog     *bundle.Catalog
+	catalog           *bundle.Catalog
 	announcer         Announcer
 	directivesReplyTo string
 	bundleTimer       *time.Timer
@@ -59,7 +59,7 @@ func NewRelay(config *config.Config) (Relay, error) {
 	return &cogRelay{
 		config:            config,
 		engines:           engines.NewEngines(config),
-		bundleCatalog:     bundle.NewCatalog(),
+		catalog:           bundle.NewCatalog(),
 		queue:             util.NewQueue(uint(config.MaxConcurrent)),
 		directivesReplyTo: fmt.Sprintf(directiveTopicTemplate, config.ID),
 	}, nil
@@ -119,7 +119,7 @@ func (r *cogRelay) handleBusEvents(conn bus.Connection, event bus.Event) {
 			opts := r.connOpts
 			opts.EventsHandler = nil
 			opts.OnDisconnect = nil
-			r.announcer = NewAnnouncer(r.config.ID, opts, r.bundleCatalog)
+			r.announcer = NewAnnouncer(r.config.ID, opts, r.catalog)
 			if err := r.announcer.Run(); err != nil {
 				log.Errorf("Failed to start announcer: %s.", err)
 				panic(err)
@@ -129,8 +129,8 @@ func (r *cogRelay) handleBusEvents(conn bus.Connection, event bus.Event) {
 			log.Errorf("Failed to set Relay subscriptions: %s.", err)
 			panic(err)
 		}
-		if r.bundleCatalog.Len() > 0 {
-			r.bundleCatalog.Reconnected()
+		if r.catalog.Len() > 0 {
+			r.catalog.Reconnected()
 		}
 		log.Info("Loading bundle catalog.")
 		r.requestBundles()
@@ -148,11 +148,11 @@ func (r *cogRelay) setSubscriptions() error {
 func (r *cogRelay) handleCommand(conn bus.Connection, topic string, message []byte) {
 	log.Debugf("Got invocation request on %s", topic)
 	invoke := &worker.CommandInvocation{
-		Engines:       r.engines,
-		Publisher:     r.conn,
-		BundleCatalog: r.bundleCatalog,
-		Topic:         topic,
-		Payload:       message,
+		Engines:   r.engines,
+		Publisher: r.conn,
+		Catalog:   r.catalog,
+		Topic:     topic,
+		Payload:   message,
 	}
 	ctx := context.WithValue(context.Background(), "invoke", invoke)
 	if err := r.queue.Enqueue(ctx); err != nil {
