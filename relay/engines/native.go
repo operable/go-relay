@@ -40,6 +40,9 @@ func (ne *NativeEngine) NewEnvironment(bundle *config.Bundle) (exec.Environment,
 	return exec.NewNativeEnvironment(ne.relayConfig, bundle)
 }
 
+// ReleaseEnvironment is required by the engines.Engine interface
+func (ne *NativeEngine) ReleaseEnvironment(env exec.Environment) {}
+
 // Clean required by engines.Engine interface
 func (ne *NativeEngine) Clean() int {
 	return 0

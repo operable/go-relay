@@ -74,6 +74,7 @@ func executeCommand(invoke *CommandInvocation) {
 			if err != nil {
 				setError(response, err)
 			} else {
+				defer engine.ReleaseEnvironment(env)
 				commandOutput, commandErrors, err := env.Execute(request)
 				parseOutput(commandOutput, commandErrors, err, response, *request)
 			}
