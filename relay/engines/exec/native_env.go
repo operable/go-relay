@@ -25,8 +25,10 @@ func NewNativeEnvironment(relayConfig *config.Config, bundle *config.Bundle) (En
 	}, nil
 }
 
+// Terminate is required by the environment.Environment interface
 func (ne *NativeEnvironment) Terminate(kill bool) {}
 
+// BundleName is required by the environment.Environment interface
 func (ne *NativeEnvironment) BundleName() string {
 	return ne.bundle.Name
 }

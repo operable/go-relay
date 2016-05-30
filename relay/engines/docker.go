@@ -3,24 +3,29 @@ package engines
 import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"github.com/fsouza/go-dockerclient"
+	"github.com/docker/engine-api/client"
+	"github.com/docker/engine-api/types"
+	"github.com/docker/engine-api/types/container"
+	"github.com/docker/engine-api/types/filters"
 	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/engines/exec"
+	"golang.org/x/net/context"
+	"io/ioutil"
+	"net/http"
 	"strings"
 	"sync"
 )
 
-var relayCreatedFilter = "io.operable.cog.relay.created=yes"
-
-var environmentPools = make(map[string]*EnvironmentPool)
-var environmentPoolsLock sync.Mutex
+var relayCreatedLabel = "io.operable.cog.relay.create"
+var relayCreatedFilter = fmt.Sprintf("%s=yes", relayCreatedLabel)
 
 // DockerEngine is responsible for managing execution of
 // Docker bundled commands.
 type DockerEngine struct {
-	client      *docker.Client
-	relayConfig *config.Config
-	config      config.DockerInfo
+	client        *client.Client
+	relayConfig   *config.Config
+	config        config.DockerInfo
+	registryToken string
 }
 
 // NewDockerEngine makes a new DockerEngine instance
@@ -37,10 +42,21 @@ func NewDockerEngine(relayConfig *config.Config) (Engine, error) {
 	}, nil
 }
 
+// Init is required by the engines.Engine interface
 func (de *DockerEngine) Init() error {
-	err := de.client.PullImage(docker.PullImageOptions{
-		Repository: "operable/cogexec",
-	}, de.makeAuthConfig())
+	err := de.attemptAuth()
+	if err != nil {
+		return err
+	}
+	closer, err := de.client.ImagePull(context.Background(), "operable/cogexec",
+		types.ImagePullOptions{
+			All:          false,
+			RegistryAuth: de.registryToken,
+		})
+	ioutil.ReadAll(closer)
+	if closer != nil {
+		closer.Close()
+	}
 	if err != nil {
 		log.Errorf("Failed to pull required operable/cogexec image: %s.", err)
 		return err
@@ -51,76 +67,61 @@ func (de *DockerEngine) Init() error {
 
 // IsAvailable returns true/false if a Docker image is found
 func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
-	imageName := fmt.Sprintf("%s:%s", name, meta)
-	log.Debugf("Retrieving latest Docker image for %s from upstream Docker registry.", imageName)
-	beforeID, _ := de.IDForName(name, meta)
-	pullErr := de.client.PullImage(docker.PullImageOptions{
-		Repository: name,
-		Tag:        meta,
-	}, de.makeAuthConfig())
-	if pullErr != nil {
-		log.Errorf("Error ocurred when pulling image %s: %s.", imageName, pullErr)
-		image, inspectErr := de.client.InspectImage(imageName)
-		if inspectErr != nil || image == nil {
-			log.Errorf("Unable to find Docker image %s locally or in remote registry.", imageName)
-			return false, pullErr
-		}
-		log.Infof("Retrieving Docker image %s from remote registry failed. Falling back to local copy, if it exists.", imageName)
-		return image != nil, nil
-	}
-	afterID, err := de.IDForName(name, meta)
+	err := de.attemptAuth()
 	if err != nil {
 		return false, err
 	}
+	fullName := fmt.Sprintf("%s:%s", name, meta)
+	log.Debugf("Retrieving latest Docker image for %s:%s from upstream Docker registry.", name, meta)
+	beforeID, _ := de.IDForName(name, meta)
+	closer, pullErr := de.client.ImagePull(context.Background(), fullName,
+		types.ImagePullOptions{
+			All:          false,
+			RegistryAuth: de.registryToken,
+		})
+	ioutil.ReadAll(closer)
+	if closer != nil {
+		closer.Close()
+	}
+	if pullErr != nil {
+		log.Errorf("Error ocurred when pulling image %s: %s.", name, pullErr)
+		image, _, inspectErr := de.client.ImageInspectWithRaw(context.Background(), fullName, false)
+		if inspectErr != nil {
+			log.Errorf("Unable to find Docker image %s locally or in remote registry.", name)
+			return false, pullErr
+		}
+		log.Infof("Retrieving Docker image %s from remote registry failed. Falling back to local copy, if it exists.", name)
+		return image.ID != "", nil
+	}
+	afterID, err := de.IDForName(name, meta)
+	if err != nil {
+		log.Errorf("Failed to resolve image name %s:%s to an id: %s.", name, meta, err)
+		return false, err
+	}
 	if beforeID == "" {
-		log.Infof("Retrieved Docker image %s for %s.", shortImageID(afterID), imageName)
+		log.Infof("Retrieved Docker image %s for %s.", shortImageID(afterID), fullName)
 		return true, nil
 	}
 	if beforeID != afterID {
-		if removeErr := de.client.RemoveImageExtended(beforeID,
-			docker.RemoveImageOptions{Force: true}); removeErr != nil {
+		_, removeErr := de.client.ImageRemove(context.Background(), beforeID,
+			types.ImageRemoveOptions{
+				Force:         true,
+				PruneChildren: true,
+			})
+		if removeErr != nil {
 			log.Errorf("Failed to remove old Docker image %s: %s.", shortImageID(beforeID), removeErr)
 		} else {
 			log.Infof("Replaced obsolete Docker image %s with %s.", shortImageID(beforeID), shortImageID(afterID))
 		}
 	} else {
-		log.Infof("Docker image %s for %s is up to date.", shortImageID(beforeID), imageName)
+		log.Infof("Docker image %s for %s is up to date.", shortImageID(beforeID), fullName)
 	}
 	return true, nil
 }
 
 // NewEnvironment is required by the engines.Engine interface
-func (de *DockerEngine) NewEnvironment(bundle *config.Bundle) (exec.Environment, error) {
-	environmentPoolsLock.Lock()
-	defer environmentPoolsLock.Unlock()
-	pool := environmentPools[bundle.Name]
-	if pool == nil {
-		pool, err := NewEnvironmentPool(EnvironmentPoolCreateOptions{
-			Min:    1,
-			Max:    3,
-			Bundle: bundle,
-			Maker: func() (exec.Environment, error) {
-				return exec.NewDockerEnvironment(de.relayConfig, bundle)
-			},
-		})
-		if err != nil {
-			return nil, err
-		}
-		environmentPools[bundle.Name] = pool
-	}
-	pool = environmentPools[bundle.Name]
-	return pool.Acquire()
-}
-
-// ReleaseEnvironment is required by the engines.Engine interface
-func (de *DockerEngine) ReleaseEnvironment(env exec.Environment) {
-	environmentPoolsLock.Lock()
-	defer environmentPoolsLock.Unlock()
-	pool := environmentPools[env.BundleName()]
-	if pool == nil {
-		env.Terminate(true)
-	}
-	pool.Release(env)
+func (de *DockerEngine) NewEnvironment(pipelineID string, bundle *config.Bundle) (exec.Environment, error) {
+	return exec.NewDockerEnvironment(de.relayConfig, bundle)
 }
 
 // VerifyDockerConfig sanity checks Docker configuration and ensures Relay
@@ -130,7 +131,7 @@ func VerifyDockerConfig(dockerConfig *config.DockerInfo) error {
 	if err != nil {
 		return err
 	}
-	if _, err := client.Info(); err != nil {
+	if _, err := client.Info(context.Background()); err != nil {
 		return err
 	}
 	return verifyCredentials(client, dockerConfig)
@@ -138,7 +139,7 @@ func VerifyDockerConfig(dockerConfig *config.DockerInfo) error {
 
 // IDForName returns the image ID for a given image name
 func (de *DockerEngine) IDForName(name string, meta string) (string, error) {
-	image, err := de.client.InspectImage(fmt.Sprintf("%s:%s", name, meta))
+	image, _, err := de.client.ImageInspectWithRaw(context.Background(), fmt.Sprintf("%s:%s", name, meta), false)
 	if err != nil {
 		return "", err
 	}
@@ -147,12 +148,13 @@ func (de *DockerEngine) IDForName(name string, meta string) (string, error) {
 
 // Clean removes exited containers
 func (de *DockerEngine) Clean() int {
-	containers, err := de.client.ListContainers(docker.ListContainersOptions{
-		Filters: map[string][]string{
-			"status": []string{"exited"},
-			"label":  []string{relayCreatedFilter},
-		},
-	})
+	args := filters.NewArgs()
+	args.Add("status", "exited")
+	args.Add("label", relayCreatedFilter)
+	containers, err := de.client.ContainerList(context.Background(),
+		types.ContainerListOptions{
+			Filter: args,
+		})
 	if err != nil {
 		log.Errorf("Listing dead Docker containers failed: %s.", err)
 		return 0
@@ -166,38 +168,50 @@ func (de *DockerEngine) Clean() int {
 			count++
 		}
 	}
+	log.Infof("Cleaned up %d dead Docker containers.", count)
 	return count
 }
 
 func (de *DockerEngine) removeContainer(id string) error {
-	return de.client.RemoveContainer(docker.RemoveContainerOptions{
-		ID:            id,
+	return de.client.ContainerRemove(context.Background(), id, types.ContainerRemoveOptions{
 		RemoveVolumes: true,
 		Force:         true,
 	})
 }
 
-func (de *DockerEngine) makeAuthConfig() docker.AuthConfiguration {
-	return docker.AuthConfiguration{
+func (de *DockerEngine) makeAuthConfig() *types.AuthConfig {
+	if de.config.RegistryUser == "" || de.config.RegistryPassword == "" || de.config.RegistryEmail == "" {
+		return nil
+	}
+	return &types.AuthConfig{
 		ServerAddress: de.config.RegistryHost,
 		Username:      de.config.RegistryUser,
 		Password:      de.config.RegistryPassword,
+		Email:         de.config.RegistryEmail,
 	}
 }
 
 func (de *DockerEngine) createCogexec() error {
 	// Just in case
-	de.client.RemoveContainer(docker.RemoveContainerOptions{
-		ID:    "cogexec",
-		Force: true,
+	de.client.ContainerRemove(context.Background(), "cogexec", types.ContainerRemoveOptions{
+		RemoveVolumes: true,
+		Force:         true,
 	})
-	_, err := de.client.CreateContainer(docker.CreateContainerOptions{
-		Name: "cogexec",
-		Config: &docker.Config{
-			Cmd:   []string{"/bin/date"},
-			Image: "operable/cogexec",
+	hostConfig := container.HostConfig{
+		Privileged: false,
+	}
+	hostConfig.Memory = 4 * 1024 * 1024
+	config := container.Config{
+		Image:     "operable/cogexec",
+		Cmd:       []string{"/bin/date"},
+		OpenStdin: false,
+		StdinOnce: false,
+		Env:       []string{},
+		Labels: map[string]string{
+			relayCreatedLabel: "yes",
 		},
-	})
+	}
+	_, err := de.client.ContainerCreate(context.Background(), &config, &hostConfig, nil, "cogexec")
 	if err != nil {
 		log.Errorf("Creation of required cogexec container failed: %s.", err)
 		return err
@@ -206,32 +220,47 @@ func (de *DockerEngine) createCogexec() error {
 	return nil
 }
 
-func verifyCredentials(client *docker.Client, dockerConfig *config.DockerInfo) error {
-	if dockerConfig.RegistryUser == "" || dockerConfig.RegistryPassword == "" ||
-		dockerConfig.RegistryEmail == "" {
+func (de *DockerEngine) attemptAuth() error {
+	if de.registryToken == "" {
+		authConfig := de.makeAuthConfig()
+		if authConfig == nil {
+			return nil
+		}
+		resp, err := de.client.RegistryLogin(context.Background(), *authConfig)
+		if err != nil {
+			log.Errorf("Authenticating to Docker registry failed: %s.", err)
+			return err
+		}
+		de.registryToken = resp.IdentityToken
+	}
+	return nil
+}
+
+func verifyCredentials(client *client.Client, dockerConfig *config.DockerInfo) error {
+	if dockerConfig.RegistryUser == "" || dockerConfig.RegistryPassword == "" || dockerConfig.RegistryEmail == "" {
 		log.Info("No Docker registry credentials found or credentials are incomplete. Skipping auth check.")
 		return nil
 	}
 	log.Info("Verifying Docker registry credentials.")
-	authConf := docker.AuthConfiguration{
+	authConf := types.AuthConfig{
+		ServerAddress: dockerConfig.RegistryHost,
 		Username:      dockerConfig.RegistryUser,
 		Password:      dockerConfig.RegistryPassword,
 		Email:         dockerConfig.RegistryEmail,
-		ServerAddress: dockerConfig.RegistryHost,
 	}
-	_, err := client.AuthCheck(&authConf)
+	_, err := client.RegistryLogin(context.Background(), authConf)
 	return err
 }
 
-func newClient(dockerConfig config.DockerInfo) (*docker.Client, error) {
+func newClient(dockerConfig config.DockerInfo) (*client.Client, error) {
 	if dockerConfig.UseEnv {
-		client, err := docker.NewClientFromEnv()
+		client, err := client.NewEnvClient()
 		if err != nil {
 			return nil, err
 		}
 		return client, nil
 	}
-	client, err := docker.NewClient(dockerConfig.SocketPath)
+	client, err := client.NewClient(dockerConfig.SocketPath, "", &http.Client{}, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -1,21 +1,23 @@
 package exec
 
 import (
-	"bytes"
-	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"github.com/fsouza/go-dockerclient"
+	"github.com/docker/engine-api/client"
+	"github.com/docker/engine-api/types"
+	"github.com/docker/engine-api/types/container"
 	exemsg "github.com/operable/cogexec/messages"
 	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/messages"
+	"golang.org/x/net/context"
+	"net/http"
 	"time"
 )
 
 const (
-	Megabyte = 1024 * 1024
+	megabyte = 1024 * 1024
 )
 
 var timeout = time.Duration(60) * time.Second
@@ -31,18 +33,11 @@ var RelayCreatedDockerLabel = "io.operable.cog.relay.created"
 // DockerEnvironment is an execution environment which runs inside a
 // Docker container.
 type DockerEnvironment struct {
-	client       *docker.Client
-	container    *docker.Container
-	shortID      string
-	relayConfig  *config.Config
-	bundle       *config.Bundle
-	encoder      *gob.Encoder
-	stdin        *bytes.Buffer
-	inputWaiter  docker.CloseWaiter
-	decoder      *gob.Decoder
-	stdout       *bytes.Buffer
-	outputWaiter docker.CloseWaiter
-	barrier      chan struct{}
+	client      *client.Client
+	container   string
+	shortID     string
+	relayConfig *config.Config
+	bundle      *config.Bundle
 }
 
 // NewDockerEnvironment creates a new DockerEnvironment instance
@@ -55,130 +50,96 @@ func NewDockerEnvironment(relayConfig *config.Config, bundle *config.Bundle) (En
 		client:      client,
 		relayConfig: relayConfig,
 		bundle:      bundle,
-		stdin:       bytes.NewBuffer([]byte{}),
-		stdout:      bytes.NewBuffer([]byte{}),
-		barrier:     make(chan struct{}),
 	}
-	createOptions, err := de.createContainerOptions()
+	hostConfig, config := de.createContainerOptions()
+	container, err := client.ContainerCreate(context.Background(), config, hostConfig, nil, "")
 	if err != nil {
 		return nil, err
 	}
-	container, err := client.CreateContainer(*createOptions)
-	if err != nil {
-		return nil, err
-	}
-	de.container = container
+	de.container = container.ID
 	de.shortID = shortContainerID(container.ID)
-	log.Debugf("Created container %s with %d MB RAM.", de.shortID, (createOptions.Config.Memory / Megabyte))
-	err = de.client.StartContainer(de.container.ID, nil)
+	log.Debugf("Created container %s with %d MB RAM.", de.shortID, (hostConfig.Memory / megabyte))
+	err = de.client.ContainerStart(context.Background(), de.container, "")
 	if err != nil {
 		de.Terminate(true)
 		return nil, err
 	}
-	if err = de.connectStreams(); err != nil {
-		de.Terminate(true)
-		return nil, err
-	}
+	log.Debugf("Started container %s.", de.shortID)
 	return de, nil
 }
 
+// BundleName is required by the environment.Environment interface
 func (de *DockerEnvironment) BundleName() string {
 	return de.bundle.Name
 }
 
+// Terminate is required by the environment.Environment interface
 func (de *DockerEnvironment) Terminate(kill bool) {
 	if kill == true {
-		de.client.RemoveContainer(docker.RemoveContainerOptions{
-			ID:    de.container.ID,
-			Force: true,
+		de.client.ContainerRemove(context.Background(), de.container, types.ContainerRemoveOptions{
+			RemoveVolumes: true,
+			Force:         true,
 		})
 		return
 	}
 	start := time.Now()
-	de.inputWaiter.Close()
-	de.outputWaiter.Close()
-	de.client.StopContainer(de.container.ID, 0)
-	de.client.WaitContainer(de.container.ID)
+	de.client.ContainerStop(context.Background(), de.container, 1)
 	finish := time.Now()
 	log.Debugf("Container %s terminated in %f seconds.", de.shortID,
 		finish.Sub(start).Seconds())
 }
 
+// Execute is required by the environment.Environment interface
 func (de *DockerEnvironment) Execute(request *messages.ExecutionRequest) ([]byte, []byte, error) {
 	start := time.Now()
-	execRequest := de.prepareRequest(request)
-	de.encoder.Encode(execRequest)
-	for {
-		if de.stdout.Len() > 0 {
-			break
-		}
-		if time.Now().Sub(start) > timeout {
-			return EmptyResult, EmptyResult, ErrorTimeout
-		}
+	conn, err := de.connectStreams()
+	defer conn.Close()
+	if err != nil {
+		return EmptyResult, EmptyResult, err
 	}
+	req := de.prepareRequest(request)
+	err = conn.Send(&req)
+	if err != nil {
+		return EmptyResult, EmptyResult, err
+	}
+	resp, err := conn.Receive()
 	finish := time.Now()
 	log.Infof("Docker container %s ran %s for %f secs.", de.shortID, request.Command, finish.Sub(start).Seconds())
-	return de.parseResponse(execRequest.Executable)
+	if err != nil {
+		return EmptyResult, EmptyResult, err
+	}
+	return resp.Stdout, resp.Stderr, nil
 }
 
-func (de *DockerEnvironment) resetStreams() {
-	de.stdin.Reset()
-	de.stdout.Reset()
-}
-
-func (de *DockerEnvironment) connectStreams() error {
-	outputWaiter, err := de.client.AttachToContainerNonBlocking(docker.AttachToContainerOptions{
-		Container:    de.container.ID,
-		OutputStream: de.stdout,
-		Stream:       true,
-		Stdout:       true,
-		Success:      de.barrier,
+func (de *DockerEnvironment) connectStreams() (*ContainerConnection, error) {
+	conn, err := de.client.ContainerAttach(context.Background(), de.container, types.ContainerAttachOptions{
+		Stream: true,
+		Stdin:  true,
+		Stdout: true,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	de.outputWaiter = outputWaiter
-	// Wait for client to set up streams w/Docker
-	<-de.barrier
-	de.barrier <- struct{}{}
-	inputWaiter, err := de.client.AttachToContainerNonBlocking(docker.AttachToContainerOptions{
-		Container:   de.container.ID,
-		InputStream: de.stdin,
-		Stream:      true,
-		Stdin:       true,
-	})
-	if err != nil {
-		outputWaiter.Close()
-		outputWaiter.Wait()
-		de.outputWaiter = nil
-		return err
-	}
-	de.inputWaiter = inputWaiter
-	de.encoder = gob.NewEncoder(de.stdin)
-	de.decoder = gob.NewDecoder(de.stdout)
-	return err
+	return NewContainerConnection(conn), nil
 }
 
-func (de *DockerEnvironment) createContainerOptions() (*docker.CreateContainerOptions, error) {
+func (de *DockerEnvironment) createContainerOptions() (*container.HostConfig, *container.Config) {
 	imageID := fmt.Sprintf("%s:%s", de.bundle.Docker.Image, de.bundle.Docker.Tag)
-	containerMemory := de.relayConfig.Docker.ContainerMemory
-	return &docker.CreateContainerOptions{
-		Name: "",
-		Config: &docker.Config{
-			Image:      imageID,
-			Memory:     int64(containerMemory * Megabyte),
-			MemorySwap: 0,
-			OpenStdin:  true,
-			Labels: map[string]string{
-				RelayCreatedDockerLabel: "yes",
-			},
-			Cmd: []string{"/operable/cogexec/bin/cogexec"},
+	hc := &container.HostConfig{
+		Privileged:  false,
+		VolumesFrom: []string{"cogexec"},
+	}
+	hc.Memory = int64(de.relayConfig.Docker.ContainerMemory * megabyte)
+	config := &container.Config{
+		Image:     imageID,
+		OpenStdin: true,
+		StdinOnce: false,
+		Labels: map[string]string{
+			RelayCreatedDockerLabel: "yes",
 		},
-		HostConfig: &docker.HostConfig{
-			VolumesFrom: []string{"cogexec"},
-			Privileged:  false,
-		},
-	}, nil
+		Cmd: []string{"/operable/cogexec/bin/cogexec"},
+	}
+	return hc, config
 }
 
 func (de *DockerEnvironment) prepareRequest(request *messages.ExecutionRequest) exemsg.ExecCommandRequest {
@@ -191,26 +152,15 @@ func (de *DockerEnvironment) prepareRequest(request *messages.ExecutionRequest) 
 	}
 }
 
-func (de *DockerEnvironment) parseResponse(executable string) ([]byte, []byte, error) {
-	resp := &exemsg.ExecCommandResponse{}
-	if err := de.decoder.Decode(resp); err != nil {
-		log.Errorf("Error decoding cogexec response: %s.", err)
-		return EmptyResult, EmptyResult, err
-	} else {
-		log.Debugf("Docker container %s executed '%s' in %f secs.", de.shortID, executable, resp.Elapsed.Seconds())
-	}
-	return resp.Stdout, resp.Stderr, nil
-}
-
-func newClient(dockerConfig *config.DockerInfo) (*docker.Client, error) {
+func newClient(dockerConfig *config.DockerInfo) (*client.Client, error) {
 	if dockerConfig.UseEnv {
-		client, err := docker.NewClientFromEnv()
+		client, err := client.NewEnvClient()
 		if err != nil {
 			return nil, err
 		}
 		return client, nil
 	}
-	client, err := docker.NewClient(dockerConfig.SocketPath)
+	client, err := client.NewClient(dockerConfig.SocketPath, "", &http.Client{}, nil)
 	if err != nil {
 		return nil, err
 	}
