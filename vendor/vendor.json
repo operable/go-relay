@@ -22,6 +22,12 @@
 			"tree": true
 		},
 		{
+			"path": "github.com/docker/distribution",
+			"revision": "596ca8b86acd3feebedae6bc08abf2a48d403a14",
+			"revisionTime": "2016-05-25T21:08:09Z",
+			"tree": true
+		},
+		{
 			"checksumSHA1": "RkBQG201PCvVrGWKwvitz9kErf4=",
 			"path": "github.com/docker/engine-api",
 			"revision": "c9b5a47a3a6fea97d0a2242307ad25a3331ce03b",
