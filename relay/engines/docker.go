@@ -16,7 +16,8 @@ import (
 )
 
 var relayCreatedLabel = "io.operable.cog.relay.create"
-var relayCreatedFilter = fmt.Sprintf("%s=yes", relayCreatedLabel)
+
+//var relayCreatedFilter = fmt.Sprintf("%s=yes", relayCreatedLabel)
 
 // DockerEngine is responsible for managing execution of
 // Docker bundled commands.
@@ -137,19 +138,6 @@ func (de *DockerEngine) ReleaseEnvironment(pipelineID string, bundle *config.Bun
 	}
 }
 
-// VerifyDockerConfig sanity checks Docker configuration and ensures Relay
-// can talk to Docker.
-func VerifyDockerConfig(dockerConfig *config.DockerInfo) error {
-	client, err := newClient(*dockerConfig)
-	if err != nil {
-		return err
-	}
-	if _, err := client.Info(context.Background()); err != nil {
-		return err
-	}
-	return verifyCredentials(client, dockerConfig)
-}
-
 // IDForName returns the image ID for a given image name
 func (de *DockerEngine) IDForName(name string, meta string) (string, error) {
 	image, _, err := de.client.ImageInspectWithRaw(context.Background(), fmt.Sprintf("%s:%s", name, meta), false)
@@ -161,9 +149,13 @@ func (de *DockerEngine) IDForName(name string, meta string) (string, error) {
 
 // Clean removes exited containers
 func (de *DockerEngine) Clean() int {
+	count := 0
+	for _, env := range de.cache.getOld() {
+		env.Terminate(false)
+	}
 	args := filters.NewArgs()
 	args.Add("status", "exited")
-	args.Add("label", relayCreatedFilter)
+	args.Add(relayCreatedLabel, "yes")
 	containers, err := de.client.ContainerList(context.Background(),
 		types.ContainerListOptions{
 			Filter: args,
@@ -172,7 +164,6 @@ func (de *DockerEngine) Clean() int {
 		log.Errorf("Listing dead Docker containers failed: %s.", err)
 		return 0
 	}
-	count := 0
 	for _, container := range containers {
 		err = de.removeContainer(container.ID)
 		if err != nil {
@@ -180,9 +171,6 @@ func (de *DockerEngine) Clean() int {
 		} else {
 			count++
 		}
-	}
-	if count > 0 {
-		log.Infof("Cleaned up %d dead Docker containers.", count)
 	}
 	return count
 }
