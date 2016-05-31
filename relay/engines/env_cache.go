@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-var cacheScanInterval = time.Duration(30) * time.Second
 var oldAge = time.Duration(10) * time.Second
 
 type cacheEntry struct {
@@ -16,9 +15,8 @@ type cacheEntry struct {
 }
 
 type envCache struct {
-	envs    map[string]*cacheEntry
-	lock    sync.Mutex
-	cleaner *time.Timer
+	envs map[string]*cacheEntry
+	lock sync.Mutex
 }
 
 // NewEnvCache returns a newly constructed environment cache
@@ -26,7 +24,6 @@ func newEnvCache() *envCache {
 	ec := &envCache{
 		envs: make(map[string]*cacheEntry),
 	}
-	ec.cleaner = time.AfterFunc(cacheScanInterval, ec.expireOld)
 	return ec
 }
 
@@ -67,17 +64,18 @@ func (ec *envCache) put(key string, env exec.Environment) bool {
 	return true
 }
 
-func (ec *envCache) expireOld() {
+func (ec *envCache) getOld() []exec.Environment {
+	retval := []exec.Environment{}
 	ec.lock.Lock()
 	defer ec.lock.Unlock()
 	now := time.Now()
 	for key, value := range ec.envs {
 		if value.inUse == false {
 			if now.Sub(value.lastUsed) > oldAge {
-				value.env.Terminate(false)
 				delete(ec.envs, key)
+				retval = append(retval, value.env)
 			}
 		}
 	}
-	ec.cleaner = time.AfterFunc(cacheScanInterval, ec.expireOld)
+	return retval
 }
