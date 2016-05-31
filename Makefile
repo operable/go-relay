@@ -53,7 +53,6 @@ clean:
 
 deps:
 	@$(GOVENDOR_BIN) sync
-	@go get -u github.com/fsouza/go-dockerclient
 
 $(GOVENDOR_BIN):
 	go get -u github.com/kardianos/govendor
