@@ -180,7 +180,8 @@ func (r *cogRelay) updateCatalog(envelope *messages.ListBundlesResponseEnvelope)
 	bundles := []*config.Bundle{}
 	for _, b := range envelope.Bundles {
 		b.ConfigFile.Version = fixBundleVersion(b.ConfigFile.Version)
-		bundles = append(bundles, &b.ConfigFile)
+		config := b.ConfigFile
+		bundles = append(bundles, &config)
 	}
 	if !r.queue.IsStopped() {
 		events := make(util.QueueEvents)
