@@ -70,8 +70,8 @@ func executeCommand(invoke *CommandInvocation) {
 			if err != nil {
 				setError(response, err)
 			} else {
-				defer engine.ReleaseEnvironment(request.PipelineID(), bundle, env)
 				commandOutput, commandErrors, err := env.Execute(request)
+				engine.ReleaseEnvironment(request.PipelineID(), bundle, env)
 				parseOutput(commandOutput, commandErrors, err, response, *request)
 			}
 		}
