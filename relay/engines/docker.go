@@ -47,20 +47,21 @@ func NewDockerEngine(relayConfig config.Config) (Engine, error) {
 
 // IsAvailable returns true/false if a Docker image is found
 func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
-	log.Debugf("Retrieving latest Docker image for %s:%s from upstream Docker registry.", name, meta)
+	imageName := fmt.Sprintf("%s:%s", name, meta)
+	log.Debugf("Retrieving latest Docker image for %s from upstream Docker registry.", imageName)
 	beforeID, _ := de.IDForName(name, meta)
 	pullErr := de.client.PullImage(docker.PullImageOptions{
 		Repository: name,
 		Tag:        meta,
 	}, de.makeAuthConfig())
 	if pullErr != nil {
-		log.Errorf("Error ocurred when pulling image %s: %s.", name, pullErr)
-		image, inspectErr := de.client.InspectImage(name)
+		log.Errorf("Error ocurred when pulling image %s: %s.", imageName, pullErr)
+		image, inspectErr := de.client.InspectImage(imageName)
 		if inspectErr != nil || image == nil {
-			log.Errorf("Unable to find Docker image %s locally or in remote registry.", name)
+			log.Errorf("Unable to find Docker image %s locally or in remote registry.", imageName)
 			return false, pullErr
 		}
-		log.Infof("Retrieving Docker image %s from remote registry failed. Falling back to local copy, if it exists.", name)
+		log.Infof("Retrieving Docker image %s from remote registry failed. Falling back to local copy, if it exists.", imageName)
 		return image != nil, nil
 	}
 	afterID, err := de.IDForName(name, meta)
@@ -68,7 +69,7 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 		return false, err
 	}
 	if beforeID == "" {
-		log.Infof("Retrieved Docker image %s for %s:%s.", shortImageID(afterID), name, meta)
+		log.Infof("Retrieved Docker image %s for %s.", shortImageID(afterID), imageName)
 		return true, nil
 	}
 	if beforeID != afterID {
@@ -79,7 +80,7 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 			log.Infof("Replaced obsolete Docker image %s with %s.", shortImageID(beforeID), shortImageID(afterID))
 		}
 	} else {
-		log.Infof("Docker image %s for %s:%s is up to date.", shortImageID(beforeID), name, meta)
+		log.Infof("Docker image %s for %s is up to date.", shortImageID(beforeID), imageName)
 	}
 	return true, nil
 }
