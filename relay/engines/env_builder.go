@@ -17,7 +17,7 @@ func BuildEnvironment(request messages.ExecutionRequest, relayConfig config.Conf
 	vars := make(map[string]string)
 	for i, v := range request.Args {
 		argName := fmt.Sprintf("COG_ARGV_%d", i)
-		vars[argName] = fmt.Sprintf("%s", v)
+		vars[argName] = fmt.Sprintf("%v", v)
 	}
 	vars["COG_ARGC"] = fmt.Sprintf("%d", len(request.Args))
 	if len(request.Options) > 0 {
