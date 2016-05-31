@@ -26,18 +26,21 @@ type Engine interface {
 	Init() error
 	IsAvailable(name string, meta string) (bool, error)
 	NewEnvironment(pipelineID string, bundle *config.Bundle) (exec.Environment, error)
+	ReleaseEnvironment(pipelineID string, bundle *config.Bundle, env exec.Environment)
 	Clean() int
 }
 
 // Engines knows how to create engines based on bundle type
 type Engines struct {
 	relayConfig *config.Config
+	cache       *envCache
 }
 
 // NewEngines constructs a new Engines instance
 func NewEngines(relayConfig *config.Config) *Engines {
 	return &Engines{
 		relayConfig: relayConfig,
+		cache:       newEnvCache(),
 	}
 }
 
@@ -54,7 +57,7 @@ func (e *Engines) EngineForBundle(bundle *config.Bundle) (Engine, error) {
 func (e *Engines) GetEngine(engineType EngineType) (Engine, error) {
 	if engineType == DockerEngineType {
 		if e.relayConfig.DockerEnabled() {
-			return NewDockerEngine(e.relayConfig)
+			return NewDockerEngine(e.relayConfig, e.cache)
 		}
 		return nil, ErrDockerDisabled
 	}
