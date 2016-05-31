@@ -181,7 +181,9 @@ func (de *DockerEngine) Clean() int {
 			count++
 		}
 	}
-	log.Infof("Cleaned up %d dead Docker containers.", count)
+	if count > 0 {
+		log.Infof("Cleaned up %d dead Docker containers.", count)
+	}
 	return count
 }
 
