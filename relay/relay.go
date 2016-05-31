@@ -74,16 +74,12 @@ func (r *cogRelay) Start() error {
 		return err
 	}
 	r.connOpts = bus.ConnectionOptions{
-		Userid:      r.config.ID,
-		Password:    r.config.Cog.Token,
-		Host:        r.config.Cog.Host,
-		Port:        r.config.Cog.Port,
-		SSLEnabled:  r.config.Cog.SSLEnabled,
-		SSLCertPath: r.config.Cog.SSLCertPath,
-		OnDisconnect: &bus.DisconnectMessage{
-			Topic: "bot/relays/discover",
-			Body:  newWill(r.config.ID),
-		},
+		Userid:        r.config.ID,
+		Password:      r.config.Cog.Token,
+		Host:          r.config.Cog.Host,
+		Port:          r.config.Cog.Port,
+		SSLEnabled:    r.config.Cog.SSLEnabled,
+		SSLCertPath:   r.config.Cog.SSLCertPath,
 		EventsHandler: r.handleBusEvents,
 	}
 	for i := 0; i < r.config.MaxConcurrent; i++ {
@@ -293,10 +289,4 @@ func fixBundleVersion(version string) string {
 		return fmt.Sprintf("%s.0", version)
 	}
 	return version
-}
-
-func newWill(id string) string {
-	announcement := messages.NewAnnouncement(id, false)
-	data, _ := json.Marshal(announcement)
-	return string(data)
 }

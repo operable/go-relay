@@ -59,30 +59,14 @@ type AnnouncementReceipt struct {
 
 // NewAnnouncement builds an Announcement directive suitable for
 // publishing
-func NewAnnouncement(relayID string, online bool) *AnnouncementEnvelope {
+func NewOfflineAnnouncement(relayID string, replyTo string) *AnnouncementEnvelope {
 	return &AnnouncementEnvelope{
 		Announcement: &Announcement{
+			ID:       "0",
 			RelayID:  relayID,
-			Online:   online,
+			Online:   false,
 			Snapshot: true,
-		},
-	}
-}
-
-// NewBundleAnnouncement builds an Announcement directive describing
-// the list of bundles available on a Relay
-func NewBundleAnnouncement(relayID string, bundles []config.Bundle) *AnnouncementEnvelope {
-	refs := make([]BundleRef, len(bundles))
-	for i, v := range bundles {
-		refs[i].Name = v.Name
-		refs[i].Version = v.Version
-	}
-	return &AnnouncementEnvelope{
-		Announcement: &Announcement{
-			RelayID:  relayID,
-			Online:   true,
-			Bundles:  refs,
-			Snapshot: true,
+			ReplyTo:  replyTo,
 		},
 	}
 }

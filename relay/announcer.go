@@ -48,7 +48,6 @@ type relayAnnouncer struct {
 	state               relayAnnouncerState
 	stateLock           sync.Mutex
 	control             chan relayAnnouncerCommand
-	announcementID      uint64
 	receiptFor          string
 	announceTimer       *time.Timer
 	announcementPending bool
@@ -72,6 +71,10 @@ func NewAnnouncer(relayID string, busOpts bus.ConnectionOptions, catalog *bundle
 // loop in a goroutine
 func (ra *relayAnnouncer) Run() error {
 	ra.options.EventsHandler = ra.handleBusEvents
+	ra.options.OnDisconnect = &bus.DisconnectMessage{
+		Topic: "bot/relays/discover",
+		Body:  newWill(ra.id, ra.receiptTopic),
+	}
 	conn := &bus.MQTTConnection{}
 	if err := conn.Connect(ra.options); err != nil {
 		return err
@@ -190,4 +193,10 @@ func getBundles(catalog *bundle.Catalog) []config.Bundle {
 		}
 	}
 	return retval
+}
+
+func newWill(id string, replyTo string) string {
+	announcement := messages.NewOfflineAnnouncement(id, replyTo)
+	data, _ := json.Marshal(announcement)
+	return string(data)
 }
