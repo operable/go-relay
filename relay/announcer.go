@@ -71,6 +71,10 @@ func NewAnnouncer(relayID string, busOpts bus.ConnectionOptions, catalog *bundle
 // Run connects the announcer to Cog and starts its main
 // loop in a goroutine
 func (ra *relayAnnouncer) Run() error {
+	ra.options.OnDisconnect = &bus.DisconnectMessage{
+		Topic: "bot/relays/discover",
+		Body:  newWill(ra.id, ra.receiptTopic),
+	}
 	ra.options.EventsHandler = ra.handleBusEvents
 	conn := &bus.MQTTConnection{}
 	if err := conn.Connect(ra.options); err != nil {
@@ -190,4 +194,10 @@ func getBundles(catalog *bundle.Catalog) []config.Bundle {
 		}
 	}
 	return retval
+}
+
+func newWill(id string, receiptTopic string) string {
+	announcement := messages.NewOfflineAnnouncement(id, receiptTopic)
+	data, _ := json.Marshal(announcement)
+	return string(data)
 }
