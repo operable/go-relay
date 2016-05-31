@@ -40,6 +40,10 @@ func (ne *NativeEngine) NewEnvironment(pipelineID string, bundle *config.Bundle)
 	return exec.NewNativeEnvironment(ne.relayConfig, bundle)
 }
 
+// ReleaseEnvironment is required by the engines.Engine interface
+func (ne *NativeEngine) ReleaseEnvironment(pipelineID string, bundle *config.Bundle, env exec.Environment) {
+}
+
 // Clean required by engines.Engine interface
 func (ne *NativeEngine) Clean() int {
 	return 0

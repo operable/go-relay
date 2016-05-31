@@ -13,7 +13,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"sync"
 )
 
 var relayCreatedLabel = "io.operable.cog.relay.create"
@@ -26,10 +25,11 @@ type DockerEngine struct {
 	relayConfig   *config.Config
 	config        config.DockerInfo
 	registryToken string
+	cache         *envCache
 }
 
 // NewDockerEngine makes a new DockerEngine instance
-func NewDockerEngine(relayConfig *config.Config) (Engine, error) {
+func NewDockerEngine(relayConfig *config.Config, cache *envCache) (Engine, error) {
 	dockerConfig := *relayConfig.Docker
 	client, err := newClient(dockerConfig)
 	if err != nil {
@@ -39,6 +39,7 @@ func NewDockerEngine(relayConfig *config.Config) (Engine, error) {
 		client:      client,
 		relayConfig: relayConfig,
 		config:      dockerConfig,
+		cache:       cache,
 	}, nil
 }
 
@@ -121,7 +122,19 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 
 // NewEnvironment is required by the engines.Engine interface
 func (de *DockerEngine) NewEnvironment(pipelineID string, bundle *config.Bundle) (exec.Environment, error) {
+	key := makeKey(pipelineID, bundle)
+	if cached := de.cache.get(key); cached != nil {
+		return cached, nil
+	}
 	return exec.NewDockerEnvironment(de.relayConfig, bundle)
+}
+
+// ReleaseEnvironment is required by the engines.Engine interface
+func (de *DockerEngine) ReleaseEnvironment(pipelineID string, bundle *config.Bundle, env exec.Environment) {
+	key := makeKey(pipelineID, bundle)
+	if de.cache.put(key, env) == false {
+		env.Terminate(false)
+	}
 }
 
 // VerifyDockerConfig sanity checks Docker configuration and ensures Relay
@@ -276,4 +289,8 @@ func shortContainerID(containerID string) string {
 func shortImageID(imageID string) string {
 	chunks := strings.Split(imageID, ":")
 	return chunks[1][:11]
+}
+
+func makeKey(pipelineID string, bundle *config.Bundle) string {
+	return fmt.Sprintf("%s:%s/%s", pipelineID, bundle.Name, bundle.Version)
 }
