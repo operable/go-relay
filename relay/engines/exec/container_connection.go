@@ -7,7 +7,10 @@ import (
 	"errors"
 	"github.com/docker/engine-api/types"
 	"github.com/operable/cogexec/messages"
+	"time"
 )
+
+var readDeadline = time.Duration(500) * time.Millisecond
 
 // ErrorBadDockerHeader indicates a malformed Docker response header
 var ErrorBadDockerHeader = errors.New("Bad Docker stream header")
@@ -40,6 +43,7 @@ func (cc *ContainerConnection) Receive() (*messages.ExecCommandResponse, error) 
 		if err == nil {
 			return &response, nil
 		}
+		cc.conn.Conn.SetReadDeadline(time.Now().Add(readDeadline))
 		payload, err := cc.readPayload()
 		if err != nil {
 			return nil, err

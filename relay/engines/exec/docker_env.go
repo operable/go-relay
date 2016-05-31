@@ -38,6 +38,7 @@ type DockerEnvironment struct {
 	shortID     string
 	relayConfig *config.Config
 	bundle      *config.Bundle
+	conn        *ContainerConnection
 }
 
 // NewDockerEnvironment creates a new DockerEnvironment instance
@@ -92,17 +93,19 @@ func (de *DockerEnvironment) Terminate(kill bool) {
 // Execute is required by the environment.Environment interface
 func (de *DockerEnvironment) Execute(request *messages.ExecutionRequest) ([]byte, []byte, error) {
 	start := time.Now()
-	conn, err := de.connectStreams()
-	defer conn.Close()
-	if err != nil {
-		return EmptyResult, EmptyResult, err
+	if de.conn == nil {
+		conn, err := de.connectStreams()
+		if err != nil {
+			return EmptyResult, EmptyResult, err
+		}
+		de.conn = conn
 	}
 	req := de.prepareRequest(request)
-	err = conn.Send(&req)
+	err := de.conn.Send(&req)
 	if err != nil {
 		return EmptyResult, EmptyResult, err
 	}
-	resp, err := conn.Receive()
+	resp, err := de.conn.Receive()
 	finish := time.Now()
 	log.Infof("Docker container %s ran %s for %f secs.", de.shortID, request.Command, finish.Sub(start).Seconds())
 	if err != nil {
