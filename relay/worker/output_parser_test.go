@@ -46,3 +46,13 @@ func TestDetectJSON(t *testing.T) {
 		t.Errorf("Unexpected parseOutput result: %s", text)
 	}
 }
+
+func TestNoOutput(t *testing.T) {
+	req.Parse()
+	resp := &messages.ExecutionResponse{}
+	output := ""
+	parseOutput([]byte(output), []byte{}, nil, resp, req)
+	if resp.Body != nil {
+		t.Errorf("Unexpected parseOutput result: %s", resp.Body)
+	}
+}
