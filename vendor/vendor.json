@@ -22,6 +22,7 @@
 			"tree": true
 		},
 		{
+			"checksumSHA1": "OmgalQjVrsvqS3jBvubJ3AXaNEU=",
 			"path": "github.com/docker/distribution",
 			"revision": "596ca8b86acd3feebedae6bc08abf2a48d403a14",
 			"revisionTime": "2016-05-25T21:08:09Z",
@@ -67,7 +68,7 @@
 			"revisionTime": "2016-03-01T20:40:22Z"
 		},
 		{
-			"checksumSHA1": "S1ZGddEfy8YpjFl7rzRzbR2XSLs=",
+			"checksumSHA1": "xt1rSIn1PA6q08momsBXzHPVy1E=",
 			"path": "github.com/operable/cogexec",
 			"revision": "99c32d1c8f574584759d7bdeabdb0820ba5d05e2",
 			"revisionTime": "2016-05-31T13:22:40Z",
