@@ -29,6 +29,13 @@
 			"tree": true
 		},
 		{
+			"checksumSHA1": "BXVY1e/bV9cBBbyQc30ZGDziiXo=",
+			"path": "github.com/docker/go-connections",
+			"revision": "c7838b258fbfa3fe88eecfb2a0e08ea0dbd6a646",
+			"revisionTime": "2016-05-19T22:04:54Z",
+			"tree": true
+		},
+		{
 			"checksumSHA1": "SO0OsE27mXm7guJw6zA1LaWq7to=",
 			"path": "github.com/eclipse/paho.mqtt.golang",
 			"revision": "183329365eb3c151b3f8403f90c89cf4e21ed739",
@@ -45,6 +52,13 @@
 			"path": "github.com/go-yaml/yaml",
 			"revision": "a83829b6f1293c91addabc89d0571c246397bbf4",
 			"revisionTime": "2016-03-01T20:40:22Z"
+		},
+		{
+			"checksumSHA1": "S1ZGddEfy8YpjFl7rzRzbR2XSLs=",
+			"path": "github.com/operable/cogexec",
+			"revision": "99c32d1c8f574584759d7bdeabdb0820ba5d05e2",
+			"revisionTime": "2016-05-31T13:22:40Z",
+			"tree": true
 		},
 		{
 			"checksumSHA1": "fwvbNYZ2pA9HfQZBNccxvqst50Q=",
