@@ -24,21 +24,24 @@ var outputParsers = map[*regexp.Regexp]outputParser{
 func parseOutput(commandOutput []byte, commandErrors []byte, err error, resp *messages.ExecutionResponse,
 	req messages.ExecutionRequest) {
 	retained := []string{}
-	lines := strings.Split(strings.TrimSuffix(string(commandOutput), "\n"), "\n")
-	for _, line := range lines {
-		matched := false
-		for re, cb := range outputParsers {
-			if re.MatchString(line) {
-				lines := re.Split(line, 2)
-				cb(lines, resp, req)
-				matched = true
-				break
+	if len(commandOutput) > 0 {
+		lines := strings.Split(strings.TrimSuffix(string(commandOutput), "\n"), "\n")
+		for _, line := range lines {
+			matched := false
+			for re, cb := range outputParsers {
+				if re.MatchString(line) {
+					lines := re.Split(line, 2)
+					cb(lines, resp, req)
+					matched = true
+					break
+				}
+			}
+			if matched == false {
+				retained = append(retained, line)
 			}
 		}
-		if matched == false {
-			retained = append(retained, line)
-		}
 	}
+
 	if err != nil {
 		resp.Status = "error"
 		if len(commandErrors) > 0 {
@@ -48,11 +51,13 @@ func parseOutput(commandOutput []byte, commandErrors []byte, err error, resp *me
 		}
 		return
 	}
+
 	if len(commandErrors) > 0 {
 		resp.Status = "error"
 		resp.StatusMessage = string(commandErrors)
 		return
 	}
+
 	resp.Status = "ok"
 	if resp.IsJSON == true {
 		jsonBody := interface{}(nil)
@@ -64,10 +69,12 @@ func parseOutput(commandOutput []byte, commandErrors []byte, err error, resp *me
 			resp.Body = jsonBody
 		}
 	} else {
-		resp.Body = []map[string][]string{
-			map[string][]string{
-				"body": retained,
-			},
+		if len(retained) > 0 {
+			resp.Body = []map[string][]string{
+				map[string][]string{
+					"body": retained,
+				},
+			}
 		}
 	}
 }
