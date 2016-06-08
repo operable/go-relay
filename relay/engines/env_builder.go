@@ -15,6 +15,7 @@ import (
 // BuildEnvironment constructs the calling environment for a command
 func BuildEnvironment(request messages.ExecutionRequest, relayConfig config.Config) []string {
 	vars := make(map[string]string)
+	vars["PATH"] = "/bin:/usr/bin"
 	for i, v := range request.Args {
 		argName := fmt.Sprintf("COG_ARGV_%d", i)
 		vars[argName] = fmt.Sprintf("%v", v)
@@ -57,6 +58,10 @@ func BuildEnvironment(request messages.ExecutionRequest, relayConfig config.Conf
 			vars[k] = v
 		}
 	}
+
+	vars["USER"] = os.Getenv("USER")
+	vars["HOME"] = os.Getenv("HOME")
+	vars["LANG"] = os.Getenv("LANG")
 
 	retval := make([]string, len(vars))
 	i := 0

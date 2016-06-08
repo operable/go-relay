@@ -94,6 +94,7 @@ func (c *Config) populate() {
 	}
 	setDefaultValues(c.Execution)
 	setEnvVars(c.Execution)
+	c.Execution.parse()
 	c.parseEngines()
 }
 
