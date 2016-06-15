@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
@@ -62,7 +63,10 @@ func parseOutput(commandOutput []byte, commandErrors []byte, err error, resp *me
 	if resp.IsJSON == true {
 		jsonBody := interface{}(nil)
 		remaining := []byte(strings.Join(retained, "\n"))
-		if err := json.Unmarshal(remaining, &jsonBody); err != nil {
+
+		d := json.NewDecoder(bytes.NewReader(remaining))
+		d.UseNumber()
+		if err := d.Decode(&jsonBody); err != nil {
 			resp.Status = "error"
 			resp.StatusMessage = "Command returned invalid JSON."
 		} else {
