@@ -1,23 +1,27 @@
 package engines
 
 import (
+	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/engine-api/client"
 	"github.com/docker/engine-api/types"
 	"github.com/docker/engine-api/types/container"
 	"github.com/docker/engine-api/types/filters"
+	"github.com/operable/circuit"
 	"github.com/operable/go-relay/relay/config"
-	"github.com/operable/go-relay/relay/engines/exec"
 	"golang.org/x/net/context"
 	"io/ioutil"
 	"net/http"
 	"strings"
 )
 
-var relayCreatedLabel = "io.operable.cog.relay.create"
+const (
+	megabyte = 1024 * 1024
+)
 
-//var relayCreatedFilter = fmt.Sprintf("%s=yes", relayCreatedLabel)
+var relayCreatedLabel = "io.operable.cog.relay.create"
+var errorDriverImageUnavailable = errors.New("Command driver image is unavailable")
 
 // DockerEngine is responsible for managing execution of
 // Docker bundled commands.
@@ -50,7 +54,7 @@ func (de *DockerEngine) Init() error {
 	if err != nil {
 		return err
 	}
-	closer, err := de.client.ImagePull(context.Background(), "operable/cogexec",
+	closer, err := de.client.ImagePull(context.Background(), "operable/circuit-driver:latest",
 		types.ImagePullOptions{
 			All:          false,
 			RegistryAuth: de.registryToken,
@@ -60,11 +64,11 @@ func (de *DockerEngine) Init() error {
 		closer.Close()
 	}
 	if err != nil {
-		log.Errorf("Failed to pull required operable/cogexec image: %s.", err)
+		log.Errorf("Failed to pull required operable/circuit-driver:latest image: %s.", err)
 		return err
 	}
-	log.Info("Updated operable/cogexec image.")
-	return de.createCogexec()
+	log.Info("Updated operable/circuit-driver image.")
+	return de.createCircuitDriver()
 }
 
 // IsAvailable returns true/false if a Docker image is found
@@ -74,7 +78,7 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 		return false, err
 	}
 	fullName := fmt.Sprintf("%s:%s", name, meta)
-	log.Debugf("Retrieving latest Docker image for %s:%s from upstream Docker registry.", name, meta)
+	log.Debugf("Retrieving %s:%s from upstream Docker registry.", name, meta)
 	beforeID, _ := de.IDForName(name, meta)
 	closer, pullErr := de.client.ImagePull(context.Background(), fullName,
 		types.ImagePullOptions{
@@ -122,19 +126,20 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 }
 
 // NewEnvironment is required by the engines.Engine interface
-func (de *DockerEngine) NewEnvironment(pipelineID string, bundle *config.Bundle) (exec.Environment, error) {
+func (de *DockerEngine) NewEnvironment(pipelineID string, bundle *config.Bundle) (circuit.Environment, error) {
 	key := makeKey(pipelineID, bundle)
 	if cached := de.cache.get(key); cached != nil {
 		return cached, nil
 	}
-	return exec.NewDockerEnvironment(de.relayConfig, bundle)
+	log.Debugf("Creating environment %s", key)
+	return de.newEnvironment(bundle)
 }
 
 // ReleaseEnvironment is required by the engines.Engine interface
-func (de *DockerEngine) ReleaseEnvironment(pipelineID string, bundle *config.Bundle, env exec.Environment) {
+func (de *DockerEngine) ReleaseEnvironment(pipelineID string, bundle *config.Bundle, env circuit.Environment) {
 	key := makeKey(pipelineID, bundle)
 	if de.cache.put(key, env) == false {
-		env.Terminate(false)
+		env.Shutdown()
 	}
 }
 
@@ -151,7 +156,9 @@ func (de *DockerEngine) IDForName(name string, meta string) (string, error) {
 func (de *DockerEngine) Clean() int {
 	count := 0
 	for _, env := range de.cache.getOld() {
-		env.Terminate(false)
+		if env.Shutdown() == nil {
+			count++
+		}
 	}
 	args := filters.NewArgs()
 	args.Add("status", "exited")
@@ -194,18 +201,27 @@ func (de *DockerEngine) makeAuthConfig() *types.AuthConfig {
 	}
 }
 
-func (de *DockerEngine) createCogexec() error {
+func (de *DockerEngine) createCircuitDriver() error {
 	// Just in case
-	de.client.ContainerRemove(context.Background(), "cogexec", types.ContainerRemoveOptions{
+	de.client.ContainerRemove(context.Background(), "cog-circuit-driver", types.ContainerRemoveOptions{
 		RemoveVolumes: true,
 		Force:         true,
 	})
+	avail, err := de.IsAvailable("operable/circuit-driver", de.config.CommandDriverVersion)
+	if err != nil {
+		return err
+	}
+	if avail == false {
+		return errorDriverImageUnavailable
+	}
+
 	hostConfig := container.HostConfig{
 		Privileged: false,
 	}
-	hostConfig.Memory = 4 * 1024 * 1024
+	fullName := fmt.Sprintf("operable/circuit-driver:%s", de.config.CommandDriverVersion)
+	hostConfig.Memory = int64(4 * megabyte)
 	config := container.Config{
-		Image:     "operable/cogexec",
+		Image:     fullName,
 		Cmd:       []string{"/bin/date"},
 		OpenStdin: false,
 		StdinOnce: false,
@@ -214,12 +230,12 @@ func (de *DockerEngine) createCogexec() error {
 			relayCreatedLabel: "yes",
 		},
 	}
-	_, err := de.client.ContainerCreate(context.Background(), &config, &hostConfig, nil, "cogexec")
+	_, err = de.client.ContainerCreate(context.Background(), &config, &hostConfig, nil, "cog-circuit-driver")
 	if err != nil {
-		log.Errorf("Creation of required cogexec container failed: %s.", err)
+		log.Errorf("Creation of required command driver container failed: %s.", err)
 		return err
 	}
-	log.Info("Created required cogexec container.")
+	log.Info("Created required command driver container.")
 	return nil
 }
 
@@ -237,6 +253,23 @@ func (de *DockerEngine) attemptAuth() error {
 		de.registryToken = resp.IdentityToken
 	}
 	return nil
+}
+
+func (de *DockerEngine) newEnvironment(bundle *config.Bundle) (circuit.Environment, error) {
+	client, err := newClient(de.config)
+	if err != nil {
+		return nil, err
+	}
+	options := circuit.CreateEnvironmentOptions{}
+	options.Kind = circuit.DockerKind
+	options.Bundle = bundle.Name
+	options.DockerOptions.Conn = client
+	options.DockerOptions.Image = bundle.Docker.Image
+	options.DockerOptions.Tag = bundle.Docker.Tag
+	options.DockerOptions.DriverInstance = "cog-circuit-driver"
+	options.DockerOptions.DriverPath = "/operable/circuit/bin/circuit-driver"
+	options.DockerOptions.Memory = int64(de.relayConfig.Docker.ContainerMemory * megabyte)
+	return circuit.CreateEnvironment(options)
 }
 
 func verifyCredentials(client *client.Client, dockerConfig *config.DockerInfo) error {
@@ -282,5 +315,5 @@ func shortImageID(imageID string) string {
 }
 
 func makeKey(pipelineID string, bundle *config.Bundle) string {
-	return fmt.Sprintf("%s:%s/%s", pipelineID, bundle.Name, bundle.Version)
+	return fmt.Sprintf("%s/%s:%s", pipelineID, bundle.Name, bundle.Version)
 }

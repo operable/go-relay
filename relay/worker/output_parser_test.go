@@ -2,6 +2,7 @@ package worker
 
 import (
 	"encoding/json"
+	"github.com/operable/circuit-driver/api"
 	"github.com/operable/go-relay/relay/messages"
 	"testing"
 )
@@ -25,11 +26,16 @@ var (
 	}
 )
 
+var emptyStream = []byte{}
+
 func TestParseLogOutput(t *testing.T) {
 	req.Parse()
+	result := api.ExecResult{
+		Stdout: []byte("COGCMD_DEBUG: Testing 123\nabc\n123\n"),
+		Stderr: emptyStream,
+	}
 	resp := &messages.ExecutionResponse{}
-	output := "COGCMD_DEBUG: Testing 123\nabc\n123\n"
-	parseOutput([]byte(output), []byte{}, nil, resp, req)
+	parseOutput(result, nil, resp, req)
 	text, _ := json.Marshal(resp.Body)
 	if string(text) != "[{\"body\":[\"abc\",\"123\"]}]" {
 		t.Errorf("Unexpected parseOutput result: [{\"body\":[\"abc\",\"123\"]}] != %s", string(text))
@@ -39,8 +45,11 @@ func TestParseLogOutput(t *testing.T) {
 func TestDetectJSON(t *testing.T) {
 	req.Parse()
 	resp := &messages.ExecutionResponse{}
-	output := "COGCMD_INFO: Testing123\nJSON\n{\"foo\": 123}"
-	parseOutput([]byte(output), []byte{}, nil, resp, req)
+	result := api.ExecResult{
+		Stdout: []byte("COGCMD_INFO: Testing123\nJSON\n{\"foo\": 123}"),
+		Stderr: emptyStream,
+	}
+	parseOutput(result, nil, resp, req)
 	text, _ := json.Marshal(resp.Body)
 	if string(text) != "{\"foo\":123}" {
 		t.Errorf("Unexpected parseOutput result: %s", text)
@@ -50,8 +59,8 @@ func TestDetectJSON(t *testing.T) {
 func TestNoOutput(t *testing.T) {
 	req.Parse()
 	resp := &messages.ExecutionResponse{}
-	output := ""
-	parseOutput([]byte(output), []byte{}, nil, resp, req)
+	result := api.ExecResult{}
+	parseOutput(result, nil, resp, req)
 	if resp.Body != nil {
 		t.Errorf("Unexpected parseOutput result: %s", resp.Body)
 	}

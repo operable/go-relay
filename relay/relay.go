@@ -149,11 +149,12 @@ func (r *cogRelay) setSubscriptions() error {
 func (r *cogRelay) handleCommand(conn bus.Connection, topic string, message []byte) {
 	log.Debugf("Got invocation request on %s", topic)
 	invoke := &worker.CommandInvocation{
-		Engines:   r.engines,
-		Publisher: r.conn,
-		Catalog:   r.catalog,
-		Topic:     topic,
-		Payload:   message,
+		RelayConfig: r.config,
+		Engines:     r.engines,
+		Publisher:   r.conn,
+		Catalog:     r.catalog,
+		Topic:       topic,
+		Payload:     message,
 	}
 	ctx := context.WithValue(context.Background(), "invoke", invoke)
 	if err := r.queue.Enqueue(ctx); err != nil {

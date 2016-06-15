@@ -7,6 +7,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/operable/go-relay/relay/bundle"
 	"github.com/operable/go-relay/relay/bus"
+	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/engines"
 	"github.com/operable/go-relay/relay/messages"
 	"github.com/operable/go-relay/relay/util"
@@ -16,12 +17,13 @@ import (
 
 // CommandInvocation request
 type CommandInvocation struct {
-	Publisher bus.MessagePublisher
-	Catalog   *bundle.Catalog
-	Engines   *engines.Engines
-	Topic     string
-	Payload   []byte
-	Shutdown  bool
+	RelayConfig *config.Config
+	Publisher   bus.MessagePublisher
+	Catalog     *bundle.Catalog
+	Engines     *engines.Engines
+	Topic       string
+	Payload     []byte
+	Shutdown    bool
 }
 
 // ExecutionWorker is the entry point for command execution
@@ -74,9 +76,10 @@ func executeCommand(invoke *CommandInvocation) {
 			if err != nil {
 				setError(response, err)
 			} else {
-				commandOutput, commandErrors, err := env.Execute(request)
+				circuitRequest := request.ToCircuitRequest(bundle, invoke.RelayConfig)
+				result, err := env.Run(circuitRequest)
 				engine.ReleaseEnvironment(request.PipelineID(), bundle, env)
-				parseOutput(commandOutput, commandErrors, err, response, *request)
+				parseOutput(result, err, response, *request)
 			}
 		}
 	}

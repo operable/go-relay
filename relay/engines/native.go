@@ -2,8 +2,8 @@ package engines
 
 import (
 	"errors"
+	"github.com/operable/circuit"
 	"github.com/operable/go-relay/relay/config"
-	"github.com/operable/go-relay/relay/engines/exec"
 )
 
 // NativeEngine executes commands natively, that is directly,
@@ -36,12 +36,16 @@ func (ne *NativeEngine) IsAvailable(name string, meta string) (bool, error) {
 }
 
 // NewEnvironment is required by the engines.Engine interface
-func (ne *NativeEngine) NewEnvironment(pipelineID string, bundle *config.Bundle) (exec.Environment, error) {
-	return exec.NewNativeEnvironment(ne.relayConfig, bundle)
+func (ne *NativeEngine) NewEnvironment(pipelineID string, bundle *config.Bundle) (circuit.Environment, error) {
+	options := circuit.CreateEnvironmentOptions{}
+	options.Kind = circuit.NativeKind
+	options.Bundle = bundle.Name
+	return circuit.CreateEnvironment(options)
 }
 
 // ReleaseEnvironment is required by the engines.Engine interface
-func (ne *NativeEngine) ReleaseEnvironment(pipelineID string, bundle *config.Bundle, env exec.Environment) {
+func (ne *NativeEngine) ReleaseEnvironment(pipelineID string, bundle *config.Bundle, env circuit.Environment) {
+	env.Shutdown()
 }
 
 // Clean required by engines.Engine interface

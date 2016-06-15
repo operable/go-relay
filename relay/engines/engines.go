@@ -2,8 +2,8 @@ package engines
 
 import (
 	"errors"
+	"github.com/operable/circuit"
 	"github.com/operable/go-relay/relay/config"
-	"github.com/operable/go-relay/relay/engines/exec"
 )
 
 // EngineType is an enum describing the various engine types
@@ -25,8 +25,8 @@ var ErrDockerDisabled = errors.New("Docker engine is disabled")
 type Engine interface {
 	Init() error
 	IsAvailable(name string, meta string) (bool, error)
-	NewEnvironment(pipelineID string, bundle *config.Bundle) (exec.Environment, error)
-	ReleaseEnvironment(pipelineID string, bundle *config.Bundle, env exec.Environment)
+	NewEnvironment(pipelineID string, bundle *config.Bundle) (circuit.Environment, error)
+	ReleaseEnvironment(pipelineID string, bundle *config.Bundle, env circuit.Environment)
 	Clean() int
 }
 

@@ -29,13 +29,6 @@
 			"tree": true
 		},
 		{
-			"checksumSHA1": "RkBQG201PCvVrGWKwvitz9kErf4=",
-			"path": "github.com/docker/engine-api",
-			"revision": "c9b5a47a3a6fea97d0a2242307ad25a3331ce03b",
-			"revisionTime": "2016-05-26T06:52:53Z",
-			"tree": true
-		},
-		{
 			"checksumSHA1": "BXVY1e/bV9cBBbyQc30ZGDziiXo=",
 			"path": "github.com/docker/go-connections",
 			"revision": "c7838b258fbfa3fe88eecfb2a0e08ea0dbd6a646",
