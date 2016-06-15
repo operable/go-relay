@@ -26,7 +26,7 @@ type ExecutionRequest struct {
 
 // ChatUser contains chat information about the submittor
 type ChatUser struct {
-	ID       string `json:"id"`
+	ID       interface{} `json:"id"` // Slack IDs are strings, HipChat are integers
 	Handle   string `json:"handle"`
 	Provider string `json:"provider"`
 }
