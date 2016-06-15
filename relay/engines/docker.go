@@ -54,20 +54,6 @@ func (de *DockerEngine) Init() error {
 	if err != nil {
 		return err
 	}
-	closer, err := de.client.ImagePull(context.Background(), "operable/circuit-driver:latest",
-		types.ImagePullOptions{
-			All:          false,
-			RegistryAuth: de.registryToken,
-		})
-	ioutil.ReadAll(closer)
-	if closer != nil {
-		closer.Close()
-	}
-	if err != nil {
-		log.Errorf("Failed to pull required operable/circuit-driver:latest image: %s.", err)
-		return err
-	}
-	log.Info("Updated operable/circuit-driver image.")
 	return de.createCircuitDriver()
 }
 
@@ -85,8 +71,8 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 			All:          false,
 			RegistryAuth: de.registryToken,
 		})
-	ioutil.ReadAll(closer)
 	if closer != nil {
+		ioutil.ReadAll(closer)
 		closer.Close()
 	}
 	if pullErr != nil {
