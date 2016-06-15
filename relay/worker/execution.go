@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
@@ -59,7 +60,10 @@ func engineForBundle(bundle config.Bundle, config config.Config) (engines.Engine
 
 func executeCommand(invoke *CommandInvocation) {
 	request := &messages.ExecutionRequest{}
-	if err := json.Unmarshal(invoke.Payload, request); err != nil {
+
+	d := json.NewDecoder(bytes.NewReader(invoke.Payload))
+	d.UseNumber()
+	if err := d.Decode(request); err != nil {
 		log.Errorf("Ignoring malformed execution request: %s.", err)
 		return
 	}
