@@ -22,6 +22,27 @@
 			"tree": true
 		},
 		{
+			"checksumSHA1": "OmgalQjVrsvqS3jBvubJ3AXaNEU=",
+			"path": "github.com/docker/distribution",
+			"revision": "596ca8b86acd3feebedae6bc08abf2a48d403a14",
+			"revisionTime": "2016-05-25T21:08:09Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "BXVY1e/bV9cBBbyQc30ZGDziiXo=",
+			"path": "github.com/docker/go-connections",
+			"revision": "c7838b258fbfa3fe88eecfb2a0e08ea0dbd6a646",
+			"revisionTime": "2016-05-19T22:04:54Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "JbUAh/Jdz7zy5yu2EhSIEi/kxXw=",
+			"path": "github.com/docker/go-units",
+			"revision": "09dda9d4b0d748c57c14048906d3d094a58ec0c9",
+			"revisionTime": "2016-05-24T16:34:22Z",
+			"tree": true
+		},
+		{
 			"checksumSHA1": "SO0OsE27mXm7guJw6zA1LaWq7to=",
 			"path": "github.com/eclipse/paho.mqtt.golang",
 			"revision": "183329365eb3c151b3f8403f90c89cf4e21ed739",
@@ -40,10 +61,31 @@
 			"revisionTime": "2016-03-01T20:40:22Z"
 		},
 		{
+			"checksumSHA1": "NAe4MQNdco4PeCxUHDXtLVnETO4=",
+			"path": "github.com/operable/circuit",
+			"revision": "aeb4f86e9123a42d0dfca0a0f9c4aa49fdc7c457",
+			"revisionTime": "2016-06-15T19:02:12Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "xt1rSIn1PA6q08momsBXzHPVy1E=",
+			"path": "github.com/operable/cogexec",
+			"revision": "99c32d1c8f574584759d7bdeabdb0820ba5d05e2",
+			"revisionTime": "2016-05-31T13:22:40Z",
+			"tree": true
+		},
+		{
 			"checksumSHA1": "fwvbNYZ2pA9HfQZBNccxvqst50Q=",
 			"path": "golang.org/x/net/context",
 			"revision": "e45385e9b226f570b1f086bf287b25d3d4117776",
 			"revisionTime": "2016-04-07T02:17:48Z"
+		},
+		{
+			"checksumSHA1": "KfGbNTddygOy3Ai1rBG4it6A3JM=",
+			"path": "golang.org/x/net/proxy",
+			"revision": "7553b97266dcbbf78298bd1a2b12d9c9aaae5f40",
+			"revisionTime": "2016-05-31T05:38:05Z",
+			"tree": true
 		},
 		{
 			"checksumSHA1": "cXx30Epdfo63Y9G/6iwfHCnSEBo=",

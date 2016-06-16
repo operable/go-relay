@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 	"syscall"
 
@@ -21,6 +22,8 @@ const (
 )
 
 var configFile = flag.String("file", "", "Path to configuration file")
+var cpuprofile = flag.String("cpuprofile", "", "Write CPU profile to file")
+var memprofile = flag.String("memprofile", "", "write memory profile to this file")
 
 // Populated by build script
 var buildstamp string
@@ -143,6 +146,24 @@ func prepare() *config.Config {
 
 func main() {
 	relayConfig := prepare()
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+	if *memprofile != "" {
+		f, err := os.Create(*memprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer func() {
+			pprof.WriteHeapProfile(f)
+			f.Close()
+		}()
+	}
 	if err := relayConfig.Verify(); err != nil {
 		log.Error(err)
 		os.Exit(BAD_CONFIG)

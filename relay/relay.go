@@ -43,6 +43,8 @@ type cogRelay struct {
 	connOpts          bus.ConnectionOptions
 	conn              bus.Connection
 	queue             util.Queue
+	engines           *engines.Engines
+	dockerEngine      engines.Engine
 	catalog           *bundle.Catalog
 	announcer         Announcer
 	directivesReplyTo string
@@ -52,11 +54,9 @@ type cogRelay struct {
 
 // NewRelay constructs a new Relay instance
 func NewRelay(config *config.Config) (Relay, error) {
-	if err := verifyDockerConfig(config); err != nil {
-		return nil, err
-	}
 	return &cogRelay{
 		config:            config,
+		engines:           engines.NewEngines(config),
 		catalog:           bundle.NewCatalog(),
 		queue:             util.NewQueue(uint(config.MaxConcurrent)),
 		directivesReplyTo: fmt.Sprintf(directiveTopicTemplate, config.ID),
@@ -64,6 +64,16 @@ func NewRelay(config *config.Config) (Relay, error) {
 }
 
 func (r *cogRelay) Start() error {
+	if r.config.DockerEnabled() == true {
+		dockerEngine, err := r.engines.GetEngine(engines.DockerEngineType)
+		if err != nil {
+			return err
+		}
+		if err := dockerEngine.Init(); err != nil {
+			return err
+		}
+		r.dockerEngine = dockerEngine
+	}
 	r.connOpts = bus.ConnectionOptions{
 		Userid:        r.config.ID,
 		Password:      r.config.Cog.Token,
@@ -139,9 +149,10 @@ func (r *cogRelay) setSubscriptions() error {
 func (r *cogRelay) handleCommand(conn bus.Connection, topic string, message []byte) {
 	log.Debugf("Got invocation request on %s", topic)
 	invoke := &worker.CommandInvocation{
-		RelayConfig: *r.config,
+		RelayConfig: r.config,
+		Engines:     r.engines,
 		Publisher:   r.conn,
-		Catalog:     *r.catalog,
+		Catalog:     r.catalog,
 		Topic:       topic,
 		Payload:     message,
 	}
@@ -199,7 +210,7 @@ func (r *cogRelay) updateCatalog(envelope *messages.ListBundlesResponseEnvelope)
 }
 
 func (r *cogRelay) refreshBundles() error {
-	dockerEngine, err := engines.NewDockerEngine(*r.config)
+	dockerEngine, err := r.engines.GetEngine(engines.DockerEngineType)
 	if err != nil {
 		if r.config.DockerEnabled() == false {
 			dockerEngine = nil
@@ -247,33 +258,15 @@ func (r *cogRelay) scheduledBundleRefresh() {
 }
 
 func (r *cogRelay) scheduledDockerCleanup() {
-	engine, err := engines.NewDockerEngine(*r.config)
-	if err != nil {
-		log.Errorf("Scheduled clean up of Docker environment failed: %s.", err)
-	} else {
-		cleaned := engine.Clean()
-		container := "containers"
-		if cleaned == 1 {
-			container = "container"
-		}
-		if cleaned > 0 {
-			log.Infof("Scheduled Docker clean up removed %d %s.", cleaned, container)
-		}
+	cleaned := r.dockerEngine.Clean()
+	container := "containers"
+	if cleaned == 1 {
+		container = "container"
+	}
+	if cleaned > 0 {
+		log.Infof("Scheduled Docker clean up removed %d %s.", cleaned, container)
 	}
 	r.cleanTimer = time.AfterFunc(r.config.Docker.CleanDuration(), r.scheduledDockerCleanup)
-}
-
-func verifyDockerConfig(c *config.Config) error {
-	if c.DockerEnabled() == true {
-		if err := engines.VerifyDockerConfig(c.Docker); err != nil {
-			log.Errorf("Error verifying Docker configuration: %s.", err)
-			return err
-		}
-		log.Infof("Docker configuration verified.")
-	} else {
-		log.Infof("Docker support disabled.")
-	}
-	return nil
 }
 
 func fixBundleVersion(version string) string {

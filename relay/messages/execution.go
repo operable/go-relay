@@ -1,6 +1,9 @@
 package messages
 
 import (
+	"encoding/json"
+	"github.com/operable/circuit-driver/api"
+	"github.com/operable/go-relay/relay/config"
 	"strings"
 )
 
@@ -27,8 +30,8 @@ type ExecutionRequest struct {
 // ChatUser contains chat information about the submittor
 type ChatUser struct {
 	ID       interface{} `json:"id"` // Slack IDs are strings, HipChat are integers
-	Handle   string `json:"handle"`
-	Provider string `json:"provider"`
+	Handle   string      `json:"handle"`
+	Provider string      `json:"provider"`
 }
 
 // CogUser contains Cog user information about the submittor
@@ -51,14 +54,18 @@ type ExecutionResponse struct {
 	IsJSON        bool        `json:"omit"`
 }
 
-// Parse extracts the bundle name, command name, and pipeline id
-// from an ExecutionRequest.
-func (er *ExecutionRequest) Parse() {
-	commandParts := strings.SplitN(er.Command, ":", 2)
-	pipelineParts := strings.SplitN(er.ReplyTo, "/", 5)
-	er.bundleName = commandParts[0]
-	er.commandName = commandParts[1]
-	er.pipelineID = pipelineParts[3]
+// ToCircuitRequest converts an ExecutionRequest into a circuit.api.ExecRequest
+func (er *ExecutionRequest) ToCircuitRequest(bundle *config.Bundle, relayConfig *config.Config) api.ExecRequest {
+	executable := bundle.Commands[er.commandName].Executable
+	retval := api.ExecRequest{
+		Executable: executable,
+		Env:        er.compileEnvironment(relayConfig),
+	}
+	if er.CogEnv != nil {
+		jenv, _ := json.Marshal(er.CogEnv)
+		retval.Stdin = jenv
+	}
+	return retval
 }
 
 // BundleName returns just the bundle part of the
@@ -77,4 +84,14 @@ func (er *ExecutionRequest) CommandName() string {
 // this request
 func (er *ExecutionRequest) PipelineID() string {
 	return er.pipelineID
+}
+
+// Parse extracts bundle name, command name, and
+// pipeline id
+func (er *ExecutionRequest) Parse() {
+	commandParts := strings.SplitN(er.Command, ":", 2)
+	pipelineParts := strings.SplitN(er.ReplyTo, "/", 5)
+	er.bundleName = commandParts[0]
+	er.commandName = commandParts[1]
+	er.pipelineID = pipelineParts[3]
 }
