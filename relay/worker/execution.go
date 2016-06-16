@@ -17,9 +17,10 @@ import (
 
 // CommandInvocation request
 type CommandInvocation struct {
-	RelayConfig config.Config
+	RelayConfig *config.Config
 	Publisher   bus.MessagePublisher
-	Catalog     bundle.Catalog
+	Catalog     *bundle.Catalog
+	Engines     *engines.Engines
 	Topic       string
 	Payload     []byte
 	Shutdown    bool
@@ -51,13 +52,6 @@ func ExecutionWorker(workQueue util.Queue) {
 	}
 }
 
-func engineForBundle(bundle config.Bundle, config config.Config) (engines.Engine, error) {
-	if bundle.IsDocker() == true {
-		return engines.NewDockerEngine(config)
-	}
-	return engines.NewNativeEngine(config)
-}
-
 func executeCommand(invoke *CommandInvocation) {
 	request := &messages.ExecutionRequest{}
 
@@ -74,15 +68,26 @@ func executeCommand(invoke *CommandInvocation) {
 		response.Status = "error"
 		response.StatusMessage = fmt.Sprintf("Unknown command bundle %s", request.BundleName())
 	} else {
-		engine, err := engineForBundle(*bundle, invoke.RelayConfig)
+		engine, err := invoke.Engines.EngineForBundle(bundle)
 		if err != nil {
-			response.Status = "error"
-			response.StatusMessage = fmt.Sprintf("%s", err)
+			setError(response, err)
 		} else {
-			commandOutput, commandErrors, err := engine.Execute(request, bundle)
-			parseOutput(commandOutput, commandErrors, err, response, *request)
+			env, err := engine.NewEnvironment(request.PipelineID(), bundle)
+			if err != nil {
+				setError(response, err)
+			} else {
+				circuitRequest := request.ToCircuitRequest(bundle, invoke.RelayConfig)
+				result, err := env.Run(circuitRequest)
+				engine.ReleaseEnvironment(request.PipelineID(), bundle, env)
+				parseOutput(result, err, response, *request)
+			}
 		}
 	}
 	responseBytes, _ := json.Marshal(response)
 	invoke.Publisher.Publish(request.ReplyTo, responseBytes)
+}
+
+func setError(resp *messages.ExecutionResponse, err error) {
+	resp.Status = "error"
+	resp.StatusMessage = fmt.Sprintf("%s", err)
 }
