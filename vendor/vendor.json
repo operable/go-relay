@@ -61,6 +61,13 @@
 			"revisionTime": "2016-03-01T20:40:22Z"
 		},
 		{
+			"checksumSHA1": "NAe4MQNdco4PeCxUHDXtLVnETO4=",
+			"path": "github.com/operable/circuit",
+			"revision": "aeb4f86e9123a42d0dfca0a0f9c4aa49fdc7c457",
+			"revisionTime": "2016-06-15T19:02:12Z",
+			"tree": true
+		},
+		{
 			"checksumSHA1": "xt1rSIn1PA6q08momsBXzHPVy1E=",
 			"path": "github.com/operable/cogexec",
 			"revision": "99c32d1c8f574584759d7bdeabdb0820ba5d05e2",
