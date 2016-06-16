@@ -1,91 +1,98 @@
 {
-    "comment": "",
-    "ignore": "",
-    "package": [
-        {
-            "checksumSHA1": "uJUneQL3bDcwHK72bI3HLyCaha8=",
-            "path": "github.com/Sirupsen/logrus",
-            "revision": "4b6ea7319e214d98c938f12692336f7ca9348d6b",
-            "revisionTime": "2016-03-17T14:11:10Z"
-        },
-        {
-            "checksumSHA1": "cxu/oFa/O87A68Q1zWcBbVpMeBo=",
-            "path": "github.com/asaskevich/govalidator",
-            "revision": "50f582311784a55b42018d88643ccfceadf7ab61",
-            "revisionTime": "2016-03-29T17:14:54Z"
-        },
-        {
-            "checksumSHA1": "vaw9Iq+C+yRsiTVLIhSF2MhBQQ8=",
-            "path": "github.com/coreos/go-semver",
-            "revision": "294930c1e79c64e7dbe360054274fdad492c8cf5",
-            "revisionTime": "2016-05-03T00:57:44Z",
-            "tree": true
-        },
-        {
-            "checksumSHA1": "OmgalQjVrsvqS3jBvubJ3AXaNEU=",
-            "path": "github.com/docker/distribution",
-            "revision": "596ca8b86acd3feebedae6bc08abf2a48d403a14",
-            "revisionTime": "2016-05-25T21:08:09Z",
-            "tree": true
-        },
-        {
-            "checksumSHA1": "BXVY1e/bV9cBBbyQc30ZGDziiXo=",
-            "path": "github.com/docker/go-connections",
-            "revision": "c7838b258fbfa3fe88eecfb2a0e08ea0dbd6a646",
-            "revisionTime": "2016-05-19T22:04:54Z",
-            "tree": true
-        },
-        {
-            "checksumSHA1": "JbUAh/Jdz7zy5yu2EhSIEi/kxXw=",
-            "path": "github.com/docker/go-units",
-            "revision": "09dda9d4b0d748c57c14048906d3d094a58ec0c9",
-            "revisionTime": "2016-05-24T16:34:22Z",
-            "tree": true
-        },
-        {
-            "checksumSHA1": "SO0OsE27mXm7guJw6zA1LaWq7to=",
-            "path": "github.com/eclipse/paho.mqtt.golang",
-            "revision": "183329365eb3c151b3f8403f90c89cf4e21ed739",
-            "revisionTime": "2016-02-10T09:31:18Z"
-        },
-        {
-            "checksumSHA1": "MKH8H8zsxkXijpr5sHOPBUNcTQg=",
-            "path": "github.com/eclipse/paho.mqtt.golang/packets",
-            "revision": "183329365eb3c151b3f8403f90c89cf4e21ed739",
-            "revisionTime": "2016-02-10T09:31:18Z"
-        },
-        {
-            "checksumSHA1": "1J6GtJXjfYf0q/wEn9V0P8XP6O0=",
-            "path": "github.com/go-yaml/yaml",
-            "revision": "a83829b6f1293c91addabc89d0571c246397bbf4",
-            "revisionTime": "2016-03-01T20:40:22Z"
-        },
-        {
-            "checksumSHA1": "NAe4MQNdco4PeCxUHDXtLVnETO4=",
-            "path": "github.com/operable/circuit",
-            "revision": "aeb4f86e9123a42d0dfca0a0f9c4aa49fdc7c457",
-            "revisionTime": "2016-06-15T19:02:12Z",
-            "tree": true
-        },
-        {
-            "checksumSHA1": "fwvbNYZ2pA9HfQZBNccxvqst50Q=",
-            "path": "golang.org/x/net/context",
-            "revision": "e45385e9b226f570b1f086bf287b25d3d4117776",
-            "revisionTime": "2016-04-07T02:17:48Z"
-        },
-        {
-            "checksumSHA1": "KfGbNTddygOy3Ai1rBG4it6A3JM=",
-            "path": "golang.org/x/net/proxy",
-            "revision": "7553b97266dcbbf78298bd1a2b12d9c9aaae5f40",
-            "revisionTime": "2016-05-31T05:38:05Z",
-            "tree": true
-        },
-        {
-            "checksumSHA1": "cXx30Epdfo63Y9G/6iwfHCnSEBo=",
-            "path": "golang.org/x/net/websocket",
-            "revision": "e45385e9b226f570b1f086bf287b25d3d4117776",
-            "revisionTime": "2016-04-07T02:17:48Z"
-        }
-    ],
-    "rootPath": "github.com/operable/go-relay"
+	"comment": "",
+	"ignore": "",
+	"package": [
+		{
+			"checksumSHA1": "uJUneQL3bDcwHK72bI3HLyCaha8=",
+			"path": "github.com/Sirupsen/logrus",
+			"revision": "4b6ea7319e214d98c938f12692336f7ca9348d6b",
+			"revisionTime": "2016-03-17T14:11:10Z"
+		},
+		{
+			"checksumSHA1": "cxu/oFa/O87A68Q1zWcBbVpMeBo=",
+			"path": "github.com/asaskevich/govalidator",
+			"revision": "50f582311784a55b42018d88643ccfceadf7ab61",
+			"revisionTime": "2016-03-29T17:14:54Z"
+		},
+		{
+			"checksumSHA1": "vaw9Iq+C+yRsiTVLIhSF2MhBQQ8=",
+			"path": "github.com/coreos/go-semver",
+			"revision": "294930c1e79c64e7dbe360054274fdad492c8cf5",
+			"revisionTime": "2016-05-03T00:57:44Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "OmgalQjVrsvqS3jBvubJ3AXaNEU=",
+			"path": "github.com/docker/distribution",
+			"revision": "596ca8b86acd3feebedae6bc08abf2a48d403a14",
+			"revisionTime": "2016-05-25T21:08:09Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "cbtRa3zMdqXg0EEDRnAjwWewe1g=",
+			"path": "github.com/docker/engine-api",
+			"revision": "d4b1f372e3bfb0be0a7bf571ba290ef857affa8b",
+			"revisionTime": "2016-06-16T16:52:10Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "BXVY1e/bV9cBBbyQc30ZGDziiXo=",
+			"path": "github.com/docker/go-connections",
+			"revision": "c7838b258fbfa3fe88eecfb2a0e08ea0dbd6a646",
+			"revisionTime": "2016-05-19T22:04:54Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "JbUAh/Jdz7zy5yu2EhSIEi/kxXw=",
+			"path": "github.com/docker/go-units",
+			"revision": "09dda9d4b0d748c57c14048906d3d094a58ec0c9",
+			"revisionTime": "2016-05-24T16:34:22Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "SO0OsE27mXm7guJw6zA1LaWq7to=",
+			"path": "github.com/eclipse/paho.mqtt.golang",
+			"revision": "183329365eb3c151b3f8403f90c89cf4e21ed739",
+			"revisionTime": "2016-02-10T09:31:18Z"
+		},
+		{
+			"checksumSHA1": "MKH8H8zsxkXijpr5sHOPBUNcTQg=",
+			"path": "github.com/eclipse/paho.mqtt.golang/packets",
+			"revision": "183329365eb3c151b3f8403f90c89cf4e21ed739",
+			"revisionTime": "2016-02-10T09:31:18Z"
+		},
+		{
+			"checksumSHA1": "1J6GtJXjfYf0q/wEn9V0P8XP6O0=",
+			"path": "github.com/go-yaml/yaml",
+			"revision": "a83829b6f1293c91addabc89d0571c246397bbf4",
+			"revisionTime": "2016-03-01T20:40:22Z"
+		},
+		{
+			"checksumSHA1": "NAe4MQNdco4PeCxUHDXtLVnETO4=",
+			"path": "github.com/operable/circuit",
+			"revision": "aeb4f86e9123a42d0dfca0a0f9c4aa49fdc7c457",
+			"revisionTime": "2016-06-15T19:02:12Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "fwvbNYZ2pA9HfQZBNccxvqst50Q=",
+			"path": "golang.org/x/net/context",
+			"revision": "e45385e9b226f570b1f086bf287b25d3d4117776",
+			"revisionTime": "2016-04-07T02:17:48Z"
+		},
+		{
+			"checksumSHA1": "KfGbNTddygOy3Ai1rBG4it6A3JM=",
+			"path": "golang.org/x/net/proxy",
+			"revision": "7553b97266dcbbf78298bd1a2b12d9c9aaae5f40",
+			"revisionTime": "2016-05-31T05:38:05Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "cXx30Epdfo63Y9G/6iwfHCnSEBo=",
+			"path": "golang.org/x/net/websocket",
+			"revision": "e45385e9b226f570b1f086bf287b25d3d4117776",
+			"revisionTime": "2016-04-07T02:17:48Z"
+		}
+	],
+	"rootPath": "github.com/operable/go-relay"
 }
