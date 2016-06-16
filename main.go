@@ -155,11 +155,11 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 	if *memprofile != "" {
+		f, err := os.Create(*memprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
 		defer func() {
-			f, err := os.Create(*memprofile)
-			if err != nil {
-				log.Fatal(err)
-			}
 			pprof.WriteHeapProfile(f)
 			f.Close()
 		}()
