@@ -12,6 +12,7 @@ import (
 	"github.com/operable/go-relay/relay/config"
 	"golang.org/x/net/context"
 	"io/ioutil"
+	"os"
 	"strings"
 )
 
@@ -281,7 +282,11 @@ func newClient(dockerConfig config.DockerInfo) (*client.Client, error) {
 		}
 		return client, nil
 	}
-	client, err := client.NewClient(dockerConfig.SocketPath, client.DefaultVersion, nil, nil)
+	dockerAPIVersion := os.Getenv("DOCKER_API_VERSION")
+	if dockerAPIVersion == "" {
+		dockerAPIVersion = client.DefaultVersion
+	}
+	client, err := client.NewClient(dockerConfig.SocketPath, dockerAPIVersion, nil, nil)
 	if err != nil {
 		return nil, err
 	}
