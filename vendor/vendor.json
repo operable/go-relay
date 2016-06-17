@@ -68,6 +68,13 @@
 			"revisionTime": "2016-03-01T20:40:22Z"
 		},
 		{
+			"checksumSHA1": "LkmAYl9HJbRrOxw4xWpVc2+TODc=",
+			"path": "github.com/opencontainers/runc",
+			"revision": "5dc3f3576efb5262bf582217e93f86c93944374d",
+			"revisionTime": "2016-06-16T12:01:58Z",
+			"tree": true
+		},
+		{
 			"checksumSHA1": "NAe4MQNdco4PeCxUHDXtLVnETO4=",
 			"path": "github.com/operable/circuit",
 			"revision": "aeb4f86e9123a42d0dfca0a0f9c4aa49fdc7c457",
