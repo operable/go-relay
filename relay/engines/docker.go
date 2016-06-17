@@ -148,7 +148,7 @@ func (de *DockerEngine) Clean() int {
 	}
 	args := filters.NewArgs()
 	args.Add("status", "exited")
-	args.Add(relayCreatedLabel, "yes")
+	args.Add("label", fmt.Sprintf("%s=yes", relayCreatedLabel))
 	containers, err := de.client.ContainerList(context.Background(),
 		types.ContainerListOptions{
 			Filter: args,
