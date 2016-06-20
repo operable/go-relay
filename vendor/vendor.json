@@ -75,22 +75,28 @@
 			"tree": true
 		},
 		{
-			"checksumSHA1": "NAe4MQNdco4PeCxUHDXtLVnETO4=",
+			"checksumSHA1": "Nh/JVKKhwPM5aFUZML6GCZIWgGw=",
 			"path": "github.com/operable/circuit",
 			"revision": "aeb4f86e9123a42d0dfca0a0f9c4aa49fdc7c457",
 			"revisionTime": "2016-06-15T19:02:12Z"
 		},
 		{
-			"checksumSHA1": "t5WtjsROoUMpKgNwRH+M/h2VSQM=",
-			"path": "github.com/operable/circuit-driver/api",
-			"revision": "c6d685d58aac1c1c2f5ae6275f5ed3aa4c48b05e",
-			"revisionTime": "2016-06-15T19:02:12Z"
+			"checksumSHA1": "ymFw/xJJ0NSFuP9LDySbbnoMET4=",
+			"path": "github.com/operable/circuit-driver",
+			"revision": "f913b4bc681a6d05ea13f018e57bc94daae65aa1",
+			"revisionTime": "2016-06-20T13:14:40Z"
 		},
 		{
-			"checksumSHA1": "aLkvqeSK5YyHvg5ApGE+5cxFtNI=",
+			"checksumSHA1": "t5WtjsROoUMpKgNwRH+M/h2VSQM=",
+			"path": "github.com/operable/circuit-driver/api",
+			"revision": "f913b4bc681a6d05ea13f018e57bc94daae65aa1",
+			"revisionTime": "2016-06-20T13:14:40Z"
+		},
+		{
+			"checksumSHA1": "80513SbsPmk3xnVThlyhBXVy8rU=",
 			"path": "github.com/operable/circuit-driver/io",
-			"revision": "c6d685d58aac1c1c2f5ae6275f5ed3aa4c48b05e",
-			"revisionTime": "2016-06-15T19:02:12Z"
+			"revision": "f913b4bc681a6d05ea13f018e57bc94daae65aa1",
+			"revisionTime": "2016-06-20T13:14:40Z"
 		},
 		{
 			"checksumSHA1": "fwvbNYZ2pA9HfQZBNccxvqst50Q=",
