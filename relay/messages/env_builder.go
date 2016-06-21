@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func (er *ExecutionRequest) compileEnvironment(relayConfig *config.Config) map[string]string {
+func (er *ExecutionRequest) compileEnvironment(relayConfig *config.Config, useDynamicConfig bool) (map[string]string, bool) {
 	vars := make(map[string]string)
 	vars["PATH"] = "/bin:/usr/bin"
 	for i, v := range er.Args {
@@ -40,9 +40,13 @@ func (er *ExecutionRequest) compileEnvironment(relayConfig *config.Config) map[s
 		vars["COG_INVOCATION_STEP"] = er.InvocationStep
 	}
 
-	dyn := relayConfig.LoadDynamicConfig(er.BundleName())
-	for k, v := range dyn {
-		vars[k] = fmt.Sprintf("%s", v)
+	foundDynamicConfig := false
+	if useDynamicConfig {
+		dyn := relayConfig.LoadDynamicConfig(er.BundleName())
+		foundDynamicConfig = len(dyn) > 0
+		for k, v := range dyn {
+			vars[k] = fmt.Sprintf("%s", v)
+		}
 	}
 
 	if relayConfig.Execution != nil {
@@ -54,5 +58,5 @@ func (er *ExecutionRequest) compileEnvironment(relayConfig *config.Config) map[s
 	vars["USER"] = os.Getenv("USER")
 	vars["HOME"] = os.Getenv("HOME")
 	vars["LANG"] = os.Getenv("LANG")
-	return vars
+	return vars, foundDynamicConfig
 }
