@@ -59,54 +59,55 @@ func (de *DockerEngine) Init() error {
 
 // IsAvailable returns true/false if a Docker image is found
 func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
-	err := de.attemptAuth()
-	if err != nil {
-		return false, err
-	}
 	fullName := fmt.Sprintf("%s:%s", name, meta)
-	log.Debugf("Retrieving %s:%s from upstream Docker registry.", name, meta)
-	beforeID, _ := de.IDForName(name, meta)
-	closer, pullErr := de.client.ImagePull(context.Background(), fullName,
-		types.ImagePullOptions{
-			All:          false,
-			RegistryAuth: de.registryToken,
-		})
-	if closer != nil {
-		ioutil.ReadAll(closer)
-		closer.Close()
+	found := false
+	if meta != "latest" {
+		image, _, _ := de.client.ImageInspectWithRaw(context.Background(), fullName, false)
+		if image.ID != "" {
+			log.Debugf("Resolved Docker image name %s to %s.", fullName, shortImageID(image.ID))
+			return true, nil
+		}
 	}
-	if pullErr != nil {
-		log.Errorf("Error ocurred when pulling image %s: %s.", name, pullErr)
-		image, _, inspectErr := de.client.ImageInspectWithRaw(context.Background(), fullName, false)
-		if inspectErr != nil {
-			log.Errorf("Unable to find Docker image %s locally or in remote registry.", name)
+	if found == false {
+		err := de.attemptAuth()
+		if err != nil {
+			return false, err
+		}
+		log.Debugf("Retrieving %s from upstream Docker registry.", fullName)
+		beforeID, _ := de.IDForName(name, meta)
+		closer, pullErr := de.client.ImagePull(context.Background(), fullName,
+			types.ImagePullOptions{
+				All:          false,
+				RegistryAuth: de.registryToken,
+			})
+		if closer != nil {
+			ioutil.ReadAll(closer)
+			closer.Close()
+		}
+		if pullErr != nil {
+			log.Errorf("Error ocurred pulling image %s: %s.", name, pullErr)
 			return false, pullErr
 		}
-		log.Infof("Retrieving Docker image %s from remote registry failed. Falling back to local copy, if it exists.", name)
-		return image.ID != "", nil
-	}
-	afterID, err := de.IDForName(name, meta)
-	if err != nil {
-		log.Errorf("Failed to resolve image name %s:%s to an id: %s.", name, meta, err)
-		return false, err
-	}
-	if beforeID == "" {
-		log.Infof("Retrieved Docker image %s for %s.", shortImageID(afterID), fullName)
-		return true, nil
-	}
-	if beforeID != afterID {
-		_, removeErr := de.client.ImageRemove(context.Background(), beforeID,
-			types.ImageRemoveOptions{
-				Force:         true,
-				PruneChildren: true,
-			})
-		if removeErr != nil {
-			log.Errorf("Failed to remove old Docker image %s: %s.", shortImageID(beforeID), removeErr)
-		} else {
-			log.Infof("Replaced obsolete Docker image %s with %s.", shortImageID(beforeID), shortImageID(afterID))
+		log.Debugf("Retrieved %s from upstream Docker registry.", fullName)
+		afterID, err := de.IDForName(name, meta)
+		if err != nil {
+			log.Errorf("Failed to resolve image name %s to an id: %s.", fullName, err)
+			return false, err
 		}
-	} else {
-		log.Infof("Docker image %s for %s is up to date.", shortImageID(beforeID), fullName)
+		if beforeID != afterID {
+			_, removeErr := de.client.ImageRemove(context.Background(), beforeID,
+				types.ImageRemoveOptions{
+					Force:         true,
+					PruneChildren: true,
+				})
+			if removeErr != nil {
+				log.Errorf("Failed to remove old Docker image %s: %s.", shortImageID(beforeID), removeErr)
+			} else {
+				log.Infof("Replaced obsolete Docker image %s with %s.", shortImageID(beforeID), shortImageID(afterID))
+			}
+		} else {
+			log.Infof("Docker image %s for %s is up to date.", shortImageID(beforeID), fullName)
+		}
 	}
 	return true, nil
 }
