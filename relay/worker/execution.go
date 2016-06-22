@@ -11,9 +11,7 @@ import (
 	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/engines"
 	"github.com/operable/go-relay/relay/messages"
-	"github.com/operable/go-relay/relay/util"
 	"golang.org/x/net/context"
-	"time"
 )
 
 // CommandInvocation request
@@ -29,17 +27,9 @@ type CommandInvocation struct {
 
 // ExecutionWorker is the entry point for command execution
 // goroutines.
-func ExecutionWorker(workQueue util.Queue) {
+func ExecutionWorker(queue chan interface{}) {
 	for {
-		thing, err := workQueue.Dequeue()
-		if err != nil {
-			if workQueue.IsStopped() {
-				time.Sleep(time.Duration(50) * time.Millisecond)
-				continue
-			}
-			log.Errorf("Failed to dequeue request item: %s.", err)
-			return
-		}
+		thing := <-queue
 		// Convert dequeued thing to context
 		ctx, ok := thing.(context.Context)
 

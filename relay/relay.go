@@ -9,7 +9,6 @@ import (
 	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/engines"
 	"github.com/operable/go-relay/relay/messages"
-	"github.com/operable/go-relay/relay/util"
 	"github.com/operable/go-relay/relay/worker"
 	"golang.org/x/net/context"
 	"strings"
@@ -42,7 +41,7 @@ type cogRelay struct {
 	config            *config.Config
 	connOpts          bus.ConnectionOptions
 	conn              bus.Connection
-	queue             util.Queue
+	queue             chan interface{}
 	engines           *engines.Engines
 	dockerEngine      engines.Engine
 	catalog           *bundle.Catalog
@@ -58,7 +57,7 @@ func NewRelay(config *config.Config) (Relay, error) {
 		config:            config,
 		engines:           engines.NewEngines(config),
 		catalog:           bundle.NewCatalog(),
-		queue:             util.NewQueue(uint(config.MaxConcurrent)),
+		queue:             make(chan interface{}, config.MaxConcurrent),
 		directivesReplyTo: fmt.Sprintf(directiveTopicTemplate, config.ID),
 	}, nil
 }
@@ -157,11 +156,7 @@ func (r *cogRelay) handleCommand(conn bus.Connection, topic string, message []by
 		Payload:     message,
 	}
 	ctx := context.WithValue(context.Background(), "invoke", invoke)
-	if err := r.queue.Enqueue(ctx); err != nil {
-		log.Debugf("Failed enqueuing invocation request: %s.", err)
-	} else {
-		log.Debugf("Enqueued invocation request for %s", topic)
-	}
+	r.queue <- ctx
 }
 
 func (r *cogRelay) handleDirective(conn bus.Connection, topic string, message []byte) {
@@ -185,16 +180,6 @@ func (r *cogRelay) updateCatalog(envelope *messages.ListBundlesResponseEnvelope)
 		configFile := b.ConfigFile
 		bundles = append(bundles, &configFile)
 	}
-	if !r.queue.IsStopped() {
-		events := make(util.QueueEvents)
-		if r.queue.Stop(events) == true {
-			<-events
-		} else {
-			log.Error("Failed to stop worker queue. Bundle catalog update aborted.")
-			return
-		}
-	}
-	defer r.queue.Start()
 	r.catalog.Replace(bundles)
 	if r.catalog.IsChanged() {
 		if err := r.refreshBundles(); err != nil {
@@ -210,11 +195,11 @@ func (r *cogRelay) updateCatalog(envelope *messages.ListBundlesResponseEnvelope)
 }
 
 func (r *cogRelay) refreshBundles() error {
-	dockerEngine, err := r.engines.GetEngine(engines.DockerEngineType)
-	if err != nil {
-		if r.config.DockerEnabled() == false {
-			dockerEngine = nil
-		} else {
+	var dockerEngine engines.Engine
+	var err error
+	if r.config.DockerEnabled() == true {
+		dockerEngine, err = r.engines.GetEngine(engines.DockerEngineType)
+		if err != nil {
 			return err
 		}
 	}
