@@ -11,9 +11,6 @@ var errorQueueStopped = errors.New("Queue is stopped")
 type Queue interface {
 	Enqueue(interface{}) error
 	Dequeue() (interface{}, error)
-	Stop(evt QueueEvents) bool
-	Start()
-	IsStopped() bool
 }
 
 // QueueEvents is used to notify waiting processes about
@@ -42,65 +39,29 @@ func NewQueue(depth uint) Queue {
 }
 
 func (wq *workQueue) Enqueue(item interface{}) error {
-	if wq.IsStopped() {
-		return errorQueueStopped
-	}
 	wq.queue <- item
 	wq.lock.Lock()
+	defer wq.lock.Unlock()
 	wq.pending++
-	wq.lock.Unlock()
 	return nil
 }
 
 func (wq *workQueue) Dequeue() (interface{}, error) {
-	if wq.IsStopped() {
-		return nil, errorQueueStopped
-	}
 	item := <-wq.queue
 	wq.lock.Lock()
 	wq.pending--
-	if wq.pending == 0 && wq.events != nil {
-		events := wq.events
-		go func() {
-			events <- 1
-		}()
-		wq.events = nil
-	}
 	wq.lock.Unlock()
 	return item, nil
 }
 
-func (wq *workQueue) Stop(evt QueueEvents) bool {
+func (wq *workQueue) decrementPending() {
 	wq.lock.Lock()
 	defer wq.lock.Unlock()
-	if wq.stopped {
-		return false
-	}
-	wq.stopped = true
-	if evt != nil {
-		if wq.pending == 0 {
-			go func() {
-				evt <- 1
-			}()
-		} else {
-			wq.events = evt
-		}
-	}
-	return true
+	wq.pending--
 }
 
-func (wq *workQueue) Start() {
+func (wq *workQueue) incrementPending() {
 	wq.lock.Lock()
 	defer wq.lock.Unlock()
-	if !wq.stopped {
-		return
-	}
-	wq.stopped = false
-	wq.events = nil
-}
-
-func (wq *workQueue) IsStopped() bool {
-	wq.lock.Lock()
-	defer wq.lock.Unlock()
-	return wq.stopped && wq.pending == 0
+	wq.pending++
 }
