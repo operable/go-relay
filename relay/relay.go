@@ -195,11 +195,11 @@ func (r *cogRelay) updateCatalog(envelope *messages.ListBundlesResponseEnvelope)
 }
 
 func (r *cogRelay) refreshBundles() error {
-	dockerEngine, err := r.engines.GetEngine(engines.DockerEngineType)
-	if err != nil {
-		if r.config.DockerEnabled() == false {
-			dockerEngine = nil
-		} else {
+	var dockerEngine engines.Engine
+	var err error
+	if r.config.DockerEnabled() == true {
+		dockerEngine, err = r.engines.GetEngine(engines.DockerEngineType)
+		if err != nil {
 			return err
 		}
 	}
