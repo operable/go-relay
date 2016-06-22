@@ -70,10 +70,6 @@ func NewAnnouncer(relayID string, busOpts bus.ConnectionOptions, catalog *bundle
 // Run connects the announcer to Cog and starts its main
 // loop in a goroutine
 func (ra *relayAnnouncer) Run() error {
-	ra.options.OnDisconnect = &bus.DisconnectMessage{
-		Topic: "bot/relays/discover",
-		Body:  newWill(ra.id, ra.receiptTopic),
-	}
 	ra.options.EventsHandler = ra.handleBusEvents
 	ra.options.OnDisconnect = &bus.DisconnectMessage{
 		Topic: "bot/relays/discover",

@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-type outputParser func([]string, *messages.ExecutionResponse, messages.ExecutionRequest)
+type outputParser func([]string, *messages.ExecutionResponse, messages.PipelineStageRequest, messages.ExecutionRequest)
 
 var outputParsers = map[*regexp.Regexp]outputParser{
 	regexp.MustCompilePOSIX("^COGCMD_DEBUG:"): writeToLog,
@@ -23,7 +23,8 @@ var outputParsers = map[*regexp.Regexp]outputParser{
 	regexp.MustCompilePOSIX("^JSON$"):         flagJSON,
 }
 
-func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
+func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionResponse, stageReq messages.PipelineStageRequest,
+	req messages.ExecutionRequest) {
 	if err != nil {
 		resp.Status = "error"
 		resp.StatusMessage = fmt.Sprintf("%s", err)
@@ -38,13 +39,12 @@ func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionRespo
 				for re, cb := range outputParsers {
 					if re.MatchString(line) {
 						lines := re.Split(line, 2)
-						cb(lines, resp, req)
+						cb(lines, resp, stageReq, req)
 						matched = true
 						break
 					}
 				}
 				if matched == false {
-					log.Debugf("Before JSON set: %s", line)
 					retained = append(retained, line)
 				}
 			} else {
@@ -81,7 +81,7 @@ func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionRespo
 	}
 }
 
-func writeToLog(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
+func writeToLog(line []string, resp *messages.ExecutionResponse, stageReq messages.PipelineStageRequest, req messages.ExecutionRequest) {
 	if len(line) < 2 {
 		return
 	}
@@ -89,25 +89,25 @@ func writeToLog(line []string, resp *messages.ExecutionResponse, req messages.Ex
 	message := strings.Trim(line[1], " ")
 	switch line[0] {
 	case "DEBUG:":
-		log.Debugf(format, req.PipelineID(), req.Command, message)
+		log.Debugf(format, stageReq.PipelineID(), stageReq.Command, message)
 	case "WARN:":
-		log.Warnf(format, req.PipelineID(), req.Command, message)
+		log.Warnf(format, stageReq.PipelineID(), stageReq.Command, message)
 	case "ERR:":
 		fallthrough
 	case "ERROR:":
-		log.Errorf(format, req.PipelineID(), req.Command, message)
+		log.Errorf(format, stageReq.PipelineID(), stageReq.Command, message)
 	default:
-		log.Infof(format, req.PipelineID(), req.Command, message)
+		log.Infof(format, stageReq.PipelineID(), stageReq.Command, message)
 	}
 }
 
-func extractTemplate(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
+func extractTemplate(line []string, resp *messages.ExecutionResponse, stageReq messages.PipelineStageRequest, req messages.ExecutionRequest) {
 	if len(line) < 2 {
 		return
 	}
 	resp.Template = strings.Trim(line[1], " ")
 }
 
-func flagJSON(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
+func flagJSON(line []string, resp *messages.ExecutionResponse, stageReq messages.PipelineStageRequest, req messages.ExecutionRequest) {
 	resp.IsJSON = true
 }
