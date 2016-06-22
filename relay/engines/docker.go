@@ -36,12 +36,8 @@ type DockerEngine struct {
 // NewDockerEngine makes a new DockerEngine instance
 func NewDockerEngine(relayConfig *config.Config, cache *envCache) (Engine, error) {
 	dockerConfig := *relayConfig.Docker
-	client, err := newClient(dockerConfig)
-	if err != nil {
-		return nil, err
-	}
 	return &DockerEngine{
-		client:      client,
+		client:      nil,
 		relayConfig: relayConfig,
 		config:      dockerConfig,
 		cache:       cache,
@@ -50,20 +46,21 @@ func NewDockerEngine(relayConfig *config.Config, cache *envCache) (Engine, error
 
 // Init is required by the engines.Engine interface
 func (de *DockerEngine) Init() error {
-	err := de.attemptAuth()
-	if err != nil {
-		return err
-	}
 	return de.createCircuitDriver()
 }
 
 // IsAvailable returns true/false if a Docker image is found
 func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
+	err := de.ensureConnected()
+	if err != nil {
+		return false, err
+	}
+
 	if de.needsUpdate(name, meta) == false {
 		return true, nil
 	}
 	fullName := fmt.Sprintf("%s:%s", name, meta)
-	err := de.attemptAuth()
+	err = de.attemptAuth()
 	if err != nil {
 		return false, err
 	}
@@ -104,6 +101,10 @@ func (de *DockerEngine) ReleaseEnvironment(pipelineID string, bundle *config.Bun
 
 // IDForName returns the image ID for a given image name
 func (de *DockerEngine) IDForName(name string, meta string) (string, error) {
+	err := de.ensureConnected()
+	if err != nil {
+		return "", err
+	}
 	image, _, err := de.client.ImageInspectWithRaw(context.Background(), fmt.Sprintf("%s:%s", name, meta), false)
 	if err != nil {
 		return "", err
@@ -113,6 +114,10 @@ func (de *DockerEngine) IDForName(name string, meta string) (string, error) {
 
 // Clean removes exited containers
 func (de *DockerEngine) Clean() int {
+	err := de.ensureConnected()
+	if err != nil {
+		return 0
+	}
 	count := 0
 	for _, env := range de.cache.getOld() {
 		if env.Shutdown() == nil {
@@ -161,6 +166,10 @@ func (de *DockerEngine) makeAuthConfig() *types.AuthConfig {
 }
 
 func (de *DockerEngine) createCircuitDriver() error {
+	err := de.ensureConnected()
+	if err != nil {
+		return err
+	}
 	// Just in case
 	de.client.ContainerRemove(context.Background(), "cog-circuit-driver", types.ContainerRemoveOptions{
 		RemoveVolumes: true,
@@ -275,7 +284,18 @@ func (de *DockerEngine) removeOldImage(oldID, newID, fullName string) {
 			log.Infof("Docker image %s for %s is up to date.", shortImageID(oldID), fullName)
 		}
 	}
+}
 
+func (de *DockerEngine) ensureConnected() error {
+	if de.client == nil {
+		client, err := newClient(de.config)
+		if err != nil {
+			log.Errorf("Failed to connect to Docker daemon: %s.", err)
+			return err
+		}
+		de.client = client
+	}
+	return nil
 }
 
 func verifyCredentials(client *client.Client, dockerConfig *config.DockerInfo) error {

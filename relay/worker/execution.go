@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
+	"github.com/operable/circuit"
 	"github.com/operable/go-relay/relay/bundle"
 	"github.com/operable/go-relay/relay/bus"
 	"github.com/operable/go-relay/relay/config"
@@ -76,7 +77,21 @@ func executeCommand(invoke *CommandInvocation) {
 			if err != nil {
 				setError(response, err)
 			} else {
-				circuitRequest := request.ToCircuitRequest(bundle, invoke.RelayConfig)
+				userData, _ := env.GetUserData()
+				if userData == nil {
+					userData = make(circuit.EnvironmentUserData)
+				}
+				hasDynamicConfig := true
+				value, keyPresent := userData["dynamic-config"]
+				if keyPresent == false {
+					value = true
+				}
+				hasDynamicConfig = value.(bool)
+				circuitRequest, foundDynamicConfig := request.ToCircuitRequest(bundle, invoke.RelayConfig, hasDynamicConfig)
+				if foundDynamicConfig == false {
+					userData["dynamic-config"] = false
+					env.SetUserData(userData)
+				}
 				result, err := env.Run(circuitRequest)
 				engine.ReleaseEnvironment(request.PipelineID(), bundle, env)
 				parseOutput(result, err, response, *request)

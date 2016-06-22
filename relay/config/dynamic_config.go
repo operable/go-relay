@@ -41,6 +41,11 @@ func (c *Config) LoadDynamicConfig(bundle string) map[string]interface{} {
 }
 
 func locateConfigFile(configRoot string, bundle string) string {
+	rootInfo, rootErr := os.Stat(configRoot)
+	if rootErr != nil || rootInfo.IsDir() == false {
+		log.Debugf("Dynamic configuration root dir not found.")
+		return ""
+	}
 	fullYamlPath := path.Join(configRoot, bundle, "config.yaml")
 	fullYmlPath := path.Join(configRoot, bundle, "config.yml")
 	yamlInfo, yamlErr := os.Stat(fullYamlPath)
