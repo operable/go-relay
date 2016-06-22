@@ -59,56 +59,28 @@ func (de *DockerEngine) Init() error {
 
 // IsAvailable returns true/false if a Docker image is found
 func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
+	if de.needsUpdate(name, meta) == false {
+		return true, nil
+	}
 	fullName := fmt.Sprintf("%s:%s", name, meta)
-	found := false
-	if meta != "latest" {
-		image, _, _ := de.client.ImageInspectWithRaw(context.Background(), fullName, false)
-		if image.ID != "" {
-			log.Debugf("Resolved Docker image name %s to %s.", fullName, shortImageID(image.ID))
-			return true, nil
-		}
+	err := de.attemptAuth()
+	if err != nil {
+		return false, err
 	}
-	if found == false {
-		err := de.attemptAuth()
-		if err != nil {
-			return false, err
-		}
-		log.Debugf("Retrieving %s from upstream Docker registry.", fullName)
-		beforeID, _ := de.IDForName(name, meta)
-		closer, pullErr := de.client.ImagePull(context.Background(), fullName,
-			types.ImagePullOptions{
-				All:          false,
-				RegistryAuth: de.registryToken,
-			})
-		if closer != nil {
-			ioutil.ReadAll(closer)
-			closer.Close()
-		}
-		if pullErr != nil {
-			log.Errorf("Error ocurred pulling image %s: %s.", name, pullErr)
-			return false, pullErr
-		}
-		log.Debugf("Retrieved %s from upstream Docker registry.", fullName)
-		afterID, err := de.IDForName(name, meta)
-		if err != nil {
-			log.Errorf("Failed to resolve image name %s to an id: %s.", fullName, err)
-			return false, err
-		}
-		if beforeID != afterID {
-			_, removeErr := de.client.ImageRemove(context.Background(), beforeID,
-				types.ImageRemoveOptions{
-					Force:         true,
-					PruneChildren: true,
-				})
-			if removeErr != nil {
-				log.Errorf("Failed to remove old Docker image %s: %s.", shortImageID(beforeID), removeErr)
-			} else {
-				log.Infof("Replaced obsolete Docker image %s with %s.", shortImageID(beforeID), shortImageID(afterID))
-			}
-		} else {
-			log.Infof("Docker image %s for %s is up to date.", shortImageID(beforeID), fullName)
-		}
+	log.Debugf("Retrieving %s from upstream Docker registry.", fullName)
+	beforeID, _ := de.IDForName(name, meta)
+	pullErr := de.pullImage(fullName)
+	if pullErr != nil {
+		log.Errorf("Error ocurred pulling image %s: %s.", name, pullErr)
+		return false, pullErr
 	}
+	log.Debugf("Retrieved %s from upstream Docker registry.", fullName)
+	afterID, err := de.IDForName(name, meta)
+	if err != nil {
+		log.Errorf("Failed to resolve image name %s to an id: %s.", fullName, err)
+		return false, err
+	}
+	de.removeOldImage(beforeID, afterID, fullName)
 	return true, nil
 }
 
@@ -257,6 +229,53 @@ func (de *DockerEngine) newEnvironment(bundle *config.Bundle) (circuit.Environme
 	options.DockerOptions.DriverPath = "/operable/circuit/bin/circuit-driver"
 	options.DockerOptions.Memory = int64(de.relayConfig.Docker.ContainerMemory * megabyte)
 	return circuit.CreateEnvironment(options)
+}
+
+func (de *DockerEngine) needsUpdate(name, meta string) bool {
+	fullName := fmt.Sprintf("%s:%s", name, meta)
+	if meta != "latest" {
+		image, _, _ := de.client.ImageInspectWithRaw(context.Background(), fullName, false)
+		if image.ID != "" {
+			log.Debugf("Resolved Docker image name %s to %s.", fullName, shortImageID(image.ID))
+			return false
+		}
+	}
+	return true
+}
+
+func (de *DockerEngine) pullImage(fullName string) error {
+	closer, pullErr := de.client.ImagePull(context.Background(), fullName,
+		types.ImagePullOptions{
+			All:          false,
+			RegistryAuth: de.registryToken,
+		})
+	if closer != nil {
+		ioutil.ReadAll(closer)
+		closer.Close()
+	}
+	return pullErr
+}
+
+func (de *DockerEngine) removeOldImage(oldID, newID, fullName string) {
+	// Previous version of image existed and has been replaced.
+	// Delete the old one to keep disk usage under control.
+	if oldID != "" && oldID != newID {
+		_, removeErr := de.client.ImageRemove(context.Background(), oldID,
+			types.ImageRemoveOptions{
+				Force:         true,
+				PruneChildren: true,
+			})
+		if removeErr != nil {
+			log.Errorf("Failed to remove old Docker image %s: %s.", shortImageID(oldID), removeErr)
+		} else {
+			log.Infof("Replaced obsolete Docker image %s with %s.", shortImageID(oldID), shortImageID(newID))
+		}
+	} else {
+		if oldID != "" {
+			log.Infof("Docker image %s for %s is up to date.", shortImageID(oldID), fullName)
+		}
+	}
+
 }
 
 func verifyCredentials(client *client.Client, dockerConfig *config.DockerInfo) error {
