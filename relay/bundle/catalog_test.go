@@ -79,11 +79,21 @@ func TestCatalogBatchAdds(t *testing.T) {
 func TestCatalogRemove(t *testing.T) {
 	bc := NewCatalog()
 	bc.Replace([]*config.Bundle{&bundle12, &barBundle10})
-	bc.Remove(bundle12.Name)
+	if bc.Len() != 2 {
+		t.Errorf("Bad length")
+	}
+	bc.Replace([]*config.Bundle{&bundle12})
 	if bc.Len() != 1 {
 		t.Error("Bad length")
 	}
 	if bc.IsChanged() == false {
 		t.Error("Change detection failed")
+	}
+	b := bc.Find(bundle12.Name)
+	if b != &bundle12 {
+		t.Error("Find returned unexpected result")
+	}
+	if bc.Find(barBundle10.Name) != nil {
+		t.Errorf("Expected Find for bundle %s to fail", barBundle10.Name)
 	}
 }
