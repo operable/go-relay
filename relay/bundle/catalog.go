@@ -3,7 +3,6 @@ package bundle
 import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/operable/go-relay/relay/config"
-	"sort"
 	"sync"
 )
 
@@ -157,29 +156,37 @@ func (bc *Catalog) Reconnected() {
 
 func (bc *Catalog) diff(bundles []*config.Bundle) *diffResult {
 	result := newDiffResult()
-	newNames := []string{}
-	for _, b := range bundles {
-		newNames = append(newNames, b.Name)
-	}
-	sort.Strings(newNames)
-	for _, value := range bundles {
-		if existing := bc.bundles[value.Name]; existing != nil {
-			// Delete existing and add new if versions don't match
-			if existing.Version != value.Version {
-				result.added = append(result.added, value)
-				result.removed = append(result.removed, value.Name)
-			}
-			// If new doesn't exist in existing then add it
+
+	// Iterate over existing catalog to find any removed
+	// or updated (new version != current version) bundles
+	for name, bundle := range bc.bundles {
+		b := findByName(name, bundles)
+		if b == nil {
+			result.removed = append(result.removed, name)
 		} else {
-			result.added = append(result.added, value)
+			// Delete existing and add new if versions don't match
+			if b.Version != bundle.Version {
+				result.added = append(result.added, b)
+				result.removed = append(result.removed, name)
+			}
 		}
 	}
-	// Scan existing bundles to find deleted ones
-	for name := range bc.bundles {
-		// Not found
-		if sort.SearchStrings(newNames, name) == len(newNames) {
-			result.removed = append(result.removed, name)
+
+	// Iterate over update to find completely new bundles
+	for _, b := range bundles {
+		// Add if in update and not in catalog
+		if _, ok := bc.bundles[b.Name]; ok == false {
+			result.added = append(result.added, b)
 		}
 	}
 	return result
+}
+
+func findByName(name string, bundles []*config.Bundle) *config.Bundle {
+	for _, bundle := range bundles {
+		if bundle.Name == name {
+			return bundle
+		}
+	}
+	return nil
 }
