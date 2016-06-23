@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -28,9 +29,8 @@ type CommandInvocation struct {
 // ExecutionWorker is the entry point for command execution
 // goroutines.
 func ExecutionWorker(queue chan interface{}) {
-	var buf bytes.Buffer
-	decoder := json.NewDecoder(&buf)
-	decoder.UseNumber()
+	var decoder *json.Decoder
+	var bufferedReader *bufio.Reader
 	for {
 		thing := <-queue
 		// Convert dequeued thing to context
@@ -40,11 +40,14 @@ func ExecutionWorker(queue chan interface{}) {
 			log.Error("Dropping improperly queued request.")
 			continue
 		}
-
 		invoke := ctx.Value("invoke").(*CommandInvocation)
-		buf.Write(invoke.Payload)
+		if bufferedReader == nil {
+			bufferedReader = bufio.NewReader(bytes.NewReader(invoke.Payload))
+			decoder = json.NewDecoder(bufferedReader)
+		} else {
+			bufferedReader.Reset(bytes.NewReader(invoke.Payload))
+		}
 		executeCommand(decoder, invoke)
-		buf.Reset()
 	}
 }
 
