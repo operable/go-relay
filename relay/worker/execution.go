@@ -28,6 +28,9 @@ type CommandInvocation struct {
 // ExecutionWorker is the entry point for command execution
 // goroutines.
 func ExecutionWorker(queue chan interface{}) {
+	var buf bytes.Buffer
+	decoder := json.NewDecoder(&buf)
+	decoder.UseNumber()
 	for {
 		thing := <-queue
 		// Convert dequeued thing to context
@@ -39,16 +42,16 @@ func ExecutionWorker(queue chan interface{}) {
 		}
 
 		invoke := ctx.Value("invoke").(*CommandInvocation)
-		executeCommand(invoke)
+		buf.Write(invoke.Payload)
+		executeCommand(decoder, invoke)
+		buf.Reset()
 	}
 }
 
-func executeCommand(invoke *CommandInvocation) {
+func executeCommand(decoder *json.Decoder, invoke *CommandInvocation) {
 	request := &messages.ExecutionRequest{}
 
-	d := json.NewDecoder(bytes.NewReader(invoke.Payload))
-	d.UseNumber()
-	if err := d.Decode(request); err != nil {
+	if err := decoder.Decode(request); err != nil {
 		log.Errorf("Ignoring malformed execution request: %s.", err)
 		return
 	}
