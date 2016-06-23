@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -28,6 +29,8 @@ type CommandInvocation struct {
 // ExecutionWorker is the entry point for command execution
 // goroutines.
 func ExecutionWorker(queue chan interface{}) {
+	var decoder *json.Decoder
+	var bufferedReader *bufio.Reader
 	for {
 		thing := <-queue
 		// Convert dequeued thing to context
@@ -37,18 +40,22 @@ func ExecutionWorker(queue chan interface{}) {
 			log.Error("Dropping improperly queued request.")
 			continue
 		}
-
 		invoke := ctx.Value("invoke").(*CommandInvocation)
-		executeCommand(invoke)
+		if bufferedReader == nil {
+			bufferedReader = bufio.NewReader(bytes.NewReader(invoke.Payload))
+			decoder = json.NewDecoder(bufferedReader)
+			decoder.UseNumber()
+		} else {
+			bufferedReader.Reset(bytes.NewReader(invoke.Payload))
+		}
+		executeCommand(decoder, invoke)
 	}
 }
 
-func executeCommand(invoke *CommandInvocation) {
+func executeCommand(decoder *json.Decoder, invoke *CommandInvocation) {
 	request := &messages.ExecutionRequest{}
 
-	d := json.NewDecoder(bytes.NewReader(invoke.Payload))
-	d.UseNumber()
-	if err := d.Decode(request); err != nil {
+	if err := decoder.Decode(request); err != nil {
 		log.Errorf("Ignoring malformed execution request: %s.", err)
 		return
 	}

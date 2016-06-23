@@ -34,15 +34,20 @@ func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionRespo
 		lines := strings.Split(strings.TrimSuffix(string(result.Stdout), "\n"), "\n")
 		for _, line := range lines {
 			matched := false
-			for re, cb := range outputParsers {
-				if re.MatchString(line) {
-					lines := re.Split(line, 2)
-					cb(lines, resp, req)
-					matched = true
-					break
+			if resp.IsJSON == false {
+				for re, cb := range outputParsers {
+					if re.MatchString(line) {
+						lines := re.Split(line, 2)
+						cb(lines, resp, req)
+						matched = true
+						break
+					}
 				}
-			}
-			if matched == false {
+				if matched == false {
+					log.Debugf("Before JSON set: %s", line)
+					retained = append(retained, line)
+				}
+			} else {
 				retained = append(retained, line)
 			}
 		}

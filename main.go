@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"runtime"
 	"runtime/pprof"
 	"strings"
 	"syscall"
@@ -36,7 +35,6 @@ var configLocations = []string{
 }
 
 func init() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
 	displayVersionInfo()
 	log.SetFormatter(&log.TextFormatter{
 		DisableTimestamp: false,
