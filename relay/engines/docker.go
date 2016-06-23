@@ -342,7 +342,7 @@ func shortContainerID(containerID string) string {
 func shortImageID(imageID string) string {
 	chunks := strings.Split(imageID, ":")
 	if len(chunks) == 1 {
-		return chunks[0]
+		return chunks[0][:11]
 	}
 	return chunks[1][:11]
 }
