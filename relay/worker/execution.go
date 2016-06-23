@@ -44,6 +44,7 @@ func ExecutionWorker(queue chan interface{}) {
 		if bufferedReader == nil {
 			bufferedReader = bufio.NewReader(bytes.NewReader(invoke.Payload))
 			decoder = json.NewDecoder(bufferedReader)
+			decoder.UseNumber()
 		} else {
 			bufferedReader.Reset(bytes.NewReader(invoke.Payload))
 		}
