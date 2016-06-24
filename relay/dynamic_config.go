@@ -11,6 +11,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -79,13 +81,13 @@ func (dcu *DynamicConfigUpdater) dynConfigUpdate(conn bus.Connection, topic stri
 	}
 	if envelope.Signature != dcu.lastSignature && envelope.Changed == true {
 		if dcu.updateConfigs(envelope.Signature, envelope.Configs) {
-			if dcu.lastSignature != "" {
-				if err := os.RemoveAll(dcu.lastSignature); err != nil {
-					log.Warnf("Fafiled to clean up old bundle dynamic configs: %s.", err)
-				}
-			}
 			dcu.lastSignature = envelope.Signature
+			dcu.cleanOldConfigs()
+			log.Info("Updated bundle dynamic configs.")
+
 		}
+	} else {
+		log.Debug("No bundle dynamic config changes detected.")
 	}
 }
 
@@ -111,8 +113,10 @@ func (dcu *DynamicConfigUpdater) loop() {
 }
 
 func (dcu *DynamicConfigUpdater) updateConfigs(signature string, configs []messages.DynamicConfig) bool {
+	if !dcu.verifyManagedConfigPath() {
+		return false
+	}
 	updateDir := path.Join(dcu.dynamicConfigRoot, "..", signature)
-	os.RemoveAll(updateDir)
 	if err := os.MkdirAll(updateDir, 0755); err != nil {
 		log.Errorf("Error preparing directory %s for updated bundle dynamic configs: %s.", updateDir, err)
 		return false
@@ -141,6 +145,32 @@ func (dcu *DynamicConfigUpdater) updateConfigs(signature string, configs []messa
 	}
 	if err := os.Rename(symlinkTarget, dcu.dynamicConfigRoot); err != nil {
 		log.Errorf("Error replacing existing bundle dynamic configs with updated contents: %s.", err)
+		return false
+	}
+	return true
+}
+
+func (dcu *DynamicConfigUpdater) cleanOldConfigs() {
+	entries, _ := filepath.Glob(path.Join(dcu.dynamicConfigRoot, "..", "*"))
+	for _, entry := range entries {
+		if entry == dcu.dynamicConfigRoot || strings.HasSuffix(entry, dcu.lastSignature) {
+			continue
+		}
+		os.RemoveAll(entry)
+	}
+}
+
+func (dcu *DynamicConfigUpdater) verifyManagedConfigPath() bool {
+	info, err := os.Lstat(dcu.dynamicConfigRoot)
+	if err != nil {
+		if strings.HasSuffix(err.Error(), "no such file or directory") {
+			return true
+		}
+		log.Errorf("Error stat-ing dynamic config root directory: %s.", err)
+		return false
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		log.Errorf("Managed dynamic config root directory %s is not a symlink. Update ABORTED.", dcu.dynamicConfigRoot)
 		return false
 	}
 	return true
