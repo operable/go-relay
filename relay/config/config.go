@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -23,6 +24,7 @@ const (
 
 var validEngineNames = []string{DockerEngine, NativeEngine}
 var errorNoExecutionEngines = errors.New("Invalid Relay configuration detected. At least one execution engine must be enabled.")
+var errorMissingDynamicConfigRoot = errors.New("Enabling 'managed_dynamic_config' requires setting 'dynamic_config_root'.")
 
 // Config is the top level struct for all Relay configuration
 type Config struct {
@@ -30,6 +32,7 @@ type Config struct {
 	ID                   string   `yaml:"id" env:"RELAY_ID" valid:"uuid,required"`
 	MaxConcurrent        int      `yaml:"max_concurrent" env:"RELAY_MAX_CONCURRENT" valid:"int64,required" default:"16"`
 	DynamicConfigRoot    string   `yaml:"dynamic_config_root" env:"RELAY_DYNAMIC_CONFIG_ROOT" valid:"-"`
+	ManagedDynamicConfig bool     `yaml:"managed_dynamic_config" env:"RELAY_MANAGED_DYNAMIC_CONFIG" valid:"-"`
 	LogLevel             string   `yaml:"log_level" env:"RELAY_LOG_LEVEL" valid:"required" default:"info"`
 	LogJSON              bool     `yaml:"log_json" env:"RELAY_LOG_JSON" valid:"bool" default:"false"`
 	LogPath              string   `yaml:"log_path" env:"RELAY_LOG_PATH" valid:"required" default:"stdout"`
@@ -72,6 +75,12 @@ func (c *Config) engineEnabled(name string) bool {
 func (c *Config) Verify() error {
 	if c.DockerEnabled() == false && c.NativeEnabled() == false {
 		return errorNoExecutionEngines
+	}
+	if c.ManagedDynamicConfig == true && c.DynamicConfigRoot == "" {
+		return errorMissingDynamicConfigRoot
+	}
+	if c.ManagedDynamicConfig == true {
+		c.DynamicConfigRoot = path.Join(c.DynamicConfigRoot, "managed")
 	}
 	return nil
 }

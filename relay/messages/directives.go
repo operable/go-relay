@@ -34,6 +34,33 @@ type BundleRef struct {
 	Version string `json:"version,omitempty"`
 }
 
+// GetDynamicConfigsEnvelope is a wrapper around a GetDynamicConfigs directive.
+type GetDynamicConfigsEnvelope struct {
+	GetDynamicConfigs *GetDynamicConfigs `json:"get_dynamic_configs"`
+}
+
+// GetDynamicConfigs asks Cog to send the complete list of
+// dynamic configs for the bundles assigned to the Relay.
+type GetDynamicConfigs struct {
+	RelayID   string `json:"relay_id"`
+	Signature string `json:"config_hash"`
+	ReplyTo   string `json:"reply_to"`
+}
+
+// DynamicConfigsResponseEnvelope is a wrapper around the
+// response to a GetDynamicConfigs directive.
+type DynamicConfigsResponseEnvelope struct {
+	Signature string          `json:"signature"`
+	Changed   bool            `json:"changed"`
+	Configs   []DynamicConfig `json:"configs"`
+}
+
+// DynamicConfig is the contents of a dynamic config file for a bundle.
+type DynamicConfig struct {
+	BundleName string      `json:"bundle_name"`
+	Config     interface{} `json:"config"`
+}
+
 // AnnouncementEnvelope is a wrapper around an Announcement directive.
 type AnnouncementEnvelope struct {
 	Announcement *Announcement `json:"announce" valid:"required"`

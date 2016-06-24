@@ -46,6 +46,7 @@ type cogRelay struct {
 	dockerEngine      engines.Engine
 	catalog           *bundle.Catalog
 	announcer         Announcer
+	dynConfigUpdater  *DynamicConfigUpdater
 	directivesReplyTo string
 	bundleTimer       *time.Timer
 	cleanTimer        *time.Timer
@@ -109,6 +110,12 @@ func (r *cogRelay) Stop() error {
 			r.cleanTimer.Stop()
 		}
 	}
+	if r.announcer != nil {
+		r.announcer.Halt()
+	}
+	if r.dynConfigUpdater != nil {
+		r.dynConfigUpdater.Halt()
+	}
 	return nil
 }
 
@@ -123,6 +130,13 @@ func (r *cogRelay) handleBusEvents(conn bus.Connection, event bus.Event) {
 			if err := r.announcer.Run(); err != nil {
 				log.Errorf("Failed to start announcer: %s.", err)
 				panic(err)
+			}
+			if r.config.ManagedDynamicConfig == true {
+				r.dynConfigUpdater = NewDynamicConfigUpdater(r.config.ID, opts, r.config.DynamicConfigRoot)
+				if err := r.dynConfigUpdater.Run(); err != nil {
+					log.Errorf("Failed to start bundle dynamic config updater: %s.", err)
+					panic(err)
+				}
 			}
 		}
 		if err := r.setSubscriptions(); err != nil {
