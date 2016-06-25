@@ -45,6 +45,12 @@ func (mqc *MQTTConnection) Connect(options ConnectionOptions) error {
 	return nil
 }
 
+// Disconnect is required by the bus.Connection interface
+func (mqc *MQTTConnection) Disconnect() error {
+	mqc.conn.Disconnect(1000)
+	return nil
+}
+
 // Publish is required by the bus.Connection interface
 func (mqc *MQTTConnection) Publish(topic string, payload []byte) error {
 	token := mqc.conn.Publish(topic, 1, false, payload)
@@ -80,7 +86,7 @@ func (mqc *MQTTConnection) disconnected(cilent *mqtt.Client, err error) {
 func (mqc *MQTTConnection) buildMQTTOptions(options ConnectionOptions) *mqtt.ClientOptions {
 	clientID := fmt.Sprintf("%x", time.Now().UTC().UnixNano())
 	mqttOpts := mqtt.NewClientOptions()
-	mqttOpts.SetAutoReconnect(false)
+	mqttOpts.SetAutoReconnect(options.AutoReconnect)
 	mqttOpts.SetKeepAlive(time.Duration(60) * time.Second)
 	mqttOpts.SetPingTimeout(time.Duration(15) * time.Second)
 	mqttOpts.SetUsername(options.Userid)
@@ -89,7 +95,9 @@ func (mqc *MQTTConnection) buildMQTTOptions(options ConnectionOptions) *mqtt.Cli
 	mqttOpts.SetCleanSession(true)
 	brokerURL := brokerURL(options)
 	mqttOpts.AddBroker(brokerURL)
-	mqttOpts.SetConnectionLostHandler(mqc.disconnected)
+	if !options.AutoReconnect {
+		mqttOpts.SetConnectionLostHandler(mqc.disconnected)
+	}
 	return mqttOpts
 }
 

@@ -41,12 +41,14 @@ type ConnectionOptions struct {
 	SSLEnabled    bool
 	SSLCertPath   string
 	EventsHandler EventHandler
+	AutoReconnect bool
 	OnDisconnect  *DisconnectMessage
 }
 
 // Connection is the high-level message bus interface
 type Connection interface {
 	Connect(options ConnectionOptions) error
+	Disconnect() error
 	Publish(topic string, payload []byte) error
 	Subscribe(topic string, handler SubscriptionHandler) error
 }
