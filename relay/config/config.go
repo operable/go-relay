@@ -25,22 +25,24 @@ const (
 var validEngineNames = []string{DockerEngine, NativeEngine}
 var errorNoExecutionEngines = errors.New("Invalid Relay configuration detected. At least one execution engine must be enabled.")
 var errorMissingDynamicConfigRoot = errors.New("Enabling 'managed_dynamic_config' requires setting 'dynamic_config_root'.")
+var errorBadDynConfigInterval = errors.New("Error parsing managed_dynamic_config_interval")
 
 // Config is the top level struct for all Relay configuration
 type Config struct {
-	Version              int      `yaml:"version" valid:"int64,required"`
-	ID                   string   `yaml:"id" env:"RELAY_ID" valid:"uuid,required"`
-	MaxConcurrent        int      `yaml:"max_concurrent" env:"RELAY_MAX_CONCURRENT" valid:"int64,required" default:"16"`
-	DynamicConfigRoot    string   `yaml:"dynamic_config_root" env:"RELAY_DYNAMIC_CONFIG_ROOT" valid:"-"`
-	ManagedDynamicConfig bool     `yaml:"managed_dynamic_config" env:"RELAY_MANAGED_DYNAMIC_CONFIG" valid:"-"`
-	LogLevel             string   `yaml:"log_level" env:"RELAY_LOG_LEVEL" valid:"required" default:"info"`
-	LogJSON              bool     `yaml:"log_json" env:"RELAY_LOG_JSON" valid:"bool" default:"false"`
-	LogPath              string   `yaml:"log_path" env:"RELAY_LOG_PATH" valid:"required" default:"stdout"`
-	Cog                  *CogInfo `yaml:"cog" valid:"required"`
-	EnginesEnabled       string   `yaml:"enabled_engines" env:"RELAY_ENABLED_ENGINES" valid:"exec_engines" default:"docker,native"`
-	ParsedEnginesEnabled []string
-	Docker               *DockerInfo    `yaml:"docker" valid:"-"`
-	Execution            *ExecutionInfo `yaml:"execution" valid:"-"`
+	Version               int      `yaml:"version" valid:"int64,required"`
+	ID                    string   `yaml:"id" env:"RELAY_ID" valid:"uuid,required"`
+	MaxConcurrent         int      `yaml:"max_concurrent" env:"RELAY_MAX_CONCURRENT" valid:"int64,required" default:"16"`
+	DynamicConfigRoot     string   `yaml:"dynamic_config_root" env:"RELAY_DYNAMIC_CONFIG_ROOT" valid:"-"`
+	ManagedDynamicConfig  bool     `yaml:"managed_dynamic_config" env:"RELAY_MANAGED_DYNAMIC_CONFIG" valid:"-"`
+	DynamicConfigInterval string   `yaml:"managed_dynamic_config_interval" env:"RELAY_MANAGED_DYNAMIC_CONFIG_INTERVAL" default:"5s"`
+	LogLevel              string   `yaml:"log_level" env:"RELAY_LOG_LEVEL" valid:"required" default:"info"`
+	LogJSON               bool     `yaml:"log_json" env:"RELAY_LOG_JSON" valid:"bool" default:"false"`
+	LogPath               string   `yaml:"log_path" env:"RELAY_LOG_PATH" valid:"required" default:"stdout"`
+	Cog                   *CogInfo `yaml:"cog" valid:"required"`
+	EnginesEnabled        string   `yaml:"enabled_engines" env:"RELAY_ENABLED_ENGINES" valid:"exec_engines" default:"docker,native"`
+	ParsedEnginesEnabled  []string
+	Docker                *DockerInfo    `yaml:"docker" valid:"-"`
+	Execution             *ExecutionInfo `yaml:"execution" valid:"-"`
 }
 
 // RefreshDuration returns RefreshInterval as a time.Duration
@@ -48,6 +50,15 @@ func (c *Config) RefreshDuration() time.Duration {
 	duration, err := time.ParseDuration(c.Cog.RefreshInterval)
 	if err != nil {
 		panic(fmt.Errorf("Error parsing refresh_interval: %s", err))
+	}
+	return duration
+}
+
+// ManagedDynamicConfigRefreshDuration returns DynamicConfigInterval as a time.Duration
+func (c *Config) ManagedDynamicConfigRefreshDuration() time.Duration {
+	duration, err := time.ParseDuration(c.DynamicConfigInterval)
+	if err != nil {
+		panic(errorBadDynConfigInterval)
 	}
 	return duration
 }

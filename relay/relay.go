@@ -95,9 +95,9 @@ func (r *cogRelay) Start() error {
 	}
 	if r.config.DockerEnabled() {
 		r.cleanTimer = time.AfterFunc(r.config.Docker.CleanDuration(), r.scheduledDockerCleanup)
-		log.Infof("Cleaning up Docker environment on %d second intervals.", r.config.Docker.CleanDuration()/time.Second)
+		log.Infof("Cleaning up expired Docker environments every %v.", r.config.Docker.CleanDuration())
 	}
-	log.Infof("Refreshing bundle catalog on %d second intervals.", r.config.RefreshDuration()/time.Second)
+	log.Infof("Refreshing bundle catalog every %v.", r.config.RefreshDuration())
 	return nil
 }
 
@@ -132,7 +132,8 @@ func (r *cogRelay) handleBusEvents(conn bus.Connection, event bus.Event) {
 				panic(err)
 			}
 			if r.config.ManagedDynamicConfig == true {
-				r.dynConfigUpdater = NewDynamicConfigUpdater(r.config.ID, opts, r.config.DynamicConfigRoot)
+				r.dynConfigUpdater = NewDynamicConfigUpdater(r.config.ID, opts, r.config.DynamicConfigRoot,
+					r.config.ManagedDynamicConfigRefreshDuration())
 				if err := r.dynConfigUpdater.Run(); err != nil {
 					log.Errorf("Failed to start bundle dynamic config updater: %s.", err)
 					panic(err)

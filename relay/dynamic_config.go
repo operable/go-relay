@@ -16,8 +16,6 @@ import (
 	"time"
 )
 
-var refreshInterval = time.Duration(5) * time.Second
-
 // DynamicConfigUpdater periodically updates bundle dynamic configurations from Cog
 type DynamicConfigUpdater struct {
 	id                string
@@ -27,16 +25,19 @@ type DynamicConfigUpdater struct {
 	dynamicConfigRoot string
 	lastSignature     string
 	control           chan interface{}
+	refreshInterval   time.Duration
 	refreshTimer      *time.Timer
 }
 
 // NewDynamicConfigUpdater creates a new updater
-func NewDynamicConfigUpdater(relayID string, busOpts bus.ConnectionOptions, dynamicConfigRoot string) *DynamicConfigUpdater {
+func NewDynamicConfigUpdater(relayID string, busOpts bus.ConnectionOptions, dynamicConfigRoot string,
+	refreshInterval time.Duration) *DynamicConfigUpdater {
 	return &DynamicConfigUpdater{
 		id:                relayID,
 		configTopic:       fmt.Sprintf("bot/relays/%s/dynconfigs", relayID),
 		options:           busOpts,
 		dynamicConfigRoot: dynamicConfigRoot,
+		refreshInterval:   refreshInterval,
 		control:           make(chan interface{}),
 	}
 }
@@ -44,13 +45,16 @@ func NewDynamicConfigUpdater(relayID string, busOpts bus.ConnectionOptions, dyna
 // Run connects the announcer to Cog and starts its main
 // loop in a goroutine
 func (dcu *DynamicConfigUpdater) Run() error {
+	log.Infof("Managed bundle dynamic configs enabled.")
+	log.Infof("Refreshing bundle dynamic configs every %v.", dcu.refreshInterval)
 	dcu.options.AutoReconnect = true
 	dcu.options.EventsHandler = dcu.handleBusEvents
 	conn := &bus.MQTTConnection{}
 	if err := conn.Connect(dcu.options); err != nil {
 		return err
 	}
-	dcu.refreshTimer = time.AfterFunc(refreshInterval, dcu.refreshConfigs)
+	dcu.refreshConfigs()
+	dcu.refreshTimer = time.AfterFunc(dcu.refreshInterval, dcu.refreshConfigs)
 	go func() {
 		dcu.loop()
 	}()
@@ -72,7 +76,7 @@ func (dcu *DynamicConfigUpdater) handleBusEvents(conn bus.Connection, event bus.
 }
 
 func (dcu *DynamicConfigUpdater) dynConfigUpdate(conn bus.Connection, topic string, payload []byte) {
-	defer dcu.refreshTimer.Reset(refreshInterval)
+	defer dcu.refreshTimer.Reset(dcu.refreshInterval)
 	var envelope messages.DynamicConfigsResponseEnvelope
 	decoder := json.NewDecoder(bytes.NewReader(payload))
 	decoder.UseNumber()
@@ -86,8 +90,6 @@ func (dcu *DynamicConfigUpdater) dynConfigUpdate(conn bus.Connection, topic stri
 			log.Info("Updated bundle dynamic configs.")
 
 		}
-	} else {
-		log.Debug("No bundle dynamic config changes detected.")
 	}
 }
 
@@ -102,7 +104,7 @@ func (dcu *DynamicConfigUpdater) refreshConfigs() {
 	raw, _ := json.Marshal(request)
 	if err := dcu.conn.Publish("bot/relays/info", raw); err != nil {
 		log.Errorf("Error requesting bundle dynamic configuration update: %s.", err)
-		dcu.refreshTimer.Reset(refreshInterval)
+		dcu.refreshTimer.Reset(dcu.refreshInterval)
 	}
 }
 
@@ -136,6 +138,7 @@ func (dcu *DynamicConfigUpdater) updateConfigs(signature string, configs []messa
 			log.Errorf("Error writing dynamic config file to path %s: %s.", configFileName, err)
 			return false
 		}
+		log.Debugf("Wrote bundle dynamic config file %s.", configFileName)
 	}
 	// Create and rename new symlink should make config updates atomic
 	symlinkTarget := path.Join(dcu.dynamicConfigRoot, "..", "new")
