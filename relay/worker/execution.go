@@ -12,6 +12,7 @@ import (
 	"github.com/operable/go-relay/relay/config"
 	"github.com/operable/go-relay/relay/engines"
 	"github.com/operable/go-relay/relay/messages"
+	"github.com/operable/go-relay/relay/util"
 	"golang.org/x/net/context"
 )
 
@@ -43,8 +44,7 @@ func ExecutionWorker(queue chan interface{}) {
 		invoke := ctx.Value("invoke").(*CommandInvocation)
 		if bufferedReader == nil {
 			bufferedReader = bufio.NewReader(bytes.NewReader(invoke.Payload))
-			decoder = json.NewDecoder(bufferedReader)
-			decoder.UseNumber()
+			decoder = util.NewJsonDecoder(bufferedReader)
 		} else {
 			bufferedReader.Reset(bytes.NewReader(invoke.Payload))
 		}

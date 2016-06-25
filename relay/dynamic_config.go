@@ -8,6 +8,7 @@ import (
 	"github.com/go-yaml/yaml"
 	"github.com/operable/go-relay/relay/bus"
 	"github.com/operable/go-relay/relay/messages"
+	"github.com/operable/go-relay/relay/util"
 	"io/ioutil"
 	"os"
 	"path"
@@ -78,8 +79,7 @@ func (dcu *DynamicConfigUpdater) handleBusEvents(conn bus.Connection, event bus.
 func (dcu *DynamicConfigUpdater) dynConfigUpdate(conn bus.Connection, topic string, payload []byte) {
 	defer dcu.refreshTimer.Reset(dcu.refreshInterval)
 	var envelope messages.DynamicConfigsResponseEnvelope
-	decoder := json.NewDecoder(bytes.NewReader(payload))
-	decoder.UseNumber()
+	decoder := util.NewJsonDecoder(bytes.NewReader(payload))
 	if err := decoder.Decode(&envelope); err != nil {
 		log.Errorf("Error decoding GetDynamicConfigs result: %s.", err)
 	}

@@ -7,6 +7,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/operable/circuit-driver/api"
 	"github.com/operable/go-relay/relay/messages"
+	"github.com/operable/go-relay/relay/util"
 	"regexp"
 	"strings"
 )
@@ -63,8 +64,7 @@ func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionRespo
 		jsonBody := interface{}(nil)
 		remaining := []byte(strings.Join(retained, "\n"))
 
-		d := json.NewDecoder(bytes.NewReader(remaining))
-		d.UseNumber()
+		d := util.NewJsonDecoder(bytes.NewReader(remaining))
 		if err := d.Decode(&jsonBody); err != nil {
 			resp.Status = "error"
 			resp.StatusMessage = "Command returned invalid JSON."
