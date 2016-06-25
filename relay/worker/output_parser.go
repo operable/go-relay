@@ -2,7 +2,6 @@ package worker
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/operable/circuit-driver/api"
@@ -64,7 +63,7 @@ func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionRespo
 		jsonBody := interface{}(nil)
 		remaining := []byte(strings.Join(retained, "\n"))
 
-		d := util.NewJsonDecoder(bytes.NewReader(remaining))
+		d := util.NewJSONDecoder(bytes.NewReader(remaining))
 		if err := d.Decode(&jsonBody); err != nil {
 			resp.Status = "error"
 			resp.StatusMessage = "Command returned invalid JSON."

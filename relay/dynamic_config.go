@@ -62,6 +62,7 @@ func (dcu *DynamicConfigUpdater) Run() error {
 	return nil
 }
 
+// Halt tells the DCU to stop.
 func (dcu *DynamicConfigUpdater) Halt() {
 	dcu.control <- 1
 }
@@ -79,7 +80,7 @@ func (dcu *DynamicConfigUpdater) handleBusEvents(conn bus.Connection, event bus.
 func (dcu *DynamicConfigUpdater) dynConfigUpdate(conn bus.Connection, topic string, payload []byte) {
 	defer dcu.refreshTimer.Reset(dcu.refreshInterval)
 	var envelope messages.DynamicConfigsResponseEnvelope
-	decoder := util.NewJsonDecoder(bytes.NewReader(payload))
+	decoder := util.NewJSONDecoder(bytes.NewReader(payload))
 	if err := decoder.Decode(&envelope); err != nil {
 		log.Errorf("Error decoding GetDynamicConfigs result: %s.", err)
 	}

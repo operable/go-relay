@@ -44,7 +44,7 @@ func ExecutionWorker(queue chan interface{}) {
 		invoke := ctx.Value("invoke").(*CommandInvocation)
 		if bufferedReader == nil {
 			bufferedReader = bufio.NewReader(bytes.NewReader(invoke.Payload))
-			decoder = util.NewJsonDecoder(bufferedReader)
+			decoder = util.NewJSONDecoder(bufferedReader)
 		} else {
 			bufferedReader.Reset(bytes.NewReader(invoke.Payload))
 		}

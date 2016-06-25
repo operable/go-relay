@@ -5,7 +5,9 @@ import (
 	"io"
 )
 
-func NewJsonDecoder(reader io.Reader) *json.Decoder {
+// NewJSONDecoder creates a new JSON decoder which is configured
+// to NOT mangle big integers.
+func NewJSONDecoder(reader io.Reader) *json.Decoder {
 	decoder := json.NewDecoder(reader)
 	decoder.UseNumber()
 	return decoder
