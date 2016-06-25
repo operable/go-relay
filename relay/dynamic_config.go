@@ -114,6 +114,11 @@ func (dcu *DynamicConfigUpdater) loop() {
 	dcu.conn.Disconnect()
 }
 
+// updateConfigs does its best to make dynamic config updates atomic. It does this by
+// writing a new set of configs to a separate directory, creating a symlink pointing to
+// the new config dir, and finally renaming the symlink to `dynamicConfigRoot`/managed.
+// The process takes advantage of the atomic nature of renames on most sane OSs and
+// filesystems.
 func (dcu *DynamicConfigUpdater) updateConfigs(signature string, configs []messages.DynamicConfig) bool {
 	if !dcu.verifyManagedConfigPath() {
 		return false
