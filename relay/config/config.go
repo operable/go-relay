@@ -22,6 +22,11 @@ const (
 	NativeEngine = "native"
 )
 
+// Managed dynamic config symlink name
+const (
+	ManagedDynamicConfigLink = "__managed__"
+)
+
 var validEngineNames = []string{DockerEngine, NativeEngine}
 var errorNoExecutionEngines = errors.New("Invalid Relay configuration detected. At least one execution engine must be enabled.")
 var errorMissingDynamicConfigRoot = errors.New("Enabling 'managed_dynamic_config' requires setting 'dynamic_config_root'.")
@@ -91,7 +96,7 @@ func (c *Config) Verify() error {
 		return errorMissingDynamicConfigRoot
 	}
 	if c.ManagedDynamicConfig == true {
-		c.DynamicConfigRoot = path.Join(c.DynamicConfigRoot, "managed")
+		c.DynamicConfigRoot = path.Join(c.DynamicConfigRoot, ManagedDynamicConfigLink)
 	}
 	return nil
 }

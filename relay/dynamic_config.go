@@ -56,7 +56,7 @@ func (dcu *DynamicConfigUpdater) Run() error {
 	dcu.refreshConfigs()
 	dcu.refreshTimer = time.AfterFunc(dcu.refreshInterval, dcu.refreshConfigs)
 	go func() {
-		dcu.loop()
+		dcu.wait()
 	}()
 	return nil
 }
@@ -108,7 +108,7 @@ func (dcu *DynamicConfigUpdater) refreshConfigs() {
 	}
 }
 
-func (dcu *DynamicConfigUpdater) loop() {
+func (dcu *DynamicConfigUpdater) wait() {
 	<-dcu.control
 	dcu.refreshTimer.Stop()
 	dcu.conn.Disconnect()
@@ -116,7 +116,7 @@ func (dcu *DynamicConfigUpdater) loop() {
 
 // updateConfigs does its best to make dynamic config updates atomic. It does this by
 // writing a new set of configs to a separate directory, creating a symlink pointing to
-// the new config dir, and finally renaming the symlink to `dynamicConfigRoot`/managed.
+// the new config dir, and finally renaming the symlink to `dynamicConfigRoot`/config.ManagedDynamicConfigLink`.
 // The process takes advantage of the atomic nature of renames on most sane OSs and
 // filesystems.
 func (dcu *DynamicConfigUpdater) updateConfigs(signature string, configs []messages.DynamicConfig) bool {
