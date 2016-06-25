@@ -13,6 +13,8 @@ import (
 
 type outputParser func([]string, *messages.ExecutionResponse, messages.ExecutionRequest)
 
+var BodyDelimiter = []byte("\n\n")
+
 var outputParsers = map[*regexp.Regexp]outputParser{
 	regexp.MustCompilePOSIX("^COGCMD_DEBUG:"): writeToLog,
 	regexp.MustCompilePOSIX("^COGCMD_INFO:"):  writeToLog,
@@ -23,62 +25,63 @@ var outputParsers = map[*regexp.Regexp]outputParser{
 	regexp.MustCompilePOSIX("^JSON$"):         flagJSON,
 }
 
+func processHeaders(headers string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
+	lines := strings.Split(headers, "\n")
+	for _, line := range lines {
+		for re, cb := range outputParsers {
+			if re.MatchString(line) {
+				lines := re.Split(line, 2)
+				cb(lines, resp, req)
+				break
+			}
+		}
+	}
+}
+
+func processBody(body []byte, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
+	if resp.IsJSON == true {
+		jsonBody := interface{}(nil)
+		d := util.NewJSONDecoder(bytes.NewReader(body))
+		if err := d.Decode(&jsonBody); err != nil {
+			resp.Status = "error"
+			resp.StatusMessage = fmt.Sprintf("Command returned invalid JSON: %s.", err)
+			return
+		}
+		resp.Body = jsonBody
+		return
+	} else {
+		resp.Body = []map[string][]string{
+			map[string][]string{
+				"body": []string{string(body)},
+			},
+		}
+	}
+
+}
+
 func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
 	if err != nil {
 		resp.Status = "error"
 		resp.StatusMessage = fmt.Sprintf("%s", err)
 		return
 	}
-	retained := []string{}
-	if len(result.Stdout) > 0 {
-		lines := strings.Split(strings.TrimSuffix(string(result.Stdout), "\n"), "\n")
-		for _, line := range lines {
-			matched := false
-			if resp.IsJSON == false {
-				for re, cb := range outputParsers {
-					if re.MatchString(line) {
-						lines := re.Split(line, 2)
-						cb(lines, resp, req)
-						matched = true
-						break
-					}
-				}
-				if matched == false {
-					log.Debugf("Before JSON set: %s", line)
-					retained = append(retained, line)
-				}
-			} else {
-				retained = append(retained, line)
-			}
-		}
-	}
+
 	if len(result.Stderr) > 0 {
 		resp.Status = "error"
 		resp.StatusMessage = string(result.Stderr)
 		return
 	}
-
-	resp.Status = "ok"
-	if resp.IsJSON == true {
-		jsonBody := interface{}(nil)
-		remaining := []byte(strings.Join(retained, "\n"))
-
-		d := util.NewJSONDecoder(bytes.NewReader(remaining))
-		if err := d.Decode(&jsonBody); err != nil {
-			resp.Status = "error"
-			resp.StatusMessage = "Command returned invalid JSON."
-		} else {
-			resp.Body = jsonBody
-		}
-	} else {
-		if len(retained) > 0 {
-			resp.Body = []map[string][]string{
-				map[string][]string{
-					"body": retained,
-				},
-			}
-		}
+	if len(result.Stdout) == 0 {
+		resp.Status = "ok"
+		return
 	}
+	parts := bytes.SplitN(result.Stdout, BodyDelimiter, 2)
+	processHeaders(string(parts[0]), resp, req)
+	resp.Status = "ok"
+	if len(parts) == 1 {
+		return
+	}
+	processBody(parts[1], resp, req)
 }
 
 func writeToLog(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
