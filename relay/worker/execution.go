@@ -89,7 +89,7 @@ func executeCommand(decoder *json.Decoder, invoke *CommandInvocation) {
 					userData["dynamic-config"] = false
 					env.SetUserData(userData)
 				}
-				result, err := env.Run(circuitRequest)
+				result, err := env.Run(*circuitRequest)
 				engine.ReleaseEnvironment(request.PipelineID(), bundle, env)
 				parseOutput(result, err, response, *request)
 			}

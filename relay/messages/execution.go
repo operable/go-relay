@@ -55,13 +55,11 @@ type ExecutionResponse struct {
 }
 
 // ToCircuitRequest converts an ExecutionRequest into a circuit.api.ExecRequest
-func (er *ExecutionRequest) ToCircuitRequest(bundle *config.Bundle, relayConfig *config.Config, useDynamicConfig bool) (api.ExecRequest, bool) {
-	callingEnv, hasDynamicConfig := er.compileEnvironment(relayConfig, useDynamicConfig)
+func (er *ExecutionRequest) ToCircuitRequest(bundle *config.Bundle, relayConfig *config.Config, useDynamicConfig bool) (*api.ExecRequest, bool) {
+	retval := &api.ExecRequest{}
+	hasDynamicConfig := er.compileEnvironment(retval, relayConfig, useDynamicConfig)
 	executable := bundle.Commands[er.commandName].Executable
-	retval := api.ExecRequest{
-		Executable: executable,
-		Env:        callingEnv,
-	}
+	retval.SetExecutable(executable)
 	if er.CogEnv != nil {
 		jenv, _ := json.Marshal(er.CogEnv)
 		retval.Stdin = jenv
