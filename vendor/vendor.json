@@ -81,22 +81,11 @@
 			"revisionTime": "2016-06-21T21:57:24Z"
 		},
 		{
-			"checksumSHA1": "K8TsaDtzI5b7cj5Sv1AWJXsNyA0=",
+			"checksumSHA1": "FuhSnAwVrmmgeyKbH9qBIfkIrKg=",
 			"path": "github.com/operable/circuit-driver",
-			"revision": "c07cf76be42fa1c38ac0c3507944632560fbdb54",
-			"revisionTime": "2016-06-29T13:51:31Z"
-		},
-		{
-			"checksumSHA1": "9etxAVl1SMB27X/oH98yhErcHX4=",
-			"path": "github.com/operable/circuit-driver/api",
-			"revision": "c07cf76be42fa1c38ac0c3507944632560fbdb54",
-			"revisionTime": "2016-06-29T13:51:31Z"
-		},
-		{
-			"checksumSHA1": "YJG6y7DgTPlvxns7j6n0EqObCbw=",
-			"path": "github.com/operable/circuit-driver/io",
-			"revision": "c07cf76be42fa1c38ac0c3507944632560fbdb54",
-			"revisionTime": "2016-06-29T13:51:31Z"
+			"revision": "b99e9d9563fe7023a5633f60e1ac46852a3deed0",
+			"revisionTime": "2016-06-30T17:31:13Z",
+			"tree": true
 		},
 		{
 			"checksumSHA1": "fwvbNYZ2pA9HfQZBNccxvqst50Q=",
