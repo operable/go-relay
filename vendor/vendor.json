@@ -68,6 +68,60 @@
 			"revisionTime": "2016-03-01T20:40:22Z"
 		},
 		{
+			"checksumSHA1": "0x6ehm507hRKWI5vz1sQYTJCSK8=",
+			"path": "github.com/gogo/protobuf/gogoproto",
+			"revision": "2752d97bbd91927dd1c43296dbf8700e50e2708c",
+			"revisionTime": "2016-06-17T09:13:52Z"
+		},
+		{
+			"checksumSHA1": "7v8eISI8MkRWKZPa5HGuG+iwFwA=",
+			"path": "github.com/gogo/protobuf/proto",
+			"revision": "2752d97bbd91927dd1c43296dbf8700e50e2708c",
+			"revisionTime": "2016-06-17T09:13:52Z"
+		},
+		{
+			"checksumSHA1": "fKtmN9s1O2TUd5xRWFm0zoA3Dzk=",
+			"path": "github.com/gogo/protobuf/proto/proto3_proto",
+			"revision": "2752d97bbd91927dd1c43296dbf8700e50e2708c",
+			"revisionTime": "2016-06-17T09:13:52Z"
+		},
+		{
+			"checksumSHA1": "1UPnbbJTGYBf/H55NGBeLWEKyBg=",
+			"path": "github.com/gogo/protobuf/proto/testdata",
+			"revision": "2752d97bbd91927dd1c43296dbf8700e50e2708c",
+			"revisionTime": "2016-06-17T09:13:52Z"
+		},
+		{
+			"checksumSHA1": "cvsx+uUCoGVtl84gvhxdpQ7gzwA=",
+			"path": "github.com/gogo/protobuf/protoc-gen-gogo/descriptor",
+			"revision": "2752d97bbd91927dd1c43296dbf8700e50e2708c",
+			"revisionTime": "2016-06-17T09:13:52Z"
+		},
+		{
+			"checksumSHA1": "Vyv4Q50fJfU83q5gHwFI5T8+KUc=",
+			"path": "github.com/golang/protobuf/proto",
+			"revision": "3852dcfda249c2097355a6aabb199a28d97b30df",
+			"revisionTime": "2016-06-29T21:10:53Z"
+		},
+		{
+			"checksumSHA1": "5CLH5JkO7pTla/+vPq8axMEjzD4=",
+			"path": "github.com/golang/protobuf/proto/proto3_proto",
+			"revision": "3852dcfda249c2097355a6aabb199a28d97b30df",
+			"revisionTime": "2016-06-29T21:10:53Z"
+		},
+		{
+			"checksumSHA1": "ob/LNq39db9J8L1a7L0U4vhl3E4=",
+			"path": "github.com/golang/protobuf/proto/testdata",
+			"revision": "3852dcfda249c2097355a6aabb199a28d97b30df",
+			"revisionTime": "2016-06-29T21:10:53Z"
+		},
+		{
+			"checksumSHA1": "eQj5yhcPzMVMVgh85CFvOUHB50Q=",
+			"path": "github.com/golang/protobuf/ptypes/any",
+			"revision": "3852dcfda249c2097355a6aabb199a28d97b30df",
+			"revisionTime": "2016-06-29T21:10:53Z"
+		},
+		{
 			"checksumSHA1": "LkmAYl9HJbRrOxw4xWpVc2+TODc=",
 			"path": "github.com/opencontainers/runc",
 			"revision": "5dc3f3576efb5262bf582217e93f86c93944374d",
