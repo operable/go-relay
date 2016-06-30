@@ -7,7 +7,7 @@ VET_FLAGS          = -v
 BUILD_STAMP       := $(shell date -u '+%Y%m%d%H%M%S')
 BUILD_HASH        := $(shell git rev-parse HEAD)
 BUILD_TAG         ?= $(shell git describe --tags)
-DOCKER_IMAGE      ?= "operable/relay:0.7-dev"
+DOCKER_IMAGE      ?= "operable/relay:dev"
 LINK_VARS         := -X main.buildstamp=$(BUILD_STAMP) -X main.buildhash=$(BUILD_HASH)
 LINK_VARS         += -X main.buildtag=$(BUILD_TAG)
 OSNAME            := $(shell uname | tr A-Z a-z)
