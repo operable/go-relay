@@ -6,6 +6,7 @@ import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/eclipse/paho.mqtt.golang"
+	"github.com/golang/snappy"
 	"io/ioutil"
 	"time"
 )
@@ -53,7 +54,8 @@ func (mqc *MQTTConnection) Disconnect() error {
 
 // Publish is required by the bus.Connection interface
 func (mqc *MQTTConnection) Publish(topic string, payload []byte) error {
-	token := mqc.conn.Publish(topic, 1, false, payload)
+	compressed := snappy.Encode(nil, payload)
+	token := mqc.conn.Publish(topic, 1, false, compressed)
 	token.Wait()
 	return token.Error()
 }
@@ -61,7 +63,11 @@ func (mqc *MQTTConnection) Publish(topic string, payload []byte) error {
 // Subscribe is required by the bus.Connection interface
 func (mqc *MQTTConnection) Subscribe(topic string, handler SubscriptionHandler) error {
 	mqttHandler := func(client *mqtt.Client, message mqtt.Message) {
-		handler(mqc, message.Topic(), message.Payload())
+		decompressed, err := snappy.Decode(nil, message.Payload())
+		if err != nil {
+			log.Errorf("Error decompressing message posted to topic %s: %s.", topic, err)
+		}
+		handler(mqc, message.Topic(), decompressed)
 	}
 	token := mqc.conn.Subscribe(topic, 1, mqttHandler)
 	token.Wait()

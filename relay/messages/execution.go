@@ -13,18 +13,40 @@ type ExecutionRequest struct {
 	Options        map[string]interface{} `json:"options"`
 	Args           []interface{}          `json:"args"`
 	CogEnv         interface{}            `json:"cog_env"`
-	InvocationID   string                 `json:"invocation_id"`
 	InvocationStep string                 `json:"invocation_step"`
-	Command        string                 `json:"command"`
-	CommandConfig  map[string]interface{} `json:"command_config"`
-	ReplyTo        string                 `json:"reply_to"`
-	Requestor      ChatUser               `json:"requestor"`
-	User           CogUser                `json:"user"`
-	ServiceToken   string                 `json:"service_token"`
-	ServicesRoot   string                 `json:"services_root"`
-	bundleName     string
-	commandName    string
-	pipelineID     string
+}
+
+type PipelineStageRequest struct {
+	InvocationID  string                 `json:"invocation_id"`
+	Requests      []ExecutionRequest     `json:"requests"`
+	ReplyTo       string                 `json:"reply_to"`
+	Requestor     ChatUser               `json:"requestor"`
+	User          CogUser                `json:"user"`
+	ServiceToken  string                 `json:"service_token"`
+	ServicesRoot  string                 `json:"services_root"`
+	Room          string                 `json:"room"`
+	Command       string                 `json:"command"`
+	CommandConfig map[string]interface{} `json:"command_config"`
+	bundleName    string
+	commandName   string
+	pipelineID    string
+	vars          map[string]string
+}
+
+func (psr *PipelineStageRequest) Parse() {
+	commandParts := strings.SplitN(psr.Command, ":", 2)
+	pipelineParts := strings.SplitN(psr.ReplyTo, "/", 5)
+	psr.bundleName = commandParts[0]
+	psr.commandName = commandParts[1]
+	psr.pipelineID = pipelineParts[3]
+}
+
+func (psr *PipelineStageRequest) BundleName() string {
+	return psr.bundleName
+}
+
+func (psr *PipelineStageRequest) PipelineID() string {
+	return psr.pipelineID
 }
 
 // ChatUser contains chat information about the submittor
@@ -54,43 +76,19 @@ type ExecutionResponse struct {
 	IsJSON        bool        `json:"omit"`
 }
 
+type PipelineStageResponse struct {
+	Responses []ExecutionResponse `json:"responses"`
+}
+
 // ToCircuitRequest converts an ExecutionRequest into a circuit.api.ExecRequest
-func (er *ExecutionRequest) ToCircuitRequest(bundle *config.Bundle, relayConfig *config.Config, useDynamicConfig bool) (*api.ExecRequest, bool) {
+func (psr *PipelineStageRequest) ToCircuitRequest(er *ExecutionRequest, bundle *config.Bundle,
+	relayConfig *config.Config, useDynamicConfig bool) (*api.ExecRequest, bool) {
 	retval := &api.ExecRequest{}
-	hasDynamicConfig := er.compileEnvironment(retval, relayConfig, useDynamicConfig)
-	executable := bundle.Commands[er.commandName].Executable
-	retval.SetExecutable(executable)
+	hasDynamicConfig := psr.compileEnvironment(retval, *er, relayConfig, useDynamicConfig)
+	retval.SetExecutable(bundle.Commands[psr.commandName].Executable)
 	if er.CogEnv != nil {
 		jenv, _ := json.Marshal(er.CogEnv)
 		retval.Stdin = jenv
 	}
 	return retval, hasDynamicConfig
-}
-
-// BundleName returns just the bundle part of the
-// command's fully qualified name
-func (er *ExecutionRequest) BundleName() string {
-	return er.bundleName
-}
-
-// CommandName returns just the command part of the
-// command's fully qualified name
-func (er *ExecutionRequest) CommandName() string {
-	return er.commandName
-}
-
-// PipelineID returns the pipeline id assigned to
-// this request
-func (er *ExecutionRequest) PipelineID() string {
-	return er.pipelineID
-}
-
-// Parse extracts bundle name, command name, and
-// pipeline id
-func (er *ExecutionRequest) Parse() {
-	commandParts := strings.SplitN(er.Command, ":", 2)
-	pipelineParts := strings.SplitN(er.ReplyTo, "/", 5)
-	er.bundleName = commandParts[0]
-	er.commandName = commandParts[1]
-	er.pipelineID = pipelineParts[3]
 }

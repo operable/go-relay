@@ -48,58 +48,68 @@ func ExecutionWorker(queue chan interface{}) {
 		} else {
 			bufferedReader.Reset(bytes.NewReader(invoke.Payload))
 		}
-		executeCommand(decoder, invoke)
+		executeStage(decoder, invoke)
 	}
 }
 
-func executeCommand(decoder *json.Decoder, invoke *CommandInvocation) {
-	request := &messages.ExecutionRequest{}
-
-	if err := decoder.Decode(request); err != nil {
-		log.Errorf("Ignoring malformed execution request: %s.", err)
+func executeStage(decoder *json.Decoder, invoke *CommandInvocation) {
+	stageReq := &messages.PipelineStageRequest{}
+	if err := decoder.Decode(stageReq); err != nil {
+		log.Errorf("Ignoring malformed pipeline stage execution request: %s.", err)
 		return
 	}
-	request.Parse()
-	bundle := invoke.Catalog.Find(request.BundleName())
-	response := &messages.ExecutionResponse{}
+	stageReq.Parse()
+	bundle := invoke.Catalog.Find(stageReq.BundleName())
+	response := &messages.PipelineStageResponse{
+		Responses: []messages.ExecutionResponse{},
+	}
 	if bundle == nil {
-		response.Status = "error"
-		response.StatusMessage = fmt.Sprintf("Unknown command bundle %s", request.BundleName())
+		addError(response, fmt.Sprintf("Unknown command bundle %s", stageReq.BundleName()))
 	} else {
 		engine, err := invoke.Engines.EngineForBundle(bundle)
 		if err != nil {
-			setError(response, err)
+			addError(response, fmt.Sprintf("%s", err))
 		} else {
-			env, err := engine.NewEnvironment(request.PipelineID(), bundle)
+			env, err := engine.NewEnvironment(stageReq.PipelineID(), bundle)
 			if err != nil {
-				setError(response, err)
+				addError(response, fmt.Sprintf("%s", err))
 			} else {
-				userData, _ := env.GetUserData()
-				if userData == nil {
-					userData = make(circuit.EnvironmentUserData)
+				defer engine.ReleaseEnvironment(stageReq.PipelineID(), bundle, env)
+				for _, req := range stageReq.Requests {
+					resp := &messages.ExecutionResponse{}
+					userData, _ := env.GetUserData()
+					if userData == nil {
+						userData = make(circuit.EnvironmentUserData)
+					}
+					hasDynamicConfig := true
+					value, keyPresent := userData["dynamic-config"]
+					if keyPresent == false {
+						value = true
+					}
+					hasDynamicConfig = value.(bool)
+					circuitRequest, foundDynamicConfig := stageReq.ToCircuitRequest(&req, bundle, invoke.RelayConfig, hasDynamicConfig)
+					if foundDynamicConfig == false && hasDynamicConfig == true {
+						userData["dynamic-config"] = false
+						env.SetUserData(userData)
+					}
+					result, err := env.Run(*circuitRequest)
+					parseOutput(result, err, resp, *stageReq, req)
+					response.Responses = append(response.Responses, *resp)
+					if err != nil {
+						break
+					}
 				}
-				hasDynamicConfig := true
-				value, keyPresent := userData["dynamic-config"]
-				if keyPresent == false {
-					value = true
-				}
-				hasDynamicConfig = value.(bool)
-				circuitRequest, foundDynamicConfig := request.ToCircuitRequest(bundle, invoke.RelayConfig, hasDynamicConfig)
-				if foundDynamicConfig == false {
-					userData["dynamic-config"] = false
-					env.SetUserData(userData)
-				}
-				result, err := env.Run(*circuitRequest)
-				engine.ReleaseEnvironment(request.PipelineID(), bundle, env)
-				parseOutput(result, err, response, *request)
 			}
 		}
 	}
 	responseBytes, _ := json.Marshal(response)
-	invoke.Publisher.Publish(request.ReplyTo, responseBytes)
+	invoke.Publisher.Publish(stageReq.ReplyTo, responseBytes)
 }
 
-func setError(resp *messages.ExecutionResponse, err error) {
-	resp.Status = "error"
-	resp.StatusMessage = fmt.Sprintf("%s", err)
+func addError(stageResponse *messages.PipelineStageResponse, message string) {
+	resp := messages.ExecutionResponse{
+		Status:        "error",
+		StatusMessage: message,
+	}
+	stageResponse.Responses = append(stageResponse.Responses, resp)
 }

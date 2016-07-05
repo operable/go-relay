@@ -8,8 +8,29 @@ import (
 	"strings"
 )
 
-func (er *ExecutionRequest) compileEnvironment(request *api.ExecRequest, relayConfig *config.Config, useDynamicConfig bool) bool {
-	request.PutEnv("PATH", "/bin:/usr/bin")
+func (psr *PipelineStageRequest) buildBaseVars() {
+	psr.vars = make(map[string]string)
+	psr.vars["PATH"] = "/bin:/usr/bin"
+	psr.vars["COG_BUNDLE"] = psr.BundleName()
+	psr.vars["COG_COMMAND"] = psr.commandName
+	psr.vars["COG_CHAT_HANDLE"] = psr.Requestor.Handle
+	psr.vars["COG_PIPELINE_ID"] = psr.PipelineID()
+	psr.vars["COG_SERVICE_TOKEN"] = psr.ServiceToken
+	psr.vars["COG_SERVICES_ROOT"] = psr.ServicesRoot
+	psr.vars["COG_INVOCATION_ID"] = psr.InvocationID
+	psr.vars["USER"] = os.Getenv("USER")
+	psr.vars["HOME"] = os.Getenv("HOME")
+	psr.vars["LANG"] = os.Getenv("LANG")
+}
+
+func (psr *PipelineStageRequest) compileEnvironment(request *api.ExecRequest, er ExecutionRequest, relayConfig *config.Config,
+	useDynamicConfig bool) bool {
+	if psr.vars == nil {
+		psr.buildBaseVars()
+	}
+	for k, v := range psr.vars {
+		request.PutEnv(k, v)
+	}
 	for i, v := range er.Args {
 		request.PutEnv(fmt.Sprintf("COG_ARGV_%d", i), fmt.Sprintf("%v", v))
 	}
@@ -27,13 +48,6 @@ func (er *ExecutionRequest) compileEnvironment(request *api.ExecRequest, relayCo
 		}
 		request.PutEnv("COG_OPTS", cogOpts)
 	}
-	request.PutEnv("COG_BUNDLE", er.BundleName())
-	request.PutEnv("COG_COMMAND", er.CommandName())
-	request.PutEnv("COG_CHAT_HANDLE", er.Requestor.Handle)
-	request.PutEnv("COG_PIPELINE_ID", er.PipelineID())
-	request.PutEnv("COG_SERVICE_TOKEN", er.ServiceToken)
-	request.PutEnv("COG_SERVICES_ROOT", er.ServicesRoot)
-	request.PutEnv("COG_INVOCATION_ID", er.InvocationID)
 
 	if er.InvocationStep != "" {
 		request.PutEnv("COG_INVOCATION_STEP", er.InvocationStep)
@@ -41,7 +55,7 @@ func (er *ExecutionRequest) compileEnvironment(request *api.ExecRequest, relayCo
 
 	foundDynamicConfig := false
 	if useDynamicConfig {
-		dyn := relayConfig.LoadDynamicConfig(er.BundleName())
+		dyn := relayConfig.LoadDynamicConfig(psr.BundleName())
 		foundDynamicConfig = len(dyn) > 0
 		for k, v := range dyn {
 			request.PutEnv(k, fmt.Sprintf("%s", v))
@@ -54,8 +68,5 @@ func (er *ExecutionRequest) compileEnvironment(request *api.ExecRequest, relayCo
 		}
 	}
 
-	request.PutEnv("USER", os.Getenv("USER"))
-	request.PutEnv("HOME", os.Getenv("HOME"))
-	request.PutEnv("LANG", os.Getenv("LANG"))
 	return foundDynamicConfig
 }
