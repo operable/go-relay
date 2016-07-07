@@ -28,6 +28,7 @@ var memprofile = flag.String("memprofile", "", "write memory profile to this fil
 var buildstamp string
 var buildhash string
 var buildtag string
+var commanddrivertag string
 
 var configLocations = []string{
 	"/etc/relay.conf",
@@ -116,7 +117,7 @@ func prepare() *config.Config {
 	}
 
 	rawConfig := tryLoadingConfig(locations)
-	relayConfig, err := rawConfig.Parse()
+	relayConfig, err := rawConfig.Parse(commanddrivertag)
 	if err != nil {
 		logMessage := ""
 		msgs := []string{}

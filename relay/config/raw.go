@@ -22,7 +22,7 @@ func (rc RawConfig) IsEmpty() bool {
 // 2. Set default values on unassigned fields (for fields with defaults)
 // 3. Apply environment variable overrides
 // 4. Validate the finalized config
-func (rc RawConfig) Parse() (*Config, error) {
+func (rc RawConfig) Parse(dockerDriverTag string) (*Config, error) {
 	var config Config
 	if rc.IsEmpty() {
 		config.Version = RelayConfigVersion
@@ -36,6 +36,9 @@ func (rc RawConfig) Parse() (*Config, error) {
 		}
 	}
 	config.populate()
+	if config.Docker.CommandDriverVersion == "" {
+		config.Docker.CommandDriverVersion = dockerDriverTag
+	}
 	govalidator.TagMap["hostorip"] = govalidator.Validator(func(value string) bool {
 		return govalidator.IsHost(value)
 	})
