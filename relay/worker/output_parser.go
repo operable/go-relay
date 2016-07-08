@@ -14,13 +14,14 @@ import (
 type outputParser func([]string, *messages.ExecutionResponse, messages.ExecutionRequest)
 
 var outputParsers = map[*regexp.Regexp]outputParser{
-	regexp.MustCompilePOSIX("^COGCMD_DEBUG:"): writeToLog,
-	regexp.MustCompilePOSIX("^COGCMD_INFO:"):  writeToLog,
-	regexp.MustCompilePOSIX("^COGCMD_WARN:"):  writeToLog,
-	regexp.MustCompilePOSIX("^COGCMD_ERR:"):   writeToLog,
-	regexp.MustCompilePOSIX("^COGCMD_ERROR:"): writeToLog,
-	regexp.MustCompilePOSIX("^COG_TEMPLATE:"): extractTemplate,
-	regexp.MustCompilePOSIX("^JSON$"):         flagJSON,
+	regexp.MustCompilePOSIX("^COGCMD_DEBUG:"):  writeToLog,
+	regexp.MustCompilePOSIX("^COGCMD_INFO:"):   writeToLog,
+	regexp.MustCompilePOSIX("^COGCMD_WARN:"):   writeToLog,
+	regexp.MustCompilePOSIX("^COGCMD_ERR:"):    writeToLog,
+	regexp.MustCompilePOSIX("^COGCMD_ERROR:"):  writeToLog,
+	regexp.MustCompilePOSIX("^COGCMD_ACTION:"): parseAction,
+	regexp.MustCompilePOSIX("^COG_TEMPLATE:"):  extractTemplate,
+	regexp.MustCompilePOSIX("^JSON$"):          flagJSON,
 }
 
 func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
@@ -58,7 +59,11 @@ func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionRespo
 		return
 	}
 
-	resp.Status = "ok"
+	if resp.Terminated == true {
+		resp.Status = "stop"
+	} else {
+		resp.Status = "ok"
+	}
 	if resp.IsJSON == true {
 		jsonBody := interface{}(nil)
 		remaining := []byte(strings.Join(retained, "\n"))
@@ -110,4 +115,16 @@ func extractTemplate(line []string, resp *messages.ExecutionResponse, req messag
 
 func flagJSON(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
 	resp.IsJSON = true
+}
+
+func parseAction(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
+	if len(line) < 2 {
+		return
+	}
+	switch strings.Trim(line[1], " ") {
+	case "stop":
+		resp.Terminated = true
+	default:
+		resp.Terminated = false
+	}
 }
