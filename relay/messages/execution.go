@@ -52,7 +52,7 @@ type ExecutionResponse struct {
 	Template      string      `json:"template,omitempty"`
 	Body          interface{} `json:"body"`
 	IsJSON        bool        `json:"omit"`
-	Terminated    bool        `json:"omit"`
+	Aborted       bool        `json:"omit"`
 }
 
 // ToCircuitRequest converts an ExecutionRequest into a circuit.api.ExecRequest

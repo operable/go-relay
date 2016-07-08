@@ -45,7 +45,6 @@ func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionRespo
 					}
 				}
 				if matched == false {
-					log.Debugf("Before JSON set: %s", line)
 					retained = append(retained, line)
 				}
 			} else {
@@ -59,8 +58,8 @@ func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionRespo
 		return
 	}
 
-	if resp.Terminated == true {
-		resp.Status = "stop"
+	if resp.Aborted == true {
+		resp.Status = "abort"
 	} else {
 		resp.Status = "ok"
 	}
@@ -122,9 +121,9 @@ func parseAction(line []string, resp *messages.ExecutionResponse, req messages.E
 		return
 	}
 	switch strings.Trim(line[1], " ") {
-	case "stop":
-		resp.Terminated = true
+	case "abort":
+		resp.Aborted = true
 	default:
-		resp.Terminated = false
+		break
 	}
 }
