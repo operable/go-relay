@@ -25,6 +25,7 @@ var outputParsers = map[*regexp.Regexp]outputParser{
 }
 
 func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
+	resp.Status = "ok"
 	if err != nil {
 		resp.Status = "error"
 		resp.StatusMessage = fmt.Sprintf("%s", err)
@@ -58,11 +59,6 @@ func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionRespo
 		return
 	}
 
-	if resp.Aborted == true {
-		resp.Status = "abort"
-	} else {
-		resp.Status = "ok"
-	}
 	if resp.IsJSON == true {
 		jsonBody := interface{}(nil)
 		remaining := []byte(strings.Join(retained, "\n"))
@@ -82,6 +78,9 @@ func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionRespo
 				},
 			}
 		}
+	}
+	if resp.Status == "ok" && resp.Aborted == true {
+		resp.Status = "abort"
 	}
 }
 
