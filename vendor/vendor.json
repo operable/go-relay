@@ -129,16 +129,16 @@
 			"tree": true
 		},
 		{
-			"checksumSHA1": "RyGoYju/gWkb9vL5BtJhaALmaiQ=",
+			"checksumSHA1": "sSrrofhH30p17lgBBOYX2C85uyQ=",
 			"path": "github.com/operable/circuit",
 			"revision": "0e74d4e48f8b885833815877b00ff49d9b92d056",
 			"revisionTime": "2016-06-21T21:57:24Z"
 		},
 		{
-			"checksumSHA1": "GzyPG5aJRqO7rgNoQkMxl0QwO6g=",
+			"checksumSHA1": "b9p+tl0WTrcuoSXzBiMbxenFK3k=",
 			"path": "github.com/operable/circuit-driver",
-			"revision": "4025d4b31c6706a2df9e6f7ccf73ba60a8a3f2dc",
-			"revisionTime": "2016-07-07T13:42:10Z",
+			"revision": "93a7085c408062918334cafa2cf7ca6b4946d78e",
+			"revisionTime": "2016-07-07T20:46:47Z",
 			"tree": true
 		},
 		{
