@@ -86,11 +86,12 @@ func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionRespo
 }
 
 func writeToLog(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
-	if len(line) < 2 {
+	message := strings.Trim(line[1], " ")
+	if message == "" {
 		return
 	}
 	format := "(P: %s C: %s) %s"
-	message := strings.Trim(line[1], " ")
+
 	switch line[0] {
 	case "DEBUG:":
 		log.Debugf(format, req.PipelineID(), req.Command, message)
@@ -106,9 +107,6 @@ func writeToLog(line []string, resp *messages.ExecutionResponse, req messages.Ex
 }
 
 func extractTemplate(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
-	if len(line) < 2 {
-		return
-	}
 	resp.Template = strings.Trim(line[1], " ")
 }
 
@@ -117,9 +115,6 @@ func flagJSON(line []string, resp *messages.ExecutionResponse, req messages.Exec
 }
 
 func parseAction(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
-	if len(line) < 2 {
-		return
-	}
 	switch strings.Trim(line[1], " ") {
 	case "abort":
 		resp.Aborted = true
