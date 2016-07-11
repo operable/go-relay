@@ -14,16 +14,18 @@ import (
 type outputParser func([]string, *messages.ExecutionResponse, messages.ExecutionRequest)
 
 var outputParsers = map[*regexp.Regexp]outputParser{
-	regexp.MustCompilePOSIX("^COGCMD_DEBUG:"): writeToLog,
-	regexp.MustCompilePOSIX("^COGCMD_INFO:"):  writeToLog,
-	regexp.MustCompilePOSIX("^COGCMD_WARN:"):  writeToLog,
-	regexp.MustCompilePOSIX("^COGCMD_ERR:"):   writeToLog,
-	regexp.MustCompilePOSIX("^COGCMD_ERROR:"): writeToLog,
-	regexp.MustCompilePOSIX("^COG_TEMPLATE:"): extractTemplate,
-	regexp.MustCompilePOSIX("^JSON$"):         flagJSON,
+	regexp.MustCompilePOSIX("^COGCMD_DEBUG:"):  writeToLog,
+	regexp.MustCompilePOSIX("^COGCMD_INFO:"):   writeToLog,
+	regexp.MustCompilePOSIX("^COGCMD_WARN:"):   writeToLog,
+	regexp.MustCompilePOSIX("^COGCMD_ERR:"):    writeToLog,
+	regexp.MustCompilePOSIX("^COGCMD_ERROR:"):  writeToLog,
+	regexp.MustCompilePOSIX("^COGCMD_ACTION:"): parseAction,
+	regexp.MustCompilePOSIX("^COG_TEMPLATE:"):  extractTemplate,
+	regexp.MustCompilePOSIX("^JSON$"):          flagJSON,
 }
 
 func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
+	resp.Status = "ok"
 	if err != nil {
 		resp.Status = "error"
 		resp.StatusMessage = fmt.Sprintf("%s", err)
@@ -44,7 +46,6 @@ func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionRespo
 					}
 				}
 				if matched == false {
-					log.Debugf("Before JSON set: %s", line)
 					retained = append(retained, line)
 				}
 			} else {
@@ -58,7 +59,6 @@ func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionRespo
 		return
 	}
 
-	resp.Status = "ok"
 	if resp.IsJSON == true {
 		jsonBody := interface{}(nil)
 		remaining := []byte(strings.Join(retained, "\n"))
@@ -79,14 +79,18 @@ func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionRespo
 			}
 		}
 	}
+	if resp.Status == "ok" && resp.Aborted == true {
+		resp.Status = "abort"
+	}
 }
 
 func writeToLog(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
-	if len(line) < 2 {
+	message := strings.Trim(line[1], " ")
+	if message == "" {
 		return
 	}
 	format := "(P: %s C: %s) %s"
-	message := strings.Trim(line[1], " ")
+
 	switch line[0] {
 	case "DEBUG:":
 		log.Debugf(format, req.PipelineID(), req.Command, message)
@@ -102,12 +106,18 @@ func writeToLog(line []string, resp *messages.ExecutionResponse, req messages.Ex
 }
 
 func extractTemplate(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
-	if len(line) < 2 {
-		return
-	}
 	resp.Template = strings.Trim(line[1], " ")
 }
 
 func flagJSON(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
 	resp.IsJSON = true
+}
+
+func parseAction(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
+	switch strings.Trim(line[1], " ") {
+	case "abort":
+		resp.Aborted = true
+	default:
+		break
+	}
 }
