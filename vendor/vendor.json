@@ -135,10 +135,10 @@
 			"revisionTime": "2016-06-21T21:57:24Z"
 		},
 		{
-			"checksumSHA1": "b9p+tl0WTrcuoSXzBiMbxenFK3k=",
+			"checksumSHA1": "GzyPG5aJRqO7rgNoQkMxl0QwO6g=",
 			"path": "github.com/operable/circuit-driver",
-			"revision": "93a7085c408062918334cafa2cf7ca6b4946d78e",
-			"revisionTime": "2016-07-07T20:46:47Z",
+			"revision": "4025d4b31c6706a2df9e6f7ccf73ba60a8a3f2dc",
+			"revisionTime": "2016-07-07T13:42:10Z",
 			"tree": true
 		},
 		{
