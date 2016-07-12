@@ -44,7 +44,7 @@ func TestLoadConfig(t *testing.T) {
 	os.Clearenv()
 	relayID := "2bba0d1f-a30c-45ec-87e6-e4c5d8c6104f"
 	rawConfig := RawConfig(fullConfig)
-	config, err := rawConfig.Parse()
+	config, err := rawConfig.Parse("0.1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestLoadConfig(t *testing.T) {
 func TestApplyConfigDefaults(t *testing.T) {
 	os.Clearenv()
 	rawConfig := RawConfig(usingDefaultsConfig)
-	config, err := rawConfig.Parse()
+	config, err := rawConfig.Parse("0.1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestApplyEnvVars(t *testing.T) {
 	os.Setenv("RELAY_DOCKER_REGISTRY_USER", "testuser")
 	os.Setenv("RELAY_DOCKER_REGISTRY_PASSWORD", "testy")
 	rawConfig := RawConfig(fullConfig)
-	config, err := rawConfig.Parse()
+	config, err := rawConfig.Parse("0.1")
 
 	if err != nil {
 		t.Fatal(err)
@@ -134,7 +134,7 @@ func TestOnlyEnvVars(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("RELAY_ID", "2bba0d1f-a30c-45ec-87e6-e4c5d8c6104f")
 	os.Setenv("RELAY_COG_TOKEN", "sekrit")
-	config, err := new(RawConfig).Parse()
+	config, err := new(RawConfig).Parse("0.1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestBadExecutionEngineName(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("RELAY_ENABLED_ENGINES", "kvm")
 	rawConfig := RawConfig(fullConfig)
-	config, err := rawConfig.Parse()
+	config, err := rawConfig.Parse("0.1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +164,7 @@ func TestBadExecutionEngineName(t *testing.T) {
 
 func TestDisabledDocker(t *testing.T) {
 	rawConfig := RawConfig(fullConfig)
-	config, err := rawConfig.Parse()
+	config, err := rawConfig.Parse("0.1")
 	if err != nil {
 		t.Fatal(err)
 	}
