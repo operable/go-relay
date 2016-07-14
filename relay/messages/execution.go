@@ -45,14 +45,15 @@ type CogUser struct {
 
 // ExecutionResponse contains the results of executing a command
 type ExecutionResponse struct {
-	Room          string      `json:"room"`
-	Bundle        string      `json:"bundle"`
-	Status        string      `json:"status"`
-	StatusMessage string      `json:"status_message"`
-	Template      string      `json:"template,omitempty"`
-	Body          interface{} `json:"body"`
-	IsJSON        bool        `json:"omit"`
-	Aborted       bool        `json:"omit"`
+	Room           string      `json:"room"`
+	Bundle         string      `json:"bundle"`
+	Status         string      `json:"status"`
+	StatusMessage  string      `json:"status_message"`
+	Template       string      `json:"template,omitempty"`
+	FormatPipeline string      `json:"format_pipeline,omitempty"`
+	Body           interface{} `json:"body"`
+	IsJSON         bool        `json:"omit"`
+	Aborted        bool        `json:"omit"`
 }
 
 // ToCircuitRequest converts an ExecutionRequest into a circuit.api.ExecRequest

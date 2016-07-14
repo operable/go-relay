@@ -14,14 +14,15 @@ import (
 type outputParser func([]string, *messages.ExecutionResponse, messages.ExecutionRequest)
 
 var outputParsers = map[*regexp.Regexp]outputParser{
-	regexp.MustCompilePOSIX("^COGCMD_DEBUG:"):  writeToLog,
-	regexp.MustCompilePOSIX("^COGCMD_INFO:"):   writeToLog,
-	regexp.MustCompilePOSIX("^COGCMD_WARN:"):   writeToLog,
-	regexp.MustCompilePOSIX("^COGCMD_ERR:"):    writeToLog,
-	regexp.MustCompilePOSIX("^COGCMD_ERROR:"):  writeToLog,
-	regexp.MustCompilePOSIX("^COGCMD_ACTION:"): parseAction,
-	regexp.MustCompilePOSIX("^COG_TEMPLATE:"):  extractTemplate,
-	regexp.MustCompilePOSIX("^JSON$"):          flagJSON,
+	regexp.MustCompilePOSIX("^COGCMD_DEBUG:"):        writeToLog,
+	regexp.MustCompilePOSIX("^COGCMD_INFO:"):         writeToLog,
+	regexp.MustCompilePOSIX("^COGCMD_WARN:"):         writeToLog,
+	regexp.MustCompilePOSIX("^COGCMD_ERR:"):          writeToLog,
+	regexp.MustCompilePOSIX("^COGCMD_ERROR:"):        writeToLog,
+	regexp.MustCompilePOSIX("^COGCMD_ACTION:"):       parseAction,
+	regexp.MustCompilePOSIX("^COG_TEMPLATE:"):        extractTemplate,
+	regexp.MustCompilePOSIX("^COG_FORMAT_PIPELINE:"): extractFormatPipeline,
+	regexp.MustCompilePOSIX("^JSON$"):                flagJSON,
 }
 
 func parseOutput(result api.ExecResult, err error, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
@@ -107,6 +108,10 @@ func writeToLog(line []string, resp *messages.ExecutionResponse, req messages.Ex
 
 func extractTemplate(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
 	resp.Template = strings.Trim(line[1], " ")
+}
+
+func extractFormatPipeline(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
+	resp.FormatPipeline = strings.Trim(line[1], " ")
 }
 
 func flagJSON(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
