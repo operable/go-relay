@@ -91,7 +91,8 @@ func executeCommand(decoder *json.Decoder, invoke *CommandInvocation) {
 				}
 				result, err := env.Run(*circuitRequest)
 				engine.ReleaseEnvironment(request.PipelineID(), bundle, env)
-				parseOutput(result, err, response, *request)
+				parser := NewOutputParserV1()
+				response = parser.Parse(result, *request, err)
 			}
 		}
 	}
