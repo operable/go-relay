@@ -22,6 +22,7 @@ type Bundle struct {
 type DockerImage struct {
 	Image string `json:"image" valid:"notempty,required"`
 	Tag   string `json:"tag" valid:"-"`
+	Binds []string `json:"binds"`
 }
 
 // BundleCommand identifies a command within a bundle
