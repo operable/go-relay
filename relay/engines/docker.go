@@ -234,6 +234,7 @@ func (de *DockerEngine) newEnvironment(bundle *config.Bundle) (circuit.Environme
 	options.DockerOptions.Conn = client
 	options.DockerOptions.Image = bundle.Docker.Image
 	options.DockerOptions.Tag = bundle.Docker.Tag
+	options.DockerOptions.Binds = bundle.Docker.Binds
 	options.DockerOptions.DriverInstance = "cog-circuit-driver"
 	options.DockerOptions.DriverPath = "/operable/circuit/bin/circuit-driver"
 	options.DockerOptions.Memory = int64(de.relayConfig.Docker.ContainerMemory * megabyte)

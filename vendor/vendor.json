@@ -129,10 +129,10 @@
 			"tree": true
 		},
 		{
-			"checksumSHA1": "RyGoYju/gWkb9vL5BtJhaALmaiQ=",
+			"checksumSHA1": "7gdVhAPZiIJ9q9nwVmj3oRZ/uAo=",
 			"path": "github.com/operable/circuit",
-			"revision": "0e74d4e48f8b885833815877b00ff49d9b92d056",
-			"revisionTime": "2016-06-21T21:57:24Z"
+			"revision": "b174a76e6e0be91517256f509cf92d67f0cc7da7",
+			"revisionTime": "2016-07-15T20:39:28Z"
 		},
 		{
 			"checksumSHA1": "GzyPG5aJRqO7rgNoQkMxl0QwO6g=",
