@@ -1,3 +1,7 @@
 *
-!_build/relay
-!docker/relay.conf
+!Makefile
+!.git
+!main.go
+!relay
+!vendor/vendor.json
+!docker
