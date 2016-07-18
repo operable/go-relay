@@ -27,6 +27,7 @@ var (
 )
 
 var emptyStream = []byte{}
+var outputParser = NewOutputParserV1()
 
 func TestParseLogOutput(t *testing.T) {
 	req.Parse()
@@ -34,8 +35,7 @@ func TestParseLogOutput(t *testing.T) {
 		Stdout: []byte("COGCMD_DEBUG: Testing 123\nabc\n123\n"),
 		Stderr: emptyStream,
 	}
-	resp := &messages.ExecutionResponse{}
-	parseOutput(result, nil, resp, req)
+	resp := outputParser.Parse(result, req, nil)
 	text, _ := json.Marshal(resp.Body)
 	if string(text) != "[{\"body\":[\"abc\",\"123\"]}]" {
 		t.Errorf("Unexpected parseOutput result: [{\"body\":[\"abc\",\"123\"]}] != %s", string(text))
@@ -44,12 +44,11 @@ func TestParseLogOutput(t *testing.T) {
 
 func TestDetectJSON(t *testing.T) {
 	req.Parse()
-	resp := &messages.ExecutionResponse{}
 	result := api.ExecResult{
 		Stdout: []byte("COGCMD_INFO: Testing123\nJSON\n{\"foo\": 123}"),
 		Stderr: emptyStream,
 	}
-	parseOutput(result, nil, resp, req)
+	resp := outputParser.Parse(result, req, nil)
 	text, _ := json.Marshal(resp.Body)
 	if string(text) != "{\"foo\":123}" {
 		t.Errorf("Unexpected parseOutput result: %s", text)
@@ -58,9 +57,8 @@ func TestDetectJSON(t *testing.T) {
 
 func TestNoOutput(t *testing.T) {
 	req.Parse()
-	resp := &messages.ExecutionResponse{}
 	result := api.ExecResult{}
-	parseOutput(result, nil, resp, req)
+	resp := outputParser.Parse(result, req, nil)
 	if resp.Body != nil {
 		t.Errorf("Unexpected parseOutput result: %s", resp.Body)
 	}
