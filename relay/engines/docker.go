@@ -1,6 +1,8 @@
 package engines
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
@@ -26,11 +28,11 @@ var errorDriverImageUnavailable = errors.New("Command driver image is unavailabl
 // DockerEngine is responsible for managing execution of
 // Docker bundled commands.
 type DockerEngine struct {
-	client        *client.Client
-	relayConfig   *config.Config
-	config        config.DockerInfo
-	registryToken string
-	cache         *envCache
+	client      *client.Client
+	relayConfig *config.Config
+	config      config.DockerInfo
+	auth        string
+	cache       *envCache
 }
 
 // NewDockerEngine makes a new DockerEngine instance
@@ -74,7 +76,7 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 	log.Debugf("Retrieved %s from upstream Docker registry.", fullName)
 	afterID, err := de.IDForName(name, meta)
 	if err != nil {
-		log.Errorf("Failed to resolve image name %s to an id: %s.", fullName, err)
+		log.Errorf("Image pull completed but no image available for name %s : %s", fullName, err)
 		return false, err
 	}
 	de.removeOldImage(beforeID, afterID, fullName)
@@ -208,17 +210,21 @@ func (de *DockerEngine) createCircuitDriver() error {
 }
 
 func (de *DockerEngine) attemptAuth() error {
-	if de.registryToken == "" {
+	if de.auth == "" {
 		authConfig := de.makeAuthConfig()
 		if authConfig == nil {
 			return nil
 		}
-		resp, err := de.client.RegistryLogin(context.Background(), *authConfig)
+		_, err := de.client.RegistryLogin(context.Background(), *authConfig)
 		if err != nil {
 			log.Errorf("Authenticating to Docker registry failed: %s.", err)
 			return err
 		}
-		de.registryToken = resp.IdentityToken
+		jsonAuth, err := json.Marshal(authConfig)
+		if err != nil {
+			return err
+		}
+		de.auth = base64.StdEncoding.EncodeToString(jsonAuth)
 	}
 	return nil
 }
@@ -257,7 +263,7 @@ func (de *DockerEngine) pullImage(fullName string) error {
 	closer, pullErr := de.client.ImagePull(context.Background(), fullName,
 		types.ImagePullOptions{
 			All:          false,
-			RegistryAuth: de.registryToken,
+			RegistryAuth: de.auth,
 		})
 	if closer != nil {
 		ioutil.ReadAll(closer)
@@ -297,22 +303,6 @@ func (de *DockerEngine) ensureConnected() error {
 		de.client = client
 	}
 	return nil
-}
-
-func verifyCredentials(client *client.Client, dockerConfig *config.DockerInfo) error {
-	if dockerConfig.RegistryUser == "" || dockerConfig.RegistryPassword == "" || dockerConfig.RegistryEmail == "" {
-		log.Info("No Docker registry credentials found or credentials are incomplete. Skipping auth check.")
-		return nil
-	}
-	log.Info("Verifying Docker registry credentials.")
-	authConf := types.AuthConfig{
-		ServerAddress: dockerConfig.RegistryHost,
-		Username:      dockerConfig.RegistryUser,
-		Password:      dockerConfig.RegistryPassword,
-		Email:         dockerConfig.RegistryEmail,
-	}
-	_, err := client.RegistryLogin(context.Background(), authConf)
-	return err
 }
 
 func newClient(dockerConfig config.DockerInfo) (*client.Client, error) {
