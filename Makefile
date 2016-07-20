@@ -6,21 +6,13 @@ SOURCES           := $(shell find . -name "*.go" -type f)
 VET_FLAGS          = -v
 BUILD_STAMP       := $(shell date -u '+%Y%m%d%H%M%S')
 BUILD_HASH        := $(shell git rev-parse HEAD)
-BUILD_TAG         ?= $(shell git describe --tags)
+BUILD_TAG         ?= $(shell scripts/build_tag.sh)
 DRIVER_TAG        ?= 0.9.1
-DOCKER_IMAGE      ?= "operable/relay:dev"
+DOCKER_IMAGE      ?= "operable/relay:$(BUILD_TAG)"
 LINK_VARS         := -X main.buildstamp=$(BUILD_STAMP) -X main.buildhash=$(BUILD_HASH)
 LINK_VARS         += -X main.buildtag=$(BUILD_TAG) -X main.commanddrivertag=$(DRIVER_TAG)
-OSNAME            := $(shell uname | tr A-Z a-z)
-ARCHNAME          := $(shell $(CC) -dumpmachine | cut -d\- -f1)
 BUILD_DIR          = _build
 EXENAME            = relay
-
-ifeq ($(ARCHNAME), x86_64)
-ARCHNAME           = amd64
-endif
-TARBALL_NAME       = $(EXENAME)_$(OSNAME)_$(ARCHNAME)
-
 
 ifdef FORCE
 .PHONY: all tools lint test clean deps relay docker
@@ -70,9 +62,8 @@ $(TARBALL_NAME): test exe
 	tar czf $(TARBALL_NAME).tar.gz $(TARBALL_NAME)
 	rm -rf $(TARBALL_NAME)
 
-docker: clean
-	GOOS=linux GOARCH=amd64 make deps exe
-	docker build -t $(DOCKER_IMAGE) .
+docker:
+	docker build --build-arg=GIT_COMMIT=$(BUILD_HASH) -t $(DOCKER_IMAGE) .
 
 $(BUILD_DIR):
 	mkdir -p $@
