@@ -41,7 +41,7 @@ func (er *ExecutionRequest) compileEnvironment(request *api.ExecRequest, relayCo
 
 	foundDynamicConfig := false
 	if useDynamicConfig {
-		dyn := relayConfig.LoadDynamicConfig(er.BundleName())
+		dyn := relayConfig.LoadDynamicConfig(er.BundleName(), er.Room.Name, er.User.Username)
 		foundDynamicConfig = len(dyn) > 0
 		for k, v := range dyn {
 			request.PutEnv(k, fmt.Sprintf("%s", v))
