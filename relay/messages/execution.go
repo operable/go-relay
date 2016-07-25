@@ -20,6 +20,7 @@ type ExecutionRequest struct {
 	ReplyTo        string                 `json:"reply_to"`
 	Requestor      ChatUser               `json:"requestor"`
 	User           CogUser                `json:"user"`
+	Room           ChatRoom               `json:"room"`
 	ServiceToken   string                 `json:"service_token"`
 	ServicesRoot   string                 `json:"services_root"`
 	bundleName     string
@@ -41,6 +42,17 @@ type CogUser struct {
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 	Username  string `json:"username"`
+}
+
+// ChatRoom contains information about the room the request was
+// initiated from.
+//
+// In the absence of a firm contract for what adapters consider
+// "rooms", we rely on the currently informal convention that they all
+// return a map with at least a "name" key. Formalization work is
+// underway, however.
+type ChatRoom struct {
+	Name      string `json:"name"`
 }
 
 // ExecutionResponse contains the results of executing a command
