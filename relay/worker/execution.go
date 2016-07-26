@@ -84,15 +84,19 @@ func executeCommand(decoder *json.Decoder, invoke *CommandInvocation) {
 					value = true
 				}
 				hasDynamicConfig = value.(bool)
-				circuitRequest, foundDynamicConfig := request.ToCircuitRequest(bundle, invoke.RelayConfig, hasDynamicConfig)
-				if foundDynamicConfig == false {
-					userData["dynamic-config"] = false
-					env.SetUserData(userData)
+				circuitRequest, foundDynamicConfig, err := request.ToCircuitRequest(bundle, invoke.RelayConfig, hasDynamicConfig)
+				if err != nil {
+					setError(response, err)
+				} else {
+					if foundDynamicConfig == false {
+						userData["dynamic-config"] = false
+						env.SetUserData(userData)
+					}
+					result, err := env.Run(*circuitRequest)
+					engine.ReleaseEnvironment(request.PipelineID(), bundle, env)
+					parser := NewOutputParserV1()
+					response = parser.Parse(result, *request, err)
 				}
-				result, err := env.Run(*circuitRequest)
-				engine.ReleaseEnvironment(request.PipelineID(), bundle, env)
-				parser := NewOutputParserV1()
-				response = parser.Parse(result, *request, err)
 			}
 		}
 	}
