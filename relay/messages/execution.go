@@ -2,6 +2,7 @@ package messages
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/operable/circuit-driver/api"
 	"github.com/operable/go-relay/relay/config"
 	"strings"
@@ -55,17 +56,22 @@ type ExecutionResponse struct {
 	Aborted       bool        `json:"omit"`
 }
 
+var errorCommandNotFound = errors.New("Command not found")
+
 // ToCircuitRequest converts an ExecutionRequest into a circuit.api.ExecRequest
-func (er *ExecutionRequest) ToCircuitRequest(bundle *config.Bundle, relayConfig *config.Config, useDynamicConfig bool) (*api.ExecRequest, bool) {
+func (er *ExecutionRequest) ToCircuitRequest(bundle *config.Bundle, relayConfig *config.Config, useDynamicConfig bool) (*api.ExecRequest, bool, error) {
 	retval := &api.ExecRequest{}
 	hasDynamicConfig := er.compileEnvironment(retval, relayConfig, useDynamicConfig)
-	executable := bundle.Commands[er.commandName].Executable
-	retval.SetExecutable(executable)
+	command := bundle.Commands[er.commandName]
+	if command == nil {
+		return nil, false, errorCommandNotFound
+	}
+	retval.SetExecutable(command.Executable)
 	if er.CogEnv != nil {
 		jenv, _ := json.Marshal(er.CogEnv)
 		retval.Stdin = jenv
 	}
-	return retval, hasDynamicConfig
+	return retval, hasDynamicConfig, nil
 }
 
 // BundleName returns just the bundle part of the
