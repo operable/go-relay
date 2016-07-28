@@ -49,15 +49,20 @@ type GetDynamicConfigs struct {
 
 // DynamicConfigsResponseEnvelope is a wrapper around the
 // response to a GetDynamicConfigs directive.
+//
+// Configs is a map of bundle name to a list of all config layers for
+// that bundle.
 type DynamicConfigsResponseEnvelope struct {
-	Signature string          `json:"signature"`
-	Changed   bool            `json:"changed"`
-	Configs   []DynamicConfig `json:"configs"`
+	Signature string                     `json:"signature"`
+	Changed   bool                       `json:"changed"`
+	Configs   map[string][]DynamicConfig `json:"configs"`
 }
 
-// DynamicConfig is the contents of a dynamic config file for a bundle.
+// DynamicConfig is the contents of a dynamic config layer file for a
+// bundle.
 type DynamicConfig struct {
-	BundleName string      `json:"bundle_name"`
+	Layer      string      `json:"layer"`
+	Name       string      `json:"name"`
 	Config     interface{} `json:"config"`
 }
 
