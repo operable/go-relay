@@ -120,7 +120,7 @@ func (dcu *DynamicConfigUpdater) wait() {
 // the new config dir, and finally renaming the symlink to `dynamicConfigRoot`/config.ManagedDynamicConfigLink`.
 // The process takes advantage of the atomic nature of renames on most sane OSs and
 // filesystems.
-func (dcu *DynamicConfigUpdater) updateConfigs(signature string, configs []messages.DynamicConfig) bool {
+func (dcu *DynamicConfigUpdater) updateConfigs(signature string, configs map[string][]messages.DynamicConfig) bool {
 	if !dcu.verifyManagedConfigPath() {
 		return false
 	}
@@ -129,22 +129,25 @@ func (dcu *DynamicConfigUpdater) updateConfigs(signature string, configs []messa
 		log.Errorf("Error preparing directory %s for updated bundle dynamic configs: %s.", updateDir, err)
 		return false
 	}
-	for _, config := range configs {
-		convertedContents, err := yaml.Marshal(config.Config)
-		if err != nil {
-			log.Errorf("Error preparing dynamic config for bundle %s: %s.", config.BundleName, err)
+	for bundle, bundleConfigLayers := range configs {
+		if err := os.MkdirAll(path.Join(updateDir, bundle), 0755); err != nil {
+			log.Errorf("Error preparing dynamic config for bundle %s: %s.", bundle, err)
 			return false
 		}
-		if err := os.MkdirAll(path.Join(updateDir, config.BundleName), 0755); err != nil {
-			log.Errorf("Error preparing dynamic config for bundle %s: %s.", config.BundleName, err)
-			return false
+
+		for _, config := range bundleConfigLayers {
+			convertedContents, err := yaml.Marshal(config.Config)
+			if err != nil {
+				log.Errorf("Error preparing dynamic config for bundle %s: %s.", bundle, err)
+				return false
+			}
+			configFileName := path.Join(updateDir, bundle, configFileName(config))
+			if err := ioutil.WriteFile(configFileName, convertedContents, 0644); err != nil {
+				log.Errorf("Error writing dynamic config file to path %s: %s.", configFileName, err)
+				return false
+			}
+			log.Debugf("Wrote bundle dynamic config file %s.", configFileName)
 		}
-		configFileName := path.Join(updateDir, config.BundleName, "config.yml")
-		if err := ioutil.WriteFile(configFileName, convertedContents, 0644); err != nil {
-			log.Errorf("Error writing dynamic config file to path %s: %s.", configFileName, err)
-			return false
-		}
-		log.Debugf("Wrote bundle dynamic config file %s.", configFileName)
 	}
 	// Create and rename new symlink should make config updates atomic
 	symlinkTarget := path.Join(dcu.dynamicConfigRoot, "..", "new")
@@ -183,4 +186,13 @@ func (dcu *DynamicConfigUpdater) verifyManagedConfigPath() bool {
 		return false
 	}
 	return true
+}
+
+func configFileName(c messages.DynamicConfig) string {
+	layer := strings.ToLower(c.Layer)
+	if layer == "base" {
+		return "config.yaml"
+	}
+	name := strings.ToLower(c.Name)
+	return fmt.Sprintf("%s_%s.yaml", layer, name)
 }
