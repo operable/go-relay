@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"github.com/operable/circuit-driver/api"
 	"github.com/operable/go-relay/relay/config"
-	"os"
 	"strings"
 )
 
 func (er *ExecutionRequest) compileEnvironment(request *api.ExecRequest, relayConfig *config.Config, useDynamicConfig bool) bool {
-	request.PutEnv("PATH", "/bin:/usr/bin")
 	for i, v := range er.Args {
 		request.PutEnv(fmt.Sprintf("COG_ARGV_%d", i), fmt.Sprintf("%v", v))
 	}
@@ -54,8 +52,5 @@ func (er *ExecutionRequest) compileEnvironment(request *api.ExecRequest, relayCo
 		}
 	}
 
-	request.PutEnv("USER", os.Getenv("USER"))
-	request.PutEnv("HOME", os.Getenv("HOME"))
-	request.PutEnv("LANG", os.Getenv("LANG"))
 	return foundDynamicConfig
 }
