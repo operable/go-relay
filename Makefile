@@ -7,7 +7,7 @@ VET_FLAGS          = -v
 BUILD_STAMP       := $(shell date -u '+%Y%m%d%H%M%S')
 BUILD_HASH        := $(shell git rev-parse HEAD)
 BUILD_TAG         ?= $(shell scripts/build_tag.sh)
-DRIVER_TAG        ?= 0.9.1
+DRIVER_TAG        ?= 0.13
 DOCKER_IMAGE      ?= "operable/relay:$(BUILD_TAG)"
 LINK_VARS         := -X main.buildstamp=$(BUILD_STAMP) -X main.buildhash=$(BUILD_HASH)
 LINK_VARS         += -X main.buildtag=$(BUILD_TAG) -X main.commanddrivertag=$(DRIVER_TAG)
