@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/operable/circuit-driver/api"
 	"github.com/operable/go-relay/relay/config"
+	"reflect"
 	"strings"
 )
 
@@ -15,8 +16,23 @@ func (er *ExecutionRequest) compileEnvironment(request *api.ExecRequest, relayCo
 	if len(er.Options) > 0 {
 		cogOpts := ""
 		for k, v := range er.Options {
-			optName := fmt.Sprintf("COG_OPT_%s", strings.ToUpper(k))
-			request.PutEnv(optName, fmt.Sprintf("%v", v))
+			// List-valued options are handled specially
+			if reflect.TypeOf(v).Kind().String() == "slice" {
+				optName := fmt.Sprintf("COG_OPT_%s_COUNT", strings.ToUpper(k))
+
+				// Yay, reflection in Go
+				listOfValues := v.([]interface{})
+				request.PutEnv(optName, fmt.Sprintf("%d", len(listOfValues)))
+
+				for i, val := range listOfValues {
+					optName := fmt.Sprintf("COG_OPT_%s_%d", strings.ToUpper(k), i)
+					request.PutEnv(optName, fmt.Sprintf("%v", val))
+				}
+			} else {
+				optName := fmt.Sprintf("COG_OPT_%s", strings.ToUpper(k))
+				request.PutEnv(optName, fmt.Sprintf("%v", v))
+			}
+
 			if cogOpts == "" {
 				cogOpts = k
 			} else {
