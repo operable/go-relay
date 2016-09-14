@@ -46,6 +46,7 @@ type Config struct {
 	Cog                   *CogInfo `yaml:"cog" valid:"required"`
 	EnginesEnabled        string   `yaml:"enabled_engines" env:"RELAY_ENABLED_ENGINES" valid:"exec_engines" default:"docker,native"`
 	ParsedEnginesEnabled  []string
+	DevMode               bool
 	Docker                *DockerInfo    `yaml:"docker" valid:"-"`
 	Execution             *ExecutionInfo `yaml:"execution" valid:"-"`
 }
