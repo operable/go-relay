@@ -22,7 +22,8 @@ const (
 
 var configFile = flag.String("file", "", "Path to configuration file")
 var cpuprofile = flag.String("cpuprofile", "", "Write CPU profile to file")
-var memprofile = flag.String("memprofile", "", "write memory profile to this file")
+var memprofile = flag.String("memprofile", "", "Write memory profile to this file")
+var devMode    = flag.Bool("dev", false, "Enable developer mode")
 
 // Populated by build script
 var buildstamp string
@@ -139,6 +140,7 @@ func prepare() *config.Config {
 		os.Exit(BAD_CONFIG)
 		return nil
 	}
+	relayConfig.DevMode = *devMode
 	configureLogger(relayConfig)
 	return relayConfig
 }
@@ -169,7 +171,9 @@ func main() {
 		return
 	}
 	log.Infof("Relay %s is initializing.", relayConfig.ID)
-
+	if relayConfig.DevMode == true {
+		log.Warn("Developer mode enabled.")
+	}
 	myRelay, err := relay.NewRelay(relayConfig)
 	if err != nil {
 		log.Error(err)

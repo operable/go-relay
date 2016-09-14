@@ -229,7 +229,31 @@ func (de *DockerEngine) attemptAuth() error {
 	return nil
 }
 
+func (de *DockerEngine) developerModeRefresh(bundle *config.Bundle) error {
+	if de.relayConfig.DevMode == true {
+		fullName := fmt.Sprintf("%s:%s", bundle.Docker.Image, bundle.Docker.Tag)
+		log.Warnf("Developer mode: Refreshing Docker image %s.", fullName)
+		err := de.pullImage(fullName)
+		if err != nil {
+			log.Errorf("Developer mode: Refresh of Docker image %s failed: %s.", fullName, err)
+			return err
+		}
+		image, _, err := de.client.ImageInspectWithRaw(context.Background(), fullName, false)
+		if err != nil {
+			log.Errorf("Developer mode: Docker image %s downloaded but can't be found locally: %s.", fullName, err)
+			return err
+		}
+		log.Warnf("Developer mode: Docker image %s refreshed. Image id is %s.", fullName, shortImageID(image.ID))
+	}
+	return nil
+}
+
 func (de *DockerEngine) newEnvironment(bundle *config.Bundle) (circuit.Environment, error) {
+	// Only happens if Relay is running in developer mode
+	err := de.developerModeRefresh(bundle)
+	if err != nil {
+		return nil, err
+	}
 	client, err := newClient(de.config)
 	if err != nil {
 		return nil, err
@@ -260,6 +284,10 @@ func (de *DockerEngine) needsUpdate(name, meta string) bool {
 }
 
 func (de *DockerEngine) pullImage(fullName string) error {
+	err := de.ensureConnected()
+	if err != nil {
+		return err
+	}
 	closer, pullErr := de.client.ImagePull(context.Background(), fullName,
 		types.ImagePullOptions{
 			All:          false,
