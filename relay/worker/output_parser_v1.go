@@ -22,14 +22,16 @@ type OutputParserV1 struct {
 func NewOutputParserV1() OutputParser {
 	retval := &OutputParserV1{}
 	retval.matchers = map[*regexp.Regexp]outputMatcher{
-		regexp.MustCompilePOSIX("^COGCMD_DEBUG:"):  retval.writeToLog,
-		regexp.MustCompilePOSIX("^COGCMD_INFO:"):   retval.writeToLog,
-		regexp.MustCompilePOSIX("^COGCMD_WARN:"):   retval.writeToLog,
-		regexp.MustCompilePOSIX("^COGCMD_ERR:"):    retval.writeToLog,
-		regexp.MustCompilePOSIX("^COGCMD_ERROR:"):  retval.writeToLog,
-		regexp.MustCompilePOSIX("^COGCMD_ACTION:"): retval.parseAction,
-		regexp.MustCompilePOSIX("^COG_TEMPLATE:"):  retval.extractTemplate,
-		regexp.MustCompilePOSIX("^JSON$"):          retval.flagJSON,
+		// Currently, all regexes need to capture relevant bits with
+		// subgroups, and there must be at least one subgroup.
+		regexp.MustCompilePOSIX("^COGCMD_(DEBUG:)(.*)"):  retval.writeToLog,
+		regexp.MustCompilePOSIX("^COGCMD_(INFO:)(.*)"):   retval.writeToLog,
+		regexp.MustCompilePOSIX("^COGCMD_(WARN:)(.*)"):   retval.writeToLog,
+		regexp.MustCompilePOSIX("^COGCMD_(ERR:)(.*)"):    retval.writeToLog,
+		regexp.MustCompilePOSIX("^COGCMD_(ERROR:)(.*)"):  retval.writeToLog,
+		regexp.MustCompilePOSIX("^COGCMD_ACTION:(.*)"): retval.parseAction,
+		regexp.MustCompilePOSIX("^COG_TEMPLATE:(.*)"):  retval.extractTemplate,
+		regexp.MustCompilePOSIX("^(JSON)$"):          retval.flagJSON,
 	}
 	return retval
 }
@@ -51,8 +53,12 @@ func (op *OutputParserV1) Parse(result api.ExecResult, req messages.ExecutionReq
 			if resp.IsJSON == false {
 				for re, cb := range op.matchers {
 					if re.MatchString(line) {
-						lines := re.Split(line, 2)
-						cb(lines, resp, req)
+						lines := re.FindStringSubmatch(line)
+						// Drop the first match (which is the full
+						// string); we're after the submatches. This
+						// also implies that all the regexes capture
+						// subgroups.
+						cb(lines[1:], resp, req)
 						matched = true
 						break
 					}
@@ -119,7 +125,7 @@ func (op *OutputParserV1) writeToLog(line []string, resp *messages.ExecutionResp
 }
 
 func (op *OutputParserV1) extractTemplate(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
-	resp.Template = strings.Trim(line[1], " ")
+	resp.Template = strings.Trim(line[0], " ")
 }
 
 func (op *OutputParserV1) flagJSON(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
@@ -127,7 +133,7 @@ func (op *OutputParserV1) flagJSON(line []string, resp *messages.ExecutionRespon
 }
 
 func (op *OutputParserV1) parseAction(line []string, resp *messages.ExecutionResponse, req messages.ExecutionRequest) {
-	switch strings.Trim(line[1], " ") {
+	switch strings.Trim(line[0], " ") {
 	case "abort":
 		resp.Aborted = true
 	default:
