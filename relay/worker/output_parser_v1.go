@@ -71,7 +71,7 @@ func (op *OutputParserV1) Parse(result api.ExecResult, req messages.ExecutionReq
 			}
 		}
 	}
-	if len(result.Stderr) > 0 {
+	if !result.GetSuccess() {
 		resp.Status = "error"
 		resp.StatusMessage = string(result.Stderr)
 		return resp
