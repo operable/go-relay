@@ -69,18 +69,7 @@ func (mqc *MQTTConnection) Subscribe(topic string, handler SubscriptionHandler) 
 }
 
 func (mqc *MQTTConnection) disconnected(cilent *mqtt.Client, err error) {
-	for {
-		if token := mqc.conn.Connect(); token.Wait() && token.Error() != nil {
-			log.Errorf("Connection to %s failed.", mqc.options.Host)
-			mqc.backoff.Wait()
-		} else {
-			mqc.backoff.Reset()
-			break
-		}
-	}
-	if mqc.options.EventsHandler != nil {
-		mqc.options.EventsHandler(mqc, ConnectedEvent)
-	}
+	log.Fatalf("Connection to Cog has failed: %s", err)
 }
 
 func (mqc *MQTTConnection) buildMQTTOptions(options ConnectionOptions) *mqtt.ClientOptions {
