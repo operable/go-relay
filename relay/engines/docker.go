@@ -276,6 +276,12 @@ func (de *DockerEngine) needsUpdate(name, meta string) bool {
 	if meta != "latest" {
 		image, _, _ := de.client.ImageInspectWithRaw(context.Background(), fullName, false)
 		if image.ID != "" {
+			// Override when DevMode is enabled
+			if name != "operable/circuit-driver" && de.relayConfig.DevMode == true {
+				log.Warnf("Developer mode: Marked %s stale even though local image %s exists.",
+					fullName, shortImageID(image.ID))
+				return true
+			}
 			log.Debugf("Resolved Docker image name %s to %s.", fullName, shortImageID(image.ID))
 			return false
 		}
