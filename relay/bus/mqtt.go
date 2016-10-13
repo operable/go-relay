@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"os"
 	log "github.com/Sirupsen/logrus"
 	"github.com/eclipse/paho.mqtt.golang"
 	"io/ioutil"
@@ -69,7 +70,8 @@ func (mqc *MQTTConnection) Subscribe(topic string, handler SubscriptionHandler) 
 }
 
 func (mqc *MQTTConnection) disconnected(cilent *mqtt.Client, err error) {
-	log.Fatalf("Connection to Cog has failed: %s", err)
+	log.Errorf("Connection to Cog has failed: %s", err)
+	os.Exit(3)
 }
 
 func (mqc *MQTTConnection) buildMQTTOptions(options ConnectionOptions) *mqtt.ClientOptions {
