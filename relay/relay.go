@@ -230,7 +230,9 @@ func (r *cogRelay) refreshBundles() error {
 					avail, _ := dockerEngine.IsAvailable(bundle.Docker.Image, bundle.Docker.Tag)
 					bundle.SetAvailable(avail)
 				} else {
-					r.catalog.MarkReady(bundle.Name)
+					engine, _ := r.engines.EngineForBundle(bundle)
+					avail, _ := engine.IsAvailable(bundle.Name, bundle.Version)
+					bundle.SetAvailable(avail)
 				}
 			}
 		}
