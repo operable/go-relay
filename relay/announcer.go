@@ -17,7 +17,6 @@ import (
 // Announcer announces Relay bundles lists to Cog
 type Announcer interface {
 	SendAnnouncement()
-	SetSubscriptions() error
 	Run() error
 	Halt()
 }
@@ -41,8 +40,9 @@ const (
 
 type relayAnnouncer struct {
 	id                  string
-	relay               *Relay
 	receiptTopic        string
+	relay               *Relay
+	options             bus.ConnectionOptions
 	conn                bus.Connection
 	catalog             *bundle.Catalog
 	state               relayAnnouncerState
@@ -54,11 +54,11 @@ type relayAnnouncer struct {
 }
 
 // NewAnnouncer creates a new Announcer
-func NewAnnouncer(relayID string, conn bus.Connection, catalog *bundle.Catalog) Announcer {
+func NewAnnouncer(relayID string, busOpts bus.ConnectionOptions, catalog *bundle.Catalog) Announcer {
 	announcer := &relayAnnouncer{
 		id:                  relayID,
 		receiptTopic:        fmt.Sprintf("bot/relays/%s/announcer", relayID),
-		conn:                conn,
+		options:             busOpts,
 		catalog:             catalog,
 		state:               relayAnnouncerStoppedState,
 		control:             make(chan relayAnnouncerCommand, 2),
@@ -70,7 +70,17 @@ func NewAnnouncer(relayID string, conn bus.Connection, catalog *bundle.Catalog) 
 // Run connects the announcer to Cog and starts its main
 // loop in a goroutine
 func (ra *relayAnnouncer) Run() error {
-	if err := ra.SetSubscriptions(); err != nil {
+	ra.options.OnDisconnect = &bus.DisconnectMessage{
+		Topic: "bot/relays/discover",
+		Body:  newWill(ra.id, ra.receiptTopic),
+	}
+	ra.options.EventsHandler = ra.handleBusEvents
+	ra.options.OnDisconnect = &bus.DisconnectMessage{
+		Topic: "bot/relays/discover",
+		Body:  newWill(ra.id, ra.receiptTopic),
+	}
+	conn := &bus.MQTTConnection{}
+	if err := conn.Connect(ra.options); err != nil {
 		return err
 	}
 	ra.state = relayAnnouncerWaitingState
@@ -89,11 +99,15 @@ func (ra *relayAnnouncer) SendAnnouncement() {
 	log.Debug("Called relayAnnouncer.SendAnnouncement()")
 }
 
-func (ra *relayAnnouncer) SetSubscriptions() error {
-	if err := ra.conn.Subscribe(ra.receiptTopic, ra.cogReceipt); err != nil {
-		return err
+func (ra *relayAnnouncer) handleBusEvents(conn bus.Connection, event bus.Event) {
+	if event == bus.ConnectedEvent {
+		ra.conn = conn
+		if err := ra.conn.Subscribe(ra.receiptTopic, ra.cogReceipt); err != nil {
+			log.Errorf("Failed to set up announcer subscriptions: %s.", err)
+			panic(err)
+		}
 	}
-	return nil
+
 }
 
 func (ra *relayAnnouncer) cogReceipt(conn bus.Connection, topic string, payload []byte) {
@@ -183,4 +197,10 @@ func getBundles(catalog *bundle.Catalog) []config.Bundle {
 		}
 	}
 	return retval
+}
+
+func newWill(id string, replyTo string) string {
+	announcement := messages.NewOfflineAnnouncement(id, replyTo)
+	data, _ := json.Marshal(announcement)
+	return string(data)
 }

@@ -74,12 +74,14 @@ func (r *cogRelay) Start() error {
 		}
 		r.dockerEngine = dockerEngine
 	}
-	r.connOpts = r.makeConnOpts()
-	r.connOpts.Userid = fmt.Sprintf("%s/announcer", r.config.ID)
-	r.connOpts.EventsHandler = r.handleBusEvents
-	r.connOpts.OnDisconnect = &bus.DisconnectMessage{
-		Topic: "bot/relays/discover",
-		Body:  newWill(r.config.ID, fmt.Sprintf("bot/relays/%s/announcer", r.config.ID)),
+	r.connOpts = bus.ConnectionOptions{
+		Userid:        r.config.ID,
+		Password:      r.config.Cog.Token,
+		Host:          r.config.Cog.Host,
+		Port:          r.config.Cog.Port,
+		SSLEnabled:    r.config.Cog.SSLEnabled,
+		SSLCertPath:   r.config.Cog.SSLCertPath,
+		EventsHandler: r.handleBusEvents,
 	}
 	for i := 0; i < r.config.MaxConcurrent; i++ {
 		go func() {
@@ -121,13 +123,15 @@ func (r *cogRelay) handleBusEvents(conn bus.Connection, event bus.Event) {
 	if event == bus.ConnectedEvent {
 		r.conn = conn
 		if r.announcer == nil {
-			r.announcer = NewAnnouncer(r.config.ID, r.conn, r.catalog)
+			opts := r.connOpts
+			opts.EventsHandler = nil
+			opts.OnDisconnect = nil
+			r.announcer = NewAnnouncer(r.config.ID, opts, r.catalog)
 			if err := r.announcer.Run(); err != nil {
 				log.Errorf("Failed to start announcer: %s.", err)
 				panic(err)
 			}
 			if r.config.ManagedDynamicConfig == true {
-				opts := r.makeConnOpts()
 				r.dynConfigUpdater = NewDynamicConfigUpdater(r.config.ID, opts, r.config.DynamicConfigRoot,
 					r.config.ManagedDynamicConfigRefreshDuration())
 				if err := r.dynConfigUpdater.Run(); err != nil {
@@ -135,11 +139,6 @@ func (r *cogRelay) handleBusEvents(conn bus.Connection, event bus.Event) {
 					panic(err)
 				}
 			}
-		} else {
-			if err := r.announcer.SetSubscriptions(); err != nil {
-				log.Fatalf("Failed to subscribe to required bundle announcement topics: %s.", err);
-			}
-			r.announcer.SendAnnouncement();
 		}
 		if err := r.setSubscriptions(); err != nil {
 			log.Errorf("Failed to set Relay subscriptions: %s.", err)
@@ -270,28 +269,9 @@ func (r *cogRelay) scheduledDockerCleanup() {
 	r.cleanTimer = time.AfterFunc(r.config.Docker.CleanDuration(), r.scheduledDockerCleanup)
 }
 
-func (r *cogRelay) makeConnOpts() bus.ConnectionOptions {
-	connOpts := bus.ConnectionOptions{
-		Userid:        r.config.ID,
-		Password:      r.config.Cog.Token,
-		Host:          r.config.Cog.Host,
-		Port:          r.config.Cog.Port,
-		SSLEnabled:    r.config.Cog.SSLEnabled,
-		SSLCertPath:   r.config.Cog.SSLCertPath,
-	}
-	return connOpts
-}
-
-
 func fixBundleVersion(version string) string {
 	if len(strings.Split(version, ".")) == 2 {
 		return fmt.Sprintf("%s.0", version)
 	}
 	return version
-}
-
-func newWill(id string, replyTo string) string {
-	announcement := messages.NewOfflineAnnouncement(id, replyTo)
-	data, _ := json.Marshal(announcement)
-	return string(data)
 }
