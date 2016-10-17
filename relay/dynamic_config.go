@@ -43,8 +43,6 @@ func NewDynamicConfigUpdater(relayID string, busOpts bus.ConnectionOptions, dyna
 	}
 }
 
-// Run connects the announcer to Cog and starts its main
-// loop in a goroutine
 func (dcu *DynamicConfigUpdater) Run() error {
 	log.Infof("Managed bundle dynamic configs enabled.")
 	log.Infof("Refreshing bundle dynamic configs every %v.", dcu.refreshInterval)
