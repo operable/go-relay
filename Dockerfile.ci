@@ -3,8 +3,8 @@ FROM alpine:3.4
 RUN apk -U add make go go-tools git
 
 ENV GOPATH /gopath
-RUN go get -u github.com/kardianos/govendor
-RUN go get -u github.com/golang/lint/golint
+#RUN go get -u github.com/kardianos/govendor
+#RUN go get -u github.com/golang/lint/golint
 
 COPY . /gopath/src/github.com/operable/go-relay
 WORKDIR /gopath/src/github.com/operable/go-relay
