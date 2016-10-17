@@ -83,7 +83,6 @@ func (mqc *MQTTConnection) disconnected(cilent *mqtt.Client, err error) {
 	if mqc.options.EventsHandler != nil {
 		mqc.options.EventsHandler(mqc, ConnectedEvent)
 	}
->>>>>>> Handle disconnections gracefully
 }
 
 func (mqc *MQTTConnection) buildMQTTOptions(options ConnectionOptions) *mqtt.ClientOptions {
