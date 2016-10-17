@@ -1,6 +1,6 @@
 FROM alpine:3.4
 
-RUN apk -U add make go go-tools git
+RUN apk -U add make go go-tools git bash
 
 ENV GOPATH /gopath
 #RUN go get -u github.com/kardianos/govendor
