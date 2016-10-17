@@ -75,6 +75,7 @@ func (r *cogRelay) Start() error {
 		r.dockerEngine = dockerEngine
 	}
 	r.connOpts = r.makeConnOpts()
+	r.connOpts.Userid = fmt.Sprintf("%s/announcer", r.config.ID)
 	r.connOpts.EventsHandler = r.handleBusEvents
 	r.connOpts.OnDisconnect = &bus.DisconnectMessage{
 		Topic: "bot/relays/discover",
