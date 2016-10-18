@@ -1,5 +1,7 @@
 # Relay
 
+[![Build status](https://badge.buildkite.com/6ae0ae8184e3c68a6e407b2aaa0197b24a948a01c49eb283fd.svg?branch=master)](https://buildkite.com/operable/go-relay)
+
 ## Dependencies
 
 * Go v1.6+
