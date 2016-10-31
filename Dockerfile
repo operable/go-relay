@@ -17,3 +17,6 @@ RUN mkdir -p /root/golang/src/github.com/operable/ && \
   cd /root && rm -rf golang && \
   apk del --force --rdepends --purge go make git && rm -rf /var/cache/apk/*
 
+COPY scripts/healthcheck.sh /usr/local/bin
+HEALTHCHECK --interval=30s --timeout=10s \
+  CMD healthcheck.sh
