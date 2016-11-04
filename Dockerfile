@@ -5,6 +5,9 @@ MAINTAINER Kevin Smith <kevin@operable.io>
 ARG GIT_COMMIT
 ENV GIT_COMMIT ${GIT_COMMIT:-master}
 
+# Bake in a directory that we can use for logging, config, etc.
+RUN mkdir -p /var/operable/relay
+
 RUN mkdir -p /root/golang/src/github.com/operable/ && \
   cd /root/golang/src/github.com/operable && \
   apk add -U --no-cache git go make ca-certificates && \
