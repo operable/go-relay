@@ -70,7 +70,7 @@ func configureLogger(config *config.Config) {
 	case "stdout":
 		log.SetOutput(os.Stdout)
 	default:
-		logFile, err := os.Open(config.LogPath)
+		logFile, err := os.OpenFile(config.LogPath, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0644)
 		if err != nil {
 			panic(err)
 		}
