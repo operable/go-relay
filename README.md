@@ -22,7 +22,7 @@
    make
    ```
 
-3. Set environment variables and run `cog-relay`.
+3. Set environment variables and run `relay`.
 
    You'll need to have a docker machine running and have environment variables
    set for the docker client to connect to it. If you haven't already, run the
@@ -37,5 +37,5 @@
    Then start relay:
 
    ```
-   RELAY_DOCKER_USE_ENV=true ./cog-relay -file example_cog_relay.conf
+   RELAY_DOCKER_USE_ENV=true _build/relay -file example_cog_relay.conf
    ```

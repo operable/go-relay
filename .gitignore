@@ -1,9 +1,7 @@
 vendor/*/
-cog-relay
 *-test
 *.test
 **/*.test
 */**/*.test
-cog-relay_*
 *.tar.gz
 _build
