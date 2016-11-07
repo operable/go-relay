@@ -31,7 +31,7 @@ func (ne *NativeEngine) Init() error {
 }
 
 // IsAvailable required by engines.Engine interface
-func (ne *NativeEngine) IsAvailable(name string, meta string) (bool, error) {
+func (ne *NativeEngine) IsAvailable(name string, version string) (bool, error) {
 	return true, nil
 }
 
