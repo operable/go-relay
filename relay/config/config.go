@@ -38,7 +38,7 @@ type Config struct {
 	ID                    string   `yaml:"id" env:"RELAY_ID" valid:"uuid,required"`
 	MaxConcurrent         int      `yaml:"max_concurrent" env:"RELAY_MAX_CONCURRENT" valid:"int64,required" default:"16"`
 	DynamicConfigRoot     string   `yaml:"dynamic_config_root" env:"RELAY_DYNAMIC_CONFIG_ROOT" valid:"-"`
-	ManagedDynamicConfig  bool     `yaml:"managed_dynamic_config" env:"RELAY_MANAGED_DYNAMIC_CONFIG" valid:"-"`
+	ManagedDynamicConfig  bool     `yaml:"managed_dynamic_config" env:"RELAY_MANAGED_DYNAMIC_CONFIG" valid:"bool" default:"true"`
 	DynamicConfigInterval string   `yaml:"managed_dynamic_config_interval" env:"RELAY_MANAGED_DYNAMIC_CONFIG_INTERVAL" default:"5s"`
 	LogLevel              string   `yaml:"log_level" env:"RELAY_LOG_LEVEL" valid:"required" default:"info"`
 	LogJSON               bool     `yaml:"log_json" env:"RELAY_LOG_JSON" valid:"bool" default:"false"`
