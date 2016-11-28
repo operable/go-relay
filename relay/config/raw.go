@@ -36,6 +36,7 @@ func (rc RawConfig) Parse(dockerDriverTag string) (*Config, error) {
 		}
 	}
 	config.populate()
+	config.ID = strings.ToLower(config.ID)
 	if config.Docker.CommandDriverVersion == "" {
 		config.Docker.CommandDriverVersion = dockerDriverTag
 	}
