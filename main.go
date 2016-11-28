@@ -186,11 +186,21 @@ func main() {
 	}
 	log.Infof("Relay %s online.", relayConfig.ID)
 	// Set up signal handlers
-	incomingSignal := make(chan os.Signal, 1)
-	signal.Notify(incomingSignal, syscall.SIGINT)
+	interruptChannel := make(chan os.Signal, 1)
+	signal.Notify(interruptChannel, syscall.SIGINT)
 
-	// Wait until we get a signal
-	<-incomingSignal
+	// Handle HUP signals by reopening logfiles
+	hupChannel := make(chan os.Signal, 1)
+	signal.Notify(hupChannel, syscall.SIGHUP)
+	go func() {
+		for {
+			<-hupChannel
+			configureLogger(relayConfig)
+		}
+	}()
+
+	// Wait until we get an interrupt signal
+	<-interruptChannel
 
 	// Shutdown
 	// Remove signal handler so Ctrl-C works
