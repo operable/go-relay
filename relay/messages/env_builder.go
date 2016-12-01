@@ -45,6 +45,8 @@ func (er *ExecutionRequest) compileEnvironment(request *api.ExecRequest, relayCo
 	request.PutEnv("COG_COMMAND", er.CommandName())
 	request.PutEnv("COG_ROOM", er.Room.Name)
 	request.PutEnv("COG_CHAT_HANDLE", er.Requestor.Handle)
+	request.PutEnv("COG_USERNAME", er.User.Username)
+	request.PutEnv("COG_EMAIL", er.User.Email)
 	request.PutEnv("COG_PIPELINE_ID", er.PipelineID())
 	request.PutEnv("COG_SERVICE_TOKEN", er.ServiceToken)
 	request.PutEnv("COG_SERVICES_ROOT", er.ServicesRoot)
