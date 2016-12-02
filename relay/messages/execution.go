@@ -17,7 +17,6 @@ type ExecutionRequest struct {
 	InvocationID   string                 `json:"invocation_id"`
 	InvocationStep string                 `json:"invocation_step"`
 	Command        string                 `json:"command"`
-	CommandConfig  map[string]interface{} `json:"command_config"`
 	ReplyTo        string                 `json:"reply_to"`
 	Requestor      ChatUser               `json:"requestor"`
 	User           CogUser                `json:"user"`
@@ -53,7 +52,7 @@ type CogUser struct {
 // return a map with at least a "name" key. Formalization work is
 // underway, however.
 type ChatRoom struct {
-	Name      string `json:"name"`
+	Name string `json:"name"`
 }
 
 // ExecutionResponse contains the results of executing a command
@@ -73,11 +72,11 @@ var errorCommandNotFound = errors.New("Command not found")
 // ToCircuitRequest converts an ExecutionRequest into a circuit.api.ExecRequest
 func (er *ExecutionRequest) ToCircuitRequest(bundle *config.Bundle, relayConfig *config.Config, useDynamicConfig bool) (*api.ExecRequest, bool, error) {
 	retval := &api.ExecRequest{}
-	hasDynamicConfig := er.compileEnvironment(retval, relayConfig, useDynamicConfig)
-	command := bundle.Commands[er.commandName]
+	command := bundle.Commands[er.CommandName()]
 	if command == nil {
 		return nil, false, errorCommandNotFound
 	}
+	hasDynamicConfig := er.compileEnvironment(command, retval, relayConfig, useDynamicConfig)
 	retval.SetExecutable(command.Executable)
 	if er.CogEnv != nil {
 		jenv, _ := json.Marshal(er.CogEnv)

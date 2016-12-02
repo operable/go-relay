@@ -20,8 +20,8 @@ type Bundle struct {
 
 // DockerImage identifies the bundle's image name and version
 type DockerImage struct {
-	Image string `json:"image" valid:"notempty,required"`
-	Tag   string `json:"tag" valid:"-"`
+	Image string   `json:"image" valid:"notempty,required"`
+	Tag   string   `json:"tag" valid:"-"`
 	Binds []string `json:"binds"`
 }
 
@@ -31,6 +31,7 @@ type BundleCommand struct {
 	Executable string                          `json:"executable" valid:"required"`
 	Options    map[string]*BundleCommandOption `json:"options"`
 	Rules      []string                        `json:"rules"`
+	EnvVars    map[string]string               `json:"env_vars"`
 }
 
 // BundleCommandOption is a description of a command's option
