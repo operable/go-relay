@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func (er *ExecutionRequest) compileEnvironment(request *api.ExecRequest, relayConfig *config.Config, useDynamicConfig bool) bool {
+func (er *ExecutionRequest) compileEnvironment(command *config.BundleCommand, request *api.ExecRequest, relayConfig *config.Config, useDynamicConfig bool) bool {
 	for i, v := range er.Args {
 		request.PutEnv(fmt.Sprintf("COG_ARGV_%d", i), fmt.Sprintf("%v", v))
 	}
@@ -54,6 +54,10 @@ func (er *ExecutionRequest) compileEnvironment(request *api.ExecRequest, relayCo
 
 	if er.InvocationStep != "" {
 		request.PutEnv("COG_INVOCATION_STEP", er.InvocationStep)
+	}
+
+	for k, v := range command.EnvVars {
+		request.PutEnv(k, fmt.Sprintf("%s", v))
 	}
 
 	foundDynamicConfig := false
