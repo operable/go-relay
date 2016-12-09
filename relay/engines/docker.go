@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"github.com/docker/engine-api/client"
-	"github.com/docker/engine-api/types"
-	"github.com/docker/engine-api/types/container"
-	"github.com/docker/engine-api/types/filters"
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/operable/circuit"
 	"github.com/operable/go-relay/relay/config"
 	"golang.org/x/net/context"
@@ -107,7 +107,7 @@ func (de *DockerEngine) IDForName(name string, meta string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	image, _, err := de.client.ImageInspectWithRaw(context.Background(), fmt.Sprintf("%s:%s", name, meta), false)
+	image, _, err := de.client.ImageInspectWithRaw(context.Background(), fmt.Sprintf("%s:%s", name, meta))
 	if err != nil {
 		return "", err
 	}
@@ -131,7 +131,7 @@ func (de *DockerEngine) Clean() int {
 	args.Add("label", fmt.Sprintf("%s=yes", relayCreatedLabel))
 	containers, err := de.client.ContainerList(context.Background(),
 		types.ContainerListOptions{
-			Filter: args,
+			Filters: args,
 		})
 	if err != nil {
 		log.Errorf("Listing dead Docker containers failed: %s.", err)
@@ -238,7 +238,7 @@ func (de *DockerEngine) developerModeRefresh(bundle *config.Bundle) error {
 			log.Errorf("Developer mode: Refresh of Docker image %s failed: %s.", fullName, err)
 			return err
 		}
-		image, _, err := de.client.ImageInspectWithRaw(context.Background(), fullName, false)
+		image, _, err := de.client.ImageInspectWithRaw(context.Background(), fullName)
 		if err != nil {
 			log.Errorf("Developer mode: Docker image %s downloaded but can't be found locally: %s.", fullName, err)
 			return err
@@ -274,7 +274,7 @@ func (de *DockerEngine) newEnvironment(bundle *config.Bundle) (circuit.Environme
 func (de *DockerEngine) needsUpdate(name, meta string) bool {
 	fullName := fmt.Sprintf("%s:%s", name, meta)
 	if meta != "latest" {
-		image, _, _ := de.client.ImageInspectWithRaw(context.Background(), fullName, false)
+		image, _, _ := de.client.ImageInspectWithRaw(context.Background(), fullName)
 		if image.ID != "" {
 			// Override when DevMode is enabled
 			if name != "operable/circuit-driver" && de.relayConfig.DevMode == true {
