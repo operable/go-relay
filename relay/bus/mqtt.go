@@ -31,7 +31,7 @@ func (mqc *MQTTConnection) Connect(options ConnectionOptions) error {
 	mqc.conn = mqtt.NewClient(mqttOpts)
 	for {
 		if token := mqc.conn.Connect(); token.Wait() && token.Error() != nil {
-			log.Errorf("Error connecting to %s.", brokerURL(options))
+			log.Errorf("Error connecting to %s: %s", brokerURL(options), token.Error())
 			mqc.backoff.Wait()
 		} else {
 			mqc.backoff.Reset()
@@ -72,7 +72,7 @@ func (mqc *MQTTConnection) disconnected(cilent *mqtt.Client, err error) {
 	log.Errorf("MQTT connection failed: %s.", err)
 	for {
 		if token := mqc.conn.Connect(); token.Wait() && token.Error() != nil {
-			log.Errorf("Error connecting to %s.", brokerURL(mqc.options))
+			log.Errorf("Error connecting to %s: %s", brokerURL(mqc.options), token.Error())
 			mqc.backoff.Wait()
 		} else {
 			mqc.backoff.Reset()
