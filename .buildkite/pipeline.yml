@@ -1,9 +1,9 @@
-env:
-  BUILDKITE_DOCKER: true
-  BUILDKITE_DOCKER_FILE: Dockerfile.ci
-
 steps:
-  - command: make test
-    label: ":go: Unit Tests"
+  - label: ":go: Unit Tests"
+    command: make test
+    plugins:
+      docker-compose:
+        run: test
+        config: docker-compose.ci.yml
     agents:
-      - docker=1.12.1
+      queue: beta
