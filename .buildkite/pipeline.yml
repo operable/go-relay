@@ -5,5 +5,3 @@ steps:
       docker-compose:
         run: test
         config: docker-compose.ci.yml
-    agents:
-      queue: beta
