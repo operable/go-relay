@@ -6,6 +6,7 @@ import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/eclipse/paho.mqtt.golang"
+	"github.com/golang/snappy"
 	"io/ioutil"
 	"time"
 )
@@ -25,7 +26,8 @@ func (mqc *MQTTConnection) Connect(options ConnectionOptions) error {
 		return err
 	}
 	if options.OnDisconnect != nil {
-		mqttOpts.SetWill(options.OnDisconnect.Topic, options.OnDisconnect.Body, 1, false)
+		compressed := snappy.Encode(nil, []byte(options.OnDisconnect.Body))
+		mqttOpts.SetWill(options.OnDisconnect.Topic, string(compressed), 1, false)
 	}
 	mqc.backoff = NewBackoff()
 	mqc.conn = mqtt.NewClient(mqttOpts)
@@ -53,7 +55,8 @@ func (mqc *MQTTConnection) Disconnect() error {
 
 // Publish is required by the bus.Connection interface
 func (mqc *MQTTConnection) Publish(topic string, payload []byte) error {
-	token := mqc.conn.Publish(topic, 1, false, payload)
+	compressed := snappy.Encode(nil, payload)
+	token := mqc.conn.Publish(topic, 1, false, compressed)
 	token.Wait()
 	return token.Error()
 }
@@ -61,7 +64,13 @@ func (mqc *MQTTConnection) Publish(topic string, payload []byte) error {
 // Subscribe is required by the bus.Connection interface
 func (mqc *MQTTConnection) Subscribe(topic string, handler SubscriptionHandler) error {
 	mqttHandler := func(client *mqtt.Client, message mqtt.Message) {
-		handler(mqc, message.Topic(), message.Payload())
+		compressed := message.Payload()
+		payload, err := snappy.Decode(nil, compressed)
+		if err != nil {
+			log.Errorf("Decompressing MQTT payload failed: %s", err)
+			return
+		}
+		handler(mqc, message.Topic(), payload)
 	}
 	token := mqc.conn.Subscribe(topic, 1, mqttHandler)
 	token.Wait()
