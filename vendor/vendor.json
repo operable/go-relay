@@ -244,6 +244,12 @@
 			"revisionTime": "2016-06-29T21:10:53Z"
 		},
 		{
+			"checksumSHA1": "UMT8PTIuCEwm/7eLt6gxP3XqfSU=",
+			"path": "github.com/golang/snappy",
+			"revision": "d9eb7a3d35ec988b8585d4a0068e462c27d28380",
+			"revisionTime": "2016-05-29T05:00:41Z"
+		},
+		{
 			"checksumSHA1": "LkmAYl9HJbRrOxw4xWpVc2+TODc=",
 			"path": "github.com/opencontainers/runc",
 			"revision": "5dc3f3576efb5262bf582217e93f86c93944374d",
