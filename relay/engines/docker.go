@@ -6,10 +6,11 @@ import (
 	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"github.com/docker/docker/client"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/versions"
+	"github.com/docker/docker/client"
 	"github.com/operable/circuit"
 	"github.com/operable/go-relay/relay/config"
 	"golang.org/x/net/context"
@@ -340,22 +341,34 @@ func (de *DockerEngine) ensureConnected() error {
 }
 
 func newClient(dockerConfig config.DockerInfo) (*client.Client, error) {
+	var c *client.Client
+	var err error
 	if dockerConfig.UseEnv {
-		client, err := client.NewEnvClient()
+		c, err = client.NewEnvClient()
 		if err != nil {
 			return nil, err
 		}
-		return client, nil
+	} else {
+		dockerAPIVersion := os.Getenv("DOCKER_API_VERSION")
+		if dockerAPIVersion == "" {
+			dockerAPIVersion = client.DefaultVersion
+		}
+		c, err = client.NewClient(dockerConfig.SocketPath, dockerAPIVersion, nil, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
-	dockerAPIVersion := os.Getenv("DOCKER_API_VERSION")
-	if dockerAPIVersion == "" {
-		dockerAPIVersion = client.DefaultVersion
+	if ping, err := c.Ping(context.Background()); err == nil {
+		// since the new header was added in 1.25, assume server is 1.24 if header is not present.
+		if ping.APIVersion == "" {
+			ping.APIVersion = "1.24"
+		}
+		// if server version is lower than the current client version, downgrade
+		if versions.LessThan(ping.APIVersion, c.ClientVersion()) {
+			c.UpdateClientVersion(ping.APIVersion)
+		}
 	}
-	client, err := client.NewClient(dockerConfig.SocketPath, dockerAPIVersion, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	return client, nil
+	return c, nil
 }
 
 func shortContainerID(containerID string) string {
