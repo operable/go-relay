@@ -29,7 +29,7 @@ tools: $(GOVENDOR_BIN) $(GOLINT_BIN)
 $(BUILD_DIR)/$(EXENAME): $(BUILD_DIR) $(SOURCES) tools deps
 	@rm -f `find . -name "*flymake*.go"`
 	@rm -rf relay_*_amd64
-	go build -ldflags "$(LINK_VARS)" -o $@ github.com/operable/go-relay
+	CGO_ENABLED=0 go build -ldflags "$(LINK_VARS)" -o $@ github.com/operable/go-relay
 
 lint: tools
 	@for pkg in $(FULL_PKGS); do $(GOLINT_BIN) $$pkg; done
@@ -63,7 +63,15 @@ $(TARBALL_NAME): test exe
 	rm -rf $(TARBALL_NAME)
 
 docker:
-	docker build --build-arg=GIT_COMMIT=$(BUILD_HASH) -t $(DOCKER_IMAGE) .
+	make clean
+	GOOS=linux GOARCH=amd64 make exe
+	make do-docker-build
+
+# Providing this solely for CI-built images. We will have already
+# built the executable in a separate step. We split things up because
+# we build inside a Docker image in CI (we don't have Go on builders).
+do-docker-build:
+	docker build -t $(DOCKER_IMAGE) .
 
 $(BUILD_DIR):
 	mkdir -p $@

@@ -5,3 +5,25 @@ steps:
       docker-compose:
         run: test
         config: docker-compose.ci.yml
+
+  - wait
+
+  - label: ":linux: Build Executable"
+    command: .buildkite/scripts/build_executable.sh
+
+  - wait
+
+  - label: "Smoke Test on :ubuntu:"
+    command: .buildkite/scripts/smoke_test.sh
+    env:
+      IMAGE: ubuntu:16.10
+
+  - label: "Smoke test on Alpine"
+    command: .buildkite/scripts/smoke_test.sh
+    env:
+      IMAGE: alpine:3.4
+
+  - wait
+
+  - label: ":docker: Build Image"
+    command: .buildkite/scripts/build_image.sh
