@@ -37,7 +37,7 @@ lint: tools
 vet:
 	go vet $(VET_FLAGS) $(FULL_PKGS)
 
-test: tools deps lint
+test:
 	@rm -rf relay_*_amd64
 	@go test -v -cover $(FULL_PKGS)
 
