@@ -1,0 +1,17 @@
+syntax  = "proto2";
+
+package api;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
+option (gogoproto.marshaler_all) = true;
+option (gogoproto.sizer_all) = true;
+option (gogoproto.unmarshaler_all) = true;
+
+message ExecResult {
+  option (gogoproto.goproto_unrecognized) = false;
+  optional bytes stdout = 1;
+  optional bytes stderr = 2;
+  required bool success = 3;
+  required int64 elapsed = 4;
+}
