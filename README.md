@@ -17,13 +17,19 @@
    git clone git@github.com:operable/go-relay.git $GOPATH/src/github.com/operable
    ```
 
-2. Download deps and compile an executable
+2. Install preqrequisites
+
+```sh
+go get -u github.com/kardianos/govendor
+```
+
+3. Download deps and compile an executable
 
    ```
    make
    ```
 
-3. Set environment variables and run `relay`.
+4. Set environment variables and run `relay`.
 
    You'll need to have a docker machine running and have environment variables
    set for the docker client to connect to it. If you haven't already, run the

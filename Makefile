@@ -1,4 +1,3 @@
-GOVENDOR_BIN       = $(shell go env GOPATH)/bin/govendor
 GOLINT_BIN         = $(shell go env GOPATH)/bin/golint
 PKG_DIRS          := $(shell find . -type d | grep relay | grep -v vendor)
 FULL_PKGS         := $(sort $(foreach pkg, $(PKG_DIRS), $(subst ./, github.com/operable/go-relay/, $(pkg))))
@@ -23,7 +22,7 @@ endif
 all: test exe
 
 deps:
-	@$(GOVENDOR_BIN) sync
+	govendor sync
 
 vet:
 	go vet $(VET_FLAGS) $(FULL_PKGS)
@@ -57,7 +56,7 @@ $(BUILD_DIR):
 # analogous to what's in circuit-driver
 #
 
-tools: $(GOVENDOR_BIN) $(GOLINT_BIN)
+tools: $(GOLINT_BIN)
 
 $(BUILD_DIR)/$(EXENAME): $(BUILD_DIR) $(SOURCES) tools deps
 	@rm -f `find . -name "*flymake*.go"`
@@ -66,9 +65,6 @@ $(BUILD_DIR)/$(EXENAME): $(BUILD_DIR) $(SOURCES) tools deps
 
 lint: tools
 	@for pkg in $(FULL_PKGS); do $(GOLINT_BIN) $$pkg; done
-
-$(GOVENDOR_BIN):
-	go get -u github.com/kardianos/govendor
 
 $(GOLINT_BIN):
 	go get -u github.com/golang/lint/golint
