@@ -34,9 +34,11 @@ $(BUILD_DIR)/$(EXENAME): $(BUILD_DIR) $(SOURCES) tools deps
 lint: tools
 	@for pkg in $(FULL_PKGS); do $(GOLINT_BIN) $$pkg; done
 
+vet:
+	go vet $(VET_FLAGS) $(FULL_PKGS)
+
 test: tools deps lint
 	@rm -rf relay_*_amd64
-	@go vet $(VET_FLAGS) $(FULL_PKGS)
 	@go test -v -cover $(FULL_PKGS)
 
 clean:

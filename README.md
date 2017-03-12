@@ -1,5 +1,7 @@
 # Relay
 
+[![Build Status](https://travis-ci.org/operable/go-relay.svg?branch=master)](https://travis-ci.org/operable/go-relay)
+
 ## Dependencies
 
 * Go v1.6+
