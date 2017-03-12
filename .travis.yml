@@ -9,7 +9,7 @@ before_install:
 # Parallelize these tasks
 env:
   - TARGET=vet
-  - TARGET=test #ci-coveralls
+  - TARGET=ci-coveralls
 
 # Need the job ID in order to upload the Coveralls data
 script:

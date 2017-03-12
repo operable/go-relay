@@ -41,6 +41,11 @@ test: tools deps lint
 	@rm -rf relay_*_amd64
 	@go test -v -cover $(FULL_PKGS)
 
+# This is only intended to run in Travis CI and requires goveralls to
+# be installed.
+ci-coveralls: tools deps
+	goveralls -service=travis-ci
+
 clean:
 	rm -rf $(BUILD_DIR) relay-test
 	find . -name "*.test" -type f | xargs rm -fv
