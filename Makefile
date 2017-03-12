@@ -22,17 +22,8 @@ endif
 
 all: test exe
 
-exe: $(BUILD_DIR)/$(EXENAME)
-
-tools: $(GOVENDOR_BIN) $(GOLINT_BIN)
-
-$(BUILD_DIR)/$(EXENAME): $(BUILD_DIR) $(SOURCES) tools deps
-	@rm -f `find . -name "*flymake*.go"`
-	@rm -rf relay_*_amd64
-	CGO_ENABLED=0 go build -ldflags "$(LINK_VARS)" -o $@ github.com/operable/go-relay
-
-lint: tools
-	@for pkg in $(FULL_PKGS); do $(GOLINT_BIN) $$pkg; done
+deps:
+	@$(GOVENDOR_BIN) sync
 
 vet:
 	go vet $(VET_FLAGS) $(FULL_PKGS)
@@ -46,13 +37,35 @@ test:
 ci-coveralls: tools deps
 	goveralls -service=travis-ci
 
+exe: $(BUILD_DIR)/$(EXENAME)
+
+docker:
+	make clean
+	GOOS=linux GOARCH=amd64 make exe
+	make do-docker-build
+
 clean:
 	rm -rf $(BUILD_DIR) relay-test
 	find . -name "*.test" -type f | xargs rm -fv
 	find . -name "*-test" -type f | xargs rm -fv
 
-deps:
-	@$(GOVENDOR_BIN) sync
+$(BUILD_DIR):
+	mkdir -p $@
+
+########################################################################
+# The targets below stand to be cleaned up. Everything above here is
+# analogous to what's in circuit-driver
+#
+
+tools: $(GOVENDOR_BIN) $(GOLINT_BIN)
+
+$(BUILD_DIR)/$(EXENAME): $(BUILD_DIR) $(SOURCES) tools deps
+	@rm -f `find . -name "*flymake*.go"`
+	@rm -rf relay_*_amd64
+	CGO_ENABLED=0 go build -ldflags "$(LINK_VARS)" -o $@ github.com/operable/go-relay
+
+lint: tools
+	@for pkg in $(FULL_PKGS); do $(GOLINT_BIN) $$pkg; done
 
 $(GOVENDOR_BIN):
 	go get -u github.com/kardianos/govendor
@@ -69,16 +82,8 @@ $(TARBALL_NAME): test exe
 	tar czf $(TARBALL_NAME).tar.gz $(TARBALL_NAME)
 	rm -rf $(TARBALL_NAME)
 
-docker:
-	make clean
-	GOOS=linux GOARCH=amd64 make exe
-	make do-docker-build
-
 # Providing this solely for CI-built images. We will have already
 # built the executable in a separate step. We split things up because
 # we build inside a Docker image in CI (we don't have Go on builders).
 do-docker-build:
 	docker build -t $(DOCKER_IMAGE) .
-
-$(BUILD_DIR):
-	mkdir -p $@
