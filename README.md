@@ -2,6 +2,7 @@
 
 [![Build Status](https://travis-ci.org/operable/go-relay.svg?branch=master)](https://travis-ci.org/operable/go-relay)
 [![Coverage Status](https://coveralls.io/repos/github/operable/go-relay/badge.svg?branch=master)](https://coveralls.io/github/operable/go-relay?branch=master)
+[![Ebert](https://ebertapp.io/github/operable/go-relay.svg)](https://ebertapp.io/github/operable/go-relay)
 
 ## Dependencies
 
