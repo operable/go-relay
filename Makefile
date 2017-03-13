@@ -1,7 +1,6 @@
 GOLINT_BIN         = $(shell go env GOPATH)/bin/golint
 PKG_DIRS          := $(shell find . -type d | grep relay | grep -v vendor)
 FULL_PKGS         := $(sort $(foreach pkg, $(PKG_DIRS), $(subst ./, github.com/operable/go-relay/, $(pkg))))
-SOURCES           := $(shell find . -name "*.go" -type f)
 BUILD_STAMP       := $(shell date -u '+%Y%m%d%H%M%S')
 BUILD_HASH        := $(shell git rev-parse HEAD)
 BUILD_TAG         ?= $(shell scripts/build_tag.sh)
