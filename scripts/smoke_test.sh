@@ -47,7 +47,7 @@ do
     docker run \
            -it \
            --rm \
-           -v $(pwd):/testing \
-           "${PLATFORM}" /testing/${executable_name} --version
+           -v "$(pwd):/testing" \
+           "${PLATFORM}" "/testing/${executable_name}" --version
     set +x
 done
