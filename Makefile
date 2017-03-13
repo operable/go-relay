@@ -34,17 +34,22 @@ test:
 ci-coveralls: tools deps
 	goveralls -service=travis-ci
 
-exe: $(BUILD_DIR)/$(EXENAME)
+exe: clean-dev | $(BUILD_DIR)
+	CGO_ENABLED=0 govendor build -ldflags "$(LINK_VARS)" -o $(BUILD_DIR)/$(EXENAME)
 
 docker:
 	make clean
 	GOOS=linux GOARCH=amd64 make exe
 	make do-docker-build
 
-clean:
+clean: clean-dev
 	rm -rf $(BUILD_DIR) relay-test
 	find . -name "*.test" -type f | xargs rm -fv
 	find . -name "*-test" -type f | xargs rm -fv
+
+# Remove editor files (here, Emacs)
+clean-dev:
+	rm -f `find . -name "*flymake*.go"`
 
 $(BUILD_DIR):
 	mkdir -p $@
@@ -55,11 +60,6 @@ $(BUILD_DIR):
 #
 
 tools: $(GOLINT_BIN)
-
-$(BUILD_DIR)/$(EXENAME): $(BUILD_DIR) $(SOURCES) tools deps
-	@rm -f `find . -name "*flymake*.go"`
-	@rm -rf relay_*_amd64
-	CGO_ENABLED=0 go build -ldflags "$(LINK_VARS)" -o $@ github.com/operable/go-relay
 
 lint: tools
 	@for pkg in $(FULL_PKGS); do $(GOLINT_BIN) $$pkg; done
