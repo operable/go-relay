@@ -6,14 +6,10 @@ services:
 before_install:
   - docker build -t operable/go-relay-testing -f Dockerfile.ci .
 
-# Parallelize these tasks
-env:
-  - TARGET=vet
-  - TARGET=ci-coveralls
-
 # Need the job ID in order to upload the Coveralls data
 script:
-  - docker run -it --rm --env="TRAVIS_JOB_ID=${TRAVIS_JOB_ID}" operable/go-relay-testing make $TARGET
+  - docker run -it --rm --env="TRAVIS_JOB_ID=${TRAVIS_JOB_ID}" operable/go-relay-testing make ci-coveralls
+  - scripts/smoke_test.sh
 
 notifications:
   slack:

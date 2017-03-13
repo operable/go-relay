@@ -4,6 +4,7 @@ FROM ubuntu:16.10
 # running `go version`)
 ENV GO_PACKAGE_VERSION 2:1.6.1+1ubuntu2
 ENV GOPATH /gopath
+ENV PATH=${GOPATH}/bin:${PATH}
 
 RUN apt-get update && \
     apt-get install -y \
