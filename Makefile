@@ -36,10 +36,9 @@ ci-coveralls: tools deps
 exe: clean-dev | $(BUILD_DIR)
 	CGO_ENABLED=0 govendor build -ldflags "$(LINK_VARS)" -o $(BUILD_DIR)/$(EXENAME)
 
-docker:
-	make clean
-	GOOS=linux GOARCH=amd64 make exe
-	make do-docker-build
+docker: export GOOS=linux
+docker: export GOARCH=amd64
+docker: clean exe do-docker-build
 
 clean: clean-dev
 	rm -rf $(BUILD_DIR) relay-test
