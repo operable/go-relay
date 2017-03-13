@@ -27,8 +27,7 @@ vet:
 	govendor vet -x +local
 
 test:
-	@rm -rf relay_*_amd64
-	@go test -v -cover $(FULL_PKGS)
+	govendor test +local -cover
 
 # This is only intended to run in Travis CI and requires goveralls to
 # be installed.
