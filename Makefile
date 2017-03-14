@@ -1,9 +1,6 @@
-GOVENDOR_BIN       = $(shell go env GOPATH)/bin/govendor
 GOLINT_BIN         = $(shell go env GOPATH)/bin/golint
 PKG_DIRS          := $(shell find . -type d | grep relay | grep -v vendor)
 FULL_PKGS         := $(sort $(foreach pkg, $(PKG_DIRS), $(subst ./, github.com/operable/go-relay/, $(pkg))))
-SOURCES           := $(shell find . -name "*.go" -type f)
-VET_FLAGS          = -v
 BUILD_STAMP       := $(shell date -u '+%Y%m%d%H%M%S')
 BUILD_HASH        := $(shell git rev-parse HEAD)
 BUILD_TAG         ?= $(shell scripts/build_tag.sh)
@@ -22,33 +19,48 @@ endif
 
 all: test exe
 
-exe: $(BUILD_DIR)/$(EXENAME)
+deps:
+	govendor sync
 
-tools: $(GOVENDOR_BIN) $(GOLINT_BIN)
+vet:
+	govendor vet -x +local
 
-$(BUILD_DIR)/$(EXENAME): $(BUILD_DIR) $(SOURCES) tools deps
-	@rm -f `find . -name "*flymake*.go"`
-	@rm -rf relay_*_amd64
-	CGO_ENABLED=0 go build -ldflags "$(LINK_VARS)" -o $@ github.com/operable/go-relay
+test:
+	govendor test +local -cover
 
-lint: tools
-	@for pkg in $(FULL_PKGS); do $(GOLINT_BIN) $$pkg; done
+# This is only intended to run in Travis CI and requires goveralls to
+# be installed.
+ci-coveralls: tools deps
+	goveralls -service=travis-ci
 
-test: tools deps lint
-	@rm -rf relay_*_amd64
-	@go vet $(VET_FLAGS) $(FULL_PKGS)
-	@go test -v -cover $(FULL_PKGS)
+exe: clean-dev | $(BUILD_DIR)
+	CGO_ENABLED=0 govendor build -ldflags "$(LINK_VARS)" -o $(BUILD_DIR)/$(EXENAME)
 
-clean:
+docker: export GOOS=linux
+docker: export GOARCH=amd64
+docker: clean exe do-docker-build
+
+clean: clean-dev
 	rm -rf $(BUILD_DIR) relay-test
 	find . -name "*.test" -type f | xargs rm -fv
 	find . -name "*-test" -type f | xargs rm -fv
 
-deps:
-	@$(GOVENDOR_BIN) sync
+# Remove editor files (here, Emacs)
+clean-dev:
+	rm -f `find . -name "*flymake*.go"`
 
-$(GOVENDOR_BIN):
-	go get -u github.com/kardianos/govendor
+$(BUILD_DIR):
+	mkdir -p $@
+
+########################################################################
+# The targets below stand to be cleaned up. Everything above here is
+# analogous to what's in circuit-driver
+#
+
+tools: $(GOLINT_BIN)
+
+lint: tools
+	@for pkg in $(FULL_PKGS); do $(GOLINT_BIN) $$pkg; done
 
 $(GOLINT_BIN):
 	go get -u github.com/golang/lint/golint
@@ -62,16 +74,8 @@ $(TARBALL_NAME): test exe
 	tar czf $(TARBALL_NAME).tar.gz $(TARBALL_NAME)
 	rm -rf $(TARBALL_NAME)
 
-docker:
-	make clean
-	GOOS=linux GOARCH=amd64 make exe
-	make do-docker-build
-
 # Providing this solely for CI-built images. We will have already
 # built the executable in a separate step. We split things up because
 # we build inside a Docker image in CI (we don't have Go on builders).
 do-docker-build:
 	docker build -t $(DOCKER_IMAGE) .
-
-$(BUILD_DIR):
-	mkdir -p $@

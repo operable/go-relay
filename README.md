@@ -1,5 +1,9 @@
 # Relay
 
+[![Build Status](https://travis-ci.org/operable/go-relay.svg?branch=master)](https://travis-ci.org/operable/go-relay)
+[![Coverage Status](https://coveralls.io/repos/github/operable/go-relay/badge.svg?branch=master)](https://coveralls.io/github/operable/go-relay?branch=master)
+[![Ebert](https://ebertapp.io/github/operable/go-relay.svg)](https://ebertapp.io/github/operable/go-relay)
+
 ## Dependencies
 
 * Go v1.6+
@@ -14,13 +18,19 @@
    git clone git@github.com:operable/go-relay.git $GOPATH/src/github.com/operable
    ```
 
-2. Download deps and compile an executable
+2. Install preqrequisites
+
+```sh
+go get -u github.com/kardianos/govendor
+```
+
+3. Download deps and compile an executable
 
    ```
    make
    ```
 
-3. Set environment variables and run `relay`.
+4. Set environment variables and run `relay`.
 
    You'll need to have a docker machine running and have environment variables
    set for the docker client to connect to it. If you haven't already, run the

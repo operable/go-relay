@@ -1,0 +1,16 @@
+sudo: required
+
+services:
+  - docker
+
+before_install:
+  - docker build -t operable/go-relay-testing -f Dockerfile.ci .
+
+# Need the job ID in order to upload the Coveralls data
+script:
+  - docker run -it --rm --env="TRAVIS_JOB_ID=${TRAVIS_JOB_ID}" operable/go-relay-testing make ci-coveralls
+  - scripts/smoke_test.sh
+
+notifications:
+  slack:
+    secure: d0xJV5ZZ6wUqeQiUuMbM+6Goeejv38HpqK3UybzIEf8B7tjc7eljWZTU/+qYlqjzCzd5Kxwd+I3da5rP0oMeCuuWdjFWMTrrYOf2uGx9uVJ5D5dgNBvTWGQqE1KWWkoEEHAFChR/tw6KVqj5WG+yAEBJp0kVw2JiNdfo0X1YoaEvJcnJU1iqf3TtHHNk/XPQrwz2WSN9zNtzYKYrpnBEy+uK86SmgpUH7iggx8ZqwpKHknO6uPffD7PyPQq/zFEeWenbmeSSd9mT0F3rp6m8Zd0xnfRM3To0buu+isx1TBMECTli67G7kQlTDbmb6nL6F6yq1u/Vl1uJa8bm53wfwfKM25CMwTOkxyzgHFuKzaSiuyjfLESoz6wKmoQYFsMAoH4ZOmopsoQkJ49h472HMEa0iMkobJD01Mpjr5AhU1lazo8Fafz3BKoACH8GLIDrcHQmD0uC2plXsSWZAroy6DK0V8xkw27W7lnOi0Xq/yS5Ike2hqw+KBnLdwNUO8Nr2HmtkShXql+ovdIwxAA0JGj/h4DDkntoofAMIAeH3MHGa/6NoBlC+FXfpgFLM9vcStU9dFxFYufOcIlkIaZoBGVKOXPAgPaq6039XShGsXSQv+szFXiYi0H3fX3vSBaGOIhcw98EzUWH8LtByvMyiYCRUntZm/Xjnz8uGbS9b/Q=
