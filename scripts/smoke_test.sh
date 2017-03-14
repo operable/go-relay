@@ -27,8 +27,6 @@ docker build -t "$image" -f Dockerfile.builder .
 
 executable_name="relay-${TRAVIS_BUILD_ID}-${TRAVIS_COMMIT}"
 echo "--- Extracting executable as ${executable_name}"
-# Need to define an entrypoint for this to work
-# TODO: rework the Dockerfile to do this
 container_id=$(docker create --entrypoint sh "$image")
 docker cp "${container_id}:/usr/local/bin/relay" "${executable_name}"
 docker rm "${container_id}"

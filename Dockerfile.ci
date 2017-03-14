@@ -1,6 +1,5 @@
 FROM operable/go:1.6.3
 
-# TODO: Consider adding goveralls to base image
 ENV PATH=${GOPATH}/bin:${PATH}
 # Add goveralls for sending stats to coveralls.io in Travis CI
 RUN go get github.com/mattn/goveralls
