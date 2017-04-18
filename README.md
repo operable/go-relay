@@ -3,6 +3,7 @@
 [![Build Status](https://travis-ci.org/operable/go-relay.svg?branch=master)](https://travis-ci.org/operable/go-relay)
 [![Coverage Status](https://coveralls.io/repos/github/operable/go-relay/badge.svg?branch=master)](https://coveralls.io/github/operable/go-relay?branch=master)
 [![Ebert](https://ebertapp.io/github/operable/go-relay.svg)](https://ebertapp.io/github/operable/go-relay)
+[![Docker Build Statu](https://img.shields.io/docker/build/operable/relay-preview.svg)]()
 
 ## Dependencies
 
@@ -47,3 +48,16 @@ go get -u github.com/kardianos/govendor
    ```
    RELAY_DOCKER_USE_ENV=true _build/relay -file example_cog_relay.conf
    ```
+
+## Docker Images
+
+Release images are available from the
+[operable/relay](https://hub.docker.com/r/operable/relay-preview/)
+repository on Docker Hub.
+
+The latest code from the `master` branch is always available in the
+[operable/relay-preview](https://hub.docker.com/r/operable/relay-preview/)
+repository. The only tag in this repository is `latest`, and it
+"floats".
+
+Building your own image can be done with `make docker`.
