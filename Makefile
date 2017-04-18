@@ -33,12 +33,12 @@ test:
 ci-coveralls: tools deps
 	goveralls -service=travis-ci
 
+# Builds Relay on the current OS
 exe: clean-dev | $(BUILD_DIR)
 	CGO_ENABLED=0 govendor build -ldflags "$(LINK_VARS)" -o $(BUILD_DIR)/$(EXENAME)
 
-docker: export GOOS=linux
-docker: export GOARCH=amd64
-docker: clean exe do-docker-build
+docker:
+	docker build -t $(DOCKER_IMAGE) .
 
 clean: clean-dev
 	rm -rf $(BUILD_DIR) relay-test
@@ -73,9 +73,3 @@ $(TARBALL_NAME): test exe
 	cp example_relay.conf $(TARBALL_NAME)
 	tar czf $(TARBALL_NAME).tar.gz $(TARBALL_NAME)
 	rm -rf $(TARBALL_NAME)
-
-# Providing this solely for CI-built images. We will have already
-# built the executable in a separate step. We split things up because
-# we build inside a Docker image in CI (we don't have Go on builders).
-do-docker-build:
-	docker build -t $(DOCKER_IMAGE) .
