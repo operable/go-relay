@@ -15,6 +15,7 @@ RUN apk -U add --virtual .build_deps \
     git make && \
 
     go get -u github.com/kardianos/govendor && \
+    go get -u github.com/spf13/pflag && \
     make exe && \
 
     mv _build/relay /usr/local/bin && \
