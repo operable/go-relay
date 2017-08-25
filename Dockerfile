@@ -24,5 +24,3 @@ RUN apk -U add --virtual .build_deps \
     apk del .build_deps && \
     rm -Rf /var/cache/apk/* && \
     rm -Rf $GOPATH
-
-ENTRYPOINT ["/usr/local/bin/relay"]
