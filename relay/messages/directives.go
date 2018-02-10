@@ -61,9 +61,9 @@ type DynamicConfigsResponseEnvelope struct {
 // DynamicConfig is the contents of a dynamic config layer file for a
 // bundle.
 type DynamicConfig struct {
-	Layer      string      `json:"layer"`
-	Name       string      `json:"name"`
-	Config     interface{} `json:"config"`
+	Layer  string      `json:"layer"`
+	Name   string      `json:"name"`
+	Config interface{} `json:"config"`
 }
 
 // AnnouncementEnvelope is a wrapper around an Announcement directive.

@@ -137,9 +137,9 @@ func (r *cogRelay) handleBusEvents(conn bus.Connection, event bus.Event) {
 			}
 		} else {
 			if err := r.announcer.SetSubscriptions(); err != nil {
-				log.Fatalf("Failed to subscribe to required bundle announcement topics: %s.", err);
+				log.Fatalf("Failed to subscribe to required bundle announcement topics: %s.", err)
 			}
-			r.announcer.SendAnnouncement();
+			r.announcer.SendAnnouncement()
 		}
 		if err := r.setSubscriptions(); err != nil {
 			log.Errorf("Failed to set Relay subscriptions: %s.", err)
@@ -274,16 +274,15 @@ func (r *cogRelay) scheduledDockerCleanup() {
 
 func (r *cogRelay) makeConnOpts() bus.ConnectionOptions {
 	connOpts := bus.ConnectionOptions{
-		Userid:        r.config.ID,
-		Password:      r.config.Cog.Token,
-		Host:          r.config.Cog.Host,
-		Port:          r.config.Cog.Port,
-		SSLEnabled:    r.config.Cog.SSLEnabled,
-		SSLCertPath:   r.config.Cog.SSLCertPath,
+		Userid:      r.config.ID,
+		Password:    r.config.Cog.Token,
+		Host:        r.config.Cog.Host,
+		Port:        r.config.Cog.Port,
+		SSLEnabled:  r.config.Cog.SSLEnabled,
+		SSLCertPath: r.config.Cog.SSLCertPath,
 	}
 	return connOpts
 }
-
 
 func fixBundleVersion(version string) string {
 	if len(strings.Split(version, ".")) == 2 {

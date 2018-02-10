@@ -1,13 +1,13 @@
 package config
 
 import (
+	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/go-yaml/yaml"
 	"io/ioutil"
 	"os"
 	"path"
 	"strings"
-	"fmt"
 )
 
 // LoadDynamicConfig loads the dyanmic configuration for a bundle if

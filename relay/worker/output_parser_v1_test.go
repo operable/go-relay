@@ -66,7 +66,6 @@ func TestNoOutput(t *testing.T) {
 	}
 }
 
-
 func TestNoErrorIfResultIsSuccess(t *testing.T) {
 	req.Parse()
 	result := api.ExecResult{

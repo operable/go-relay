@@ -24,14 +24,14 @@ func NewOutputParserV1() OutputParser {
 	retval.matchers = map[*regexp.Regexp]outputMatcher{
 		// Currently, all regexes need to capture relevant bits with
 		// subgroups, and there must be at least one subgroup.
-		regexp.MustCompilePOSIX("^COGCMD_(DEBUG:)(.*)"):  retval.writeToLog,
-		regexp.MustCompilePOSIX("^COGCMD_(INFO:)(.*)"):   retval.writeToLog,
-		regexp.MustCompilePOSIX("^COGCMD_(WARN:)(.*)"):   retval.writeToLog,
-		regexp.MustCompilePOSIX("^COGCMD_(ERR:)(.*)"):    retval.writeToLog,
-		regexp.MustCompilePOSIX("^COGCMD_(ERROR:)(.*)"):  retval.writeToLog,
-		regexp.MustCompilePOSIX("^COGCMD_ACTION:(.*)"): retval.parseAction,
-		regexp.MustCompilePOSIX("^COG_TEMPLATE:(.*)"):  retval.extractTemplate,
-		regexp.MustCompilePOSIX("^(JSON)$"):          retval.flagJSON,
+		regexp.MustCompilePOSIX("^COGCMD_(DEBUG:)(.*)"): retval.writeToLog,
+		regexp.MustCompilePOSIX("^COGCMD_(INFO:)(.*)"):  retval.writeToLog,
+		regexp.MustCompilePOSIX("^COGCMD_(WARN:)(.*)"):  retval.writeToLog,
+		regexp.MustCompilePOSIX("^COGCMD_(ERR:)(.*)"):   retval.writeToLog,
+		regexp.MustCompilePOSIX("^COGCMD_(ERROR:)(.*)"): retval.writeToLog,
+		regexp.MustCompilePOSIX("^COGCMD_ACTION:(.*)"):  retval.parseAction,
+		regexp.MustCompilePOSIX("^COG_TEMPLATE:(.*)"):   retval.extractTemplate,
+		regexp.MustCompilePOSIX("^(JSON)$"):             retval.flagJSON,
 	}
 	return retval
 }
