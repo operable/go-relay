@@ -38,7 +38,7 @@ docker rm "${container_id}"
 
 chmod a+x "${executable_name}"
 
-for PLATFORM in alpine:3.4 ubuntu:16.10
+for PLATFORM in alpine:3.4 ubuntu:17.10
 do
     echo "--- Running ${executable_name} on ${PLATFORM}"
     set -x
