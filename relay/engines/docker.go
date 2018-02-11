@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	megabyte = 1024 * 1024
+	commandDriverImage = "operable/circuit-driver"
+	megabyte           = 1024 * 1024
 )
 
 var relayCreatedLabel = "io.operable.cog.relay.create"
@@ -52,8 +53,8 @@ func (de *DockerEngine) Init() error {
 	return de.createCircuitDriver()
 }
 
-// IsAvailable returns true/false if a Docker image is found
-func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
+// available returns true/false if a Docker image is found
+func (de *DockerEngine) available(name string, meta string, useAuth bool) (bool, error) {
 	err := de.ensureConnected()
 	if err != nil {
 		return false, err
@@ -63,13 +64,15 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 		return true, nil
 	}
 	fullName := fmt.Sprintf("%s:%s", name, meta)
-	err = de.attemptAuth()
-	if err != nil {
-		return false, err
+	if useAuth {
+		err = de.attemptAuth()
+		if err != nil {
+			return false, err
+		}
 	}
 	log.Debugf("Retrieving %s from upstream Docker registry.", fullName)
 	beforeID, _ := de.IDForName(name, meta)
-	pullErr := de.pullImage(fullName)
+	pullErr := de.pullImage(fullName, useAuth)
 	if pullErr != nil {
 		log.Errorf("Error ocurred pulling image %s: %s.", name, pullErr)
 		return false, pullErr
@@ -82,6 +85,11 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 	}
 	de.removeOldImage(beforeID, afterID, fullName)
 	return true, nil
+}
+
+// IsAvailable returns true/false if a Docker image is found
+func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
+	return de.available(name, meta, true)
 }
 
 // NewEnvironment is required by the engines.Engine interface
@@ -178,7 +186,7 @@ func (de *DockerEngine) createCircuitDriver() error {
 		RemoveVolumes: true,
 		Force:         true,
 	})
-	avail, err := de.IsAvailable("operable/circuit-driver", de.config.CommandDriverVersion)
+	avail, err := de.available(commandDriverImage, de.config.CommandDriverVersion, false)
 	if err != nil {
 		return err
 	}
@@ -189,7 +197,7 @@ func (de *DockerEngine) createCircuitDriver() error {
 	hostConfig := container.HostConfig{
 		Privileged: false,
 	}
-	fullName := fmt.Sprintf("operable/circuit-driver:%s", de.config.CommandDriverVersion)
+	fullName := fmt.Sprintf("%s:%s", commandDriverImage, de.config.CommandDriverVersion)
 	hostConfig.Memory = int64(4 * megabyte)
 	config := container.Config{
 		Image:     fullName,
@@ -234,7 +242,7 @@ func (de *DockerEngine) developerModeRefresh(bundle *config.Bundle) error {
 	if de.relayConfig.DevMode == true {
 		fullName := fmt.Sprintf("%s:%s", bundle.Docker.Image, bundle.Docker.Tag)
 		log.Warnf("Developer mode: Refreshing Docker image %s.", fullName)
-		err := de.pullImage(fullName)
+		err := de.pullImage(fullName, true)
 		if err != nil {
 			log.Errorf("Developer mode: Refresh of Docker image %s failed: %s.", fullName, err)
 			return err
@@ -278,7 +286,7 @@ func (de *DockerEngine) needsUpdate(name, meta string) bool {
 		image, _, _ := de.client.ImageInspectWithRaw(context.Background(), fullName)
 		if image.ID != "" {
 			// Override when DevMode is enabled
-			if name != "operable/circuit-driver" && de.relayConfig.DevMode == true {
+			if name != commandDriverImage && de.relayConfig.DevMode == true {
 				log.Warnf("Developer mode: Marked %s stale even though local image %s exists.",
 					fullName, shortImageID(image.ID))
 				return true
@@ -290,16 +298,20 @@ func (de *DockerEngine) needsUpdate(name, meta string) bool {
 	return true
 }
 
-func (de *DockerEngine) pullImage(fullName string) error {
+func (de *DockerEngine) pullImage(fullName string, useAuth bool) error {
 	err := de.ensureConnected()
 	if err != nil {
 		return err
 	}
-	closer, pullErr := de.client.ImagePull(context.Background(), fullName,
-		types.ImagePullOptions{
-			All:          false,
-			RegistryAuth: de.auth,
-		})
+	pullOpts := types.ImagePullOptions{All: false}
+	if useAuth {
+		pullOpts.RegistryAuth = de.auth
+	}
+	closer, pullErr := de.client.ImagePull(
+		context.Background(),
+		fullName,
+		pullOpts,
+	)
 	if closer != nil {
 		ioutil.ReadAll(closer)
 		closer.Close()
