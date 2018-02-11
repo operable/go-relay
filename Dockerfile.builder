@@ -1,8 +1,8 @@
-FROM ubuntu:16.10
+FROM ubuntu:17.10
 
-# This is actually Go 1.6.3, despite appearances (as determined by
+# This is actually Go 1.8.3, despite appearances (as determined by
 # running `go version`)
-ENV GO_PACKAGE_VERSION 2:1.6.1+1ubuntu2
+ENV GO_PACKAGE_VERSION 2:1.8~1ubuntu1
 ENV GOPATH /gopath
 ENV PATH=${GOPATH}/bin:${PATH}
 

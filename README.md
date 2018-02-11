@@ -7,7 +7,7 @@
 
 ## Dependencies
 
-* Go v1.6+
+* Go v1.9+
 * Docker v1.10.3+
 
 ## Getting up and running
