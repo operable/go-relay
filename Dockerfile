@@ -24,3 +24,10 @@ RUN apk -U add --virtual .build_deps \
     apk del .build_deps && \
     rm -Rf /var/cache/apk/* && \
     rm -Rf $GOPATH
+
+
+FROM alpine:3.6
+
+RUN mkdir -p /var/operable/relay
+COPY --from=0 /usr/local/bin/relay /usr/local/bin
+COPY --from=0 /usr/local/etc/relay.conf /usr/local/etc/relay.conf
