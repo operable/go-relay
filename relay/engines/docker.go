@@ -63,7 +63,11 @@ func (de *DockerEngine) IsAvailable(name string, meta string) (bool, error) {
 		return true, nil
 	}
 	fullName := fmt.Sprintf("%s:%s", name, meta)
-	err = de.attemptAuth()
+
+	// Circuit driver is always public, needs no auth
+	if name != "operable/circuit-driver" {
+		err = de.attemptAuth()
+	}
 	if err != nil {
 		return false, err
 	}
@@ -232,9 +236,19 @@ func (de *DockerEngine) attemptAuth() error {
 
 func (de *DockerEngine) developerModeRefresh(bundle *config.Bundle) error {
 	if de.relayConfig.DevMode == true {
+		err := de.ensureConnected()
+		if err != nil {
+			return err
+		}
 		fullName := fmt.Sprintf("%s:%s", bundle.Docker.Image, bundle.Docker.Tag)
 		log.Warnf("Developer mode: Refreshing Docker image %s.", fullName)
-		err := de.pullImage(fullName)
+
+		err = de.attemptAuth()
+		if err != nil {
+			log.Errorf("Developer mode: Refresh of Docker image %s failed: %s.", fullName, err)
+			return err
+		}
+		err = de.pullImage(fullName)
 		if err != nil {
 			log.Errorf("Developer mode: Refresh of Docker image %s failed: %s.", fullName, err)
 			return err
