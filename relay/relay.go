@@ -147,9 +147,10 @@ func (r *cogRelay) handleBusEvents(conn bus.Connection, event bus.Event) {
 		}
 		if r.catalog.Len() > 0 {
 			r.catalog.Reconnected()
+		} else {
+			log.Info("Loading bundle catalog.")
+			r.requestBundles()
 		}
-		log.Info("Loading bundle catalog.")
-		r.requestBundles()
 	}
 }
 

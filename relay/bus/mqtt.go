@@ -29,6 +29,12 @@ func (mqc *MQTTConnection) Connect(options ConnectionOptions) error {
 		compressed := snappy.Encode(nil, []byte(options.OnDisconnect.Body))
 		mqttOpts.SetWill(options.OnDisconnect.Topic, string(compressed), 1, false)
 	}
+	if options.EventsHandler != nil && options.AutoReconnect == true {
+		mqttOpts.OnConnect = func(c *mqtt.Client) {
+			mqc.conn = c
+			mqc.options.EventsHandler(mqc, ConnectedEvent)
+		}
+	}
 	mqc.backoff = NewBackoff()
 	mqc.conn = mqtt.NewClient(mqttOpts)
 	for {
@@ -41,7 +47,7 @@ func (mqc *MQTTConnection) Connect(options ConnectionOptions) error {
 		}
 	}
 	mqc.options = options
-	if mqc.options.EventsHandler != nil {
+	if mqc.options.EventsHandler != nil && mqc.options.AutoReconnect != true {
 		mqc.options.EventsHandler(mqc, ConnectedEvent)
 	}
 	return nil
@@ -77,7 +83,7 @@ func (mqc *MQTTConnection) Subscribe(topic string, handler SubscriptionHandler) 
 	return token.Error()
 }
 
-func (mqc *MQTTConnection) disconnected(cilent *mqtt.Client, err error) {
+func (mqc *MQTTConnection) disconnected(client *mqtt.Client, err error) {
 	log.Errorf("MQTT connection failed: %s.", err)
 	for {
 		if token := mqc.conn.Connect(); token.Wait() && token.Error() != nil {
