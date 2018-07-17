@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -12,6 +11,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/operable/go-relay/relay"
 	"github.com/operable/go-relay/relay/config"
+	flag "github.com/spf13/pflag"
 )
 
 const (
@@ -20,10 +20,10 @@ const (
 	BUS_ERR
 )
 
-var configFile = flag.String("file", "", "Path to configuration file")
+var configFile = flag.StringP("config", "c", "", "Path to configuration file")
 var cpuprofile = flag.String("cpuprofile", "", "Write CPU profile to file")
 var memprofile = flag.String("memprofile", "", "Write memory profile to this file")
-var devMode    = flag.Bool("dev", false, "Enable developer mode")
+var devMode = flag.Bool("dev", false, "Enable developer mode")
 
 // Populated by build script
 var buildstamp string
@@ -70,7 +70,7 @@ func configureLogger(config *config.Config) {
 	case "stdout":
 		log.SetOutput(os.Stdout)
 	default:
-		logFile, err := os.OpenFile(config.LogPath, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0644)
+		logFile, err := os.OpenFile(config.LogPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			panic(err)
 		}

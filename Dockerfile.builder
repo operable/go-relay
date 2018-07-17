@@ -11,8 +11,9 @@ RUN apt-get update && \
             git \
             golang-go=$GO_PACKAGE_VERSION
 
-RUN go get -u github.com/kardianos/govendor
 RUN go get -u github.com/golang/lint/golint
+RUN go get -u github.com/kardianos/govendor
+RUN go get -u github.com/spf13/pflag
 
 WORKDIR /gopath/src/github.com/operable/go-relay
 COPY . /gopath/src/github.com/operable/go-relay
